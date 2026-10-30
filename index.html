@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#04080c">
+<title>Visor HUD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; }
+[hidden] { display: none !important; }
+/* Layout: a fixed 3D stage sits behind a flex shell. The Headset role fills the screen with one view.
+   The Control role splits the stage into a top-down map and a live headset view (side by side, stacked on phones). */
+:root {
+  --ink: #04080c;
+  --panel: #0a141c;
+  --line: #1c3745;
+  --text: #cfeee6;
+  --muted: #7aa0a8;
+  --hud: #62f0d4;
+  --warn: #ff5a4d;
+  --glass: rgba(4, 8, 12, .72);
+  --font-display: 'Chakra Petch', system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--ink); color: var(--text); font-family: var(--font-display); overflow: hidden; }
+#stage { position: fixed; inset: 0; z-index: 0; touch-action: none; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+#shell {
+  position: fixed; inset: 0; z-index: 1; display: flex; flex-direction: column; gap: 12px;
+  padding-block: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+#bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.name {
+  display: inline-flex; align-items: center; gap: 10px; background: var(--glass); border: 1px solid var(--line);
+  padding: 8px 12px; font-weight: 600; letter-spacing: .18em; font-size: 13px; text-transform: uppercase;
+}
+.name span { color: var(--muted); font-family: var(--font-data); font-weight: 500; letter-spacing: .02em; text-transform: none; }
+.seg { display: inline-flex; background: var(--glass); border: 1px solid var(--line); pointer-events: auto; }
+.seg button {
+  font: 600 12px var(--font-display); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); background: transparent; border: 0; padding: 9px 14px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { color: var(--ink); background: var(--hud); }
+.seg button:disabled { cursor: not-allowed; opacity: .5; }
+.seg button:focus-visible, .shape:focus-visible, #enter:focus-visible, #enterMR:focus-visible, #mapPanel:focus-visible {
+  outline: 2px solid var(--text); outline-offset: 2px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--glass); border: 1px solid var(--line);
+  padding: 7px 10px; font: 500 12px var(--font-data); color: var(--muted);
+}
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.chip[data-state="on"] i { background: var(--hud); }
+.chip[data-state="on"] { color: var(--text); }
+.chip[data-state="warn"] i { background: var(--warn); }
+
+/* Control role */
+#controlUI { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.tools {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; pointer-events: auto;
+  background: var(--glass); border: 1px solid var(--line); padding: 10px 12px;
+}
+.shapes { display: flex; flex-wrap: wrap; gap: 6px; }
+.shape {
+  display: inline-flex; align-items: center; gap: 8px; font: 600 12px var(--font-display); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text); background: transparent; border: 1px solid var(--line);
+  padding: 7px 10px; cursor: pointer;
+}
+.shape svg { width: 20px; height: 20px; flex: none; }
+.shape[aria-pressed="true"] { border-color: var(--hud); box-shadow: inset 0 0 0 1px var(--hud); background: rgba(98, 240, 212, .08); }
+.sizebox { display: flex; align-items: center; gap: 10px; font: 500 12px var(--font-data); color: var(--muted); }
+.sizebox input { width: 140px; accent-color: var(--hud); }
+.sizebox output { color: var(--text); min-width: 6ch; font-variant-numeric: tabular-nums; }
+#note { margin: 0; flex: 1 1 100%; font-size: 13px; line-height: 1.5; color: var(--muted); max-width: 90ch; }
+.panels { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 820px) { .panels { flex-direction: row; } #viewPanel { flex: 1.35 1 0; } }
+.panel { position: relative; flex: 1 1 0; min-height: 0; min-width: 0; border: 1px solid var(--line); pointer-events: auto; }
+#mapPanel { cursor: crosshair; touch-action: manipulation; }
+.cap {
+  position: absolute; left: 8px; top: 8px; background: var(--glass); padding: 4px 8px; pointer-events: none;
+  font: 600 11px var(--font-display); letter-spacing: .16em; text-transform: uppercase;
+}
+.cap.r { left: auto; right: 8px; font: 500 11px var(--font-data); letter-spacing: .02em; text-transform: none; color: var(--muted); }
+.empty {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 16px;
+  color: var(--text); font-size: 14px; line-height: 1.5; pointer-events: none; background: rgba(4, 8, 12, .5);
+}
+.empty p { margin: 0; max-width: 34ch; text-wrap: balance; }
+
+/* Headset role */
+#headsetUI { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+.dock { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; width: 100%; }
+#enter, #enterMR {
+  pointer-events: auto; font: 600 14px var(--font-display); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink); background: var(--hud); border: 0; padding: 12px 20px; cursor: pointer;
+}
+#enterMR { background: transparent; color: var(--hud); box-shadow: inset 0 0 0 2px var(--hud); }
+#enter:disabled, #enterMR:disabled { background: var(--line); color: var(--muted); box-shadow: none; cursor: not-allowed; }
+#hint {
+  margin: 0; flex: 1 1 260px; min-width: 0; max-width: 64ch; font-size: 13px; line-height: 1.5;
+  color: var(--muted); background: var(--glass); padding: 8px 12px;
+}
+
+.pairbox { display: flex; align-items: center; gap: 8px; font: 500 12px var(--font-data); color: var(--muted); }
+.pairbox input {
+  width: 8ch; font: 600 16px var(--font-data); letter-spacing: .3em; text-transform: uppercase; text-align: center;
+  color: var(--text); background: rgba(98, 240, 212, .06); border: 1px solid var(--line); padding: 7px 8px;
+}
+.pairbox input:focus-visible, .pairbox button:focus-visible { outline: 2px solid var(--hud); outline-offset: 2px; }
+.pairbox input:disabled { color: var(--muted); }
+.pairbox button {
+  font: 600 12px var(--font-display); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink); background: var(--hud); border: 0; padding: 9px 14px; cursor: pointer;
+}
+.pairbox button:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
+.pairbox button.off { background: transparent; color: var(--hud); box-shadow: inset 0 0 0 1px var(--hud); }
+.pair { pointer-events: auto; align-self: flex-start; background: var(--glass); border: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 6px; max-width: 100%; }
+.pair-label { font: 600 11px var(--font-display); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+.pair-code { font: 600 clamp(40px, 9vw, 64px)/1 var(--font-data); letter-spacing: .22em; color: var(--hud); }
+.pair-state { font: 500 13px/1.5 var(--font-data); color: var(--text); max-width: 46ch; }
+.pair-url { font: 500 12px var(--font-data); color: var(--muted); overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+
+<div id="stage"></div>
+<div id="shell">
+  <header id="bar">
+    <div class="name">Visor HUD <span id="mode">starting</span></div>
+    <div class="seg" role="group" aria-label="What this device is">
+      <button id="roleHeadset" type="button" aria-pressed="false">Headset</button>
+      <button id="roleControl" type="button" aria-pressed="false">Control</button>
+    </div>
+    <div class="chips">
+      <span class="chip" id="chipLive" data-state="off"><i></i><b>Offline</b></span>
+      <span class="chip" id="chipPeer" data-state="off"><i></i><b>No headset yet</b></span>
+    </div>
+  </header>
+
+  <main id="controlUI" hidden>
+    <div class="tools">
+      <div class="pairbox"><label for="codeIn">Code</label><input id="codeIn" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD" aria-describedby="note"><button id="codeGo" type="button">Link</button></div>
+      <div class="shapes" role="group" aria-label="Shape to drop">
+        <button class="shape" type="button" data-shape="cube" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" fill="#ffb347"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9" stroke="rgba(0,0,0,.4)" stroke-width="1.2" fill="none"/></svg>Cube</button>
+        <button class="shape" type="button" data-shape="sphere" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ff6b81"/><circle cx="9" cy="9" r="3" fill="rgba(255,255,255,.35)"/></svg>Sphere</button>
+        <button class="shape" type="button" data-shape="cylinder" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6z" fill="#7ea8ff"/><ellipse cx="12" cy="6" rx="7" ry="3" fill="rgba(255,255,255,.4)"/></svg>Cylinder</button>
+        <button class="shape" type="button" data-shape="cone" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3L4.5 17.5c0 1.9 3.4 3.5 7.5 3.5s7.5-1.6 7.5-3.5z" fill="#b48cff"/></svg>Cone</button>
+        <button class="shape" type="button" data-shape="torus" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="13" rx="8" ry="5.5" fill="none" stroke="#7fe28a" stroke-width="4"/></svg>Torus</button>
+      </div>
+      <label class="sizebox" for="size">Size
+        <input id="size" type="range" min="0.1" max="1" step="0.05" value="0.4">
+        <output id="sizeOut" for="size">0.40 m</output>
+      </label>
+      <p id="note" role="status"></p>
+    </div>
+    <div class="panels">
+      <section class="panel" id="mapPanel" tabindex="0" aria-label="Map of the headset's world. Click to drop the chosen shape. With the keyboard, use the arrow keys to move the marker and Enter to drop.">
+        <span class="cap">Map · 8 × 8 m</span><span class="cap r">top = straight ahead</span>
+      </section>
+      <section class="panel" id="viewPanel" aria-label="Live view from the headset">
+        <span class="cap">Headset view</span><span class="cap r" id="viewMeta"></span>
+        <div class="empty" id="viewEmpty"><p>Waiting for the headset. Open this page on the Quest, then type the 4-letter code it shows into the Code box above. Until then this is a preview of the world.</p></div>
+      </section>
+    </div>
+  </main>
+
+  <section id="headsetUI" hidden>
+    <div class="pair"><span class="pair-label">Pairing code</span><output id="pairCode" class="pair-code" aria-live="polite">····</output><span id="pairState" class="pair-state">Getting a code…</span><span id="pairUrl" class="pair-url"></span></div>
+    <div class="dock">
+      <button id="enter" type="button" disabled>Checking VR…</button>
+      <button id="enterMR" type="button" disabled>Checking MR…</button>
+      <p id="hint">Open this page on a tablet, phone or computer, choose Control and type the code above. Then enter VR or MR; the link stays up. In the preview, drag to look around.</p>
+    </div>
+  </section>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/peerjs.min.js"></script>
+<script>
+(function () {
+  var rad = Math.PI / 180;
+  var HUD = '#62f0d4', WARN = '#ff5a4d', MUTED = '#7aa0a8';
+  var MAX_ITEMS = 30, CLAMP = 3.9, DROP_Y = 2.8, MAP_HALF = 4.4;
+  function $(id) { return document.getElementById(id); }
+  function noop() {}
+  var stage = $('stage'), modeEl = $('mode'), hint = $('hint'), note = $('note');
+  var enterBtn = $('enter'), enterMR = $('enterMR');
+  var roleHeadsetBtn = $('roleHeadset'), roleControlBtn = $('roleControl');
+  var controlUI = $('controlUI'), headsetUI = $('headsetUI');
+  var mapPanel = $('mapPanel'), viewPanel = $('viewPanel'), viewEmpty = $('viewEmpty'), viewMeta = $('viewMeta');
+  var chipLive = $('chipLive'), chipPeer = $('chipPeer');
+
+  var role = null;            // 'headset' | 'control'
+
+  // ---------- renderer / scene ----------
+  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.setClearColor(0x04080c, 1);
+  renderer.xr.enabled = true;
+  stage.appendChild(renderer.domElement);
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(80, 1, 0.05, 60);   // the headset's own camera
+  camera.position.set(0, 1.6, 0);
+  scene.add(camera);
+  var fpCam = new THREE.PerspectiveCamera(80, 1.6, 0.05, 60);  // control page: view from the headset's pose
+  var mapCam = new THREE.OrthographicCamera(-4.4, 4.4, 4.4, -4.4, 0.1, 30);
+  mapCam.position.set(0, 10, 0); mapCam.up.set(0, 0, -1); mapCam.lookAt(0, 0, 0);
+
+  // ---------- placeholder room ----------
+  scene.add(new THREE.AmbientLight(0x6aa6b0, 0.55));
+  var keyLight = new THREE.PointLight(0x62f0d4, 1.2, 14); keyLight.position.set(0, 3.4, 0); scene.add(keyLight);
+  var warmLight = new THREE.PointLight(0xff8a5a, 0.7, 9); warmLight.position.set(-3, 1.2, -3); scene.add(warmLight);
+
+  var envVR = new THREE.Group(), envFloor = new THREE.Group();   // hidden in mixed reality (the real room shows instead)
+  scene.add(envVR); scene.add(envFloor);
+
+  var roomShell = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 10),
+    new THREE.MeshStandardMaterial({ color: 0x10222c, side: THREE.BackSide, roughness: 0.9 }));
+  roomShell.position.y = 2; envVR.add(roomShell);
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshStandardMaterial({ color: 0x0a141a, roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = 0.003; envFloor.add(floor);
+  var grid = new THREE.GridHelper(10, 20, 0x2a6a72, 0x143640); grid.position.y = 0.01; envFloor.add(grid);
+
+  var stripMat = new THREE.MeshBasicMaterial({ color: 0x62f0d4 });
+  [[0, 2.6, -4.95, 6, 0.06, 0.04], [0, 2.6, 4.95, 6, 0.06, 0.04], [-4.95, 2.6, 0, 0.04, 0.06, 6], [4.95, 2.6, 0, 0.04, 0.06, 6]]
+    .forEach(function (s) {
+      var m = new THREE.Mesh(new THREE.BoxGeometry(s[3], s[4], s[5]), stripMat);
+      m.position.set(s[0], s[1], s[2]); envVR.add(m);
+    });
+  var crateMat = new THREE.MeshStandardMaterial({ color: 0x1b3440, roughness: 0.7, metalness: 0.2 });
+  [[-2.6, .4, -2.2, .8], [2.8, .3, -3, .6], [3.4, .5, 1.6, 1], [-3.2, .35, 2.4, .7], [0.6, .25, 3.2, .5], [-1.2, .6, -4, 1.2]]
+    .forEach(function (b) {
+      var m = new THREE.Mesh(new THREE.BoxGeometry(b[3], b[3], b[3]), crateMat);
+      m.position.set(b[0], b[1], b[2]); m.rotation.y = b[0]; envFloor.add(m);
+    });
+  var ring = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.035, 12, 72), new THREE.MeshBasicMaterial({ color: 0x62f0d4 }));
+  ring.position.set(0, 1.5, -3.6); envVR.add(ring);
+
+  var orbiters = [];
+  for (var i = 0; i < 7; i++) {
+    var o = new THREE.Mesh(new THREE.OctahedronGeometry(0.12),
+      new THREE.MeshStandardMaterial({ color: 0x2c6a70, emissive: 0x1d8f86, emissiveIntensity: 0.8, roughness: 0.4 }));
+    o.userData = { a: i / 7 * Math.PI * 2, r: 2 + (i % 3) * 0.35, y: 1.0 + (i % 4) * 0.28, s: 0.25 + (i % 3) * 0.08 };
+    scene.add(o); orbiters.push(o);
+  }
+  var orbitScale = 1, mrLook = false;
+
+  // ---------- canvas helpers ----------
+  function rr(g, x, y, w, h, r) {
+    g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.arcTo(x + w, y, x + w, y + r, r);
+    g.lineTo(x + w, y + h - r); g.arcTo(x + w, y + h, x + w - r, y + h, r);
+    g.lineTo(x + r, y + h); g.arcTo(x, y + h, x, y + h - r, r);
+    g.lineTo(x, y + r); g.arcTo(x, y, x + r, y, r); g.closePath();
+  }
+  function makeTex(cv) {
+    var t = new THREE.CanvasTexture(cv);
+    t.encoding = THREE.sRGBEncoding; t.minFilter = THREE.LinearFilter; t.generateMipmaps = false;
+    return t;
+  }
+  function overlayMat(tex) {
+    return new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, side: THREE.BackSide, fog: false });
+  }
+  function patch(r, h, v) {
+    return new THREE.SphereGeometry(r, 40, 28, 1.5 * Math.PI - h * rad / 2, h * rad, Math.PI / 2 - v * rad / 2, v * rad);
+  }
+
+  // ---------- visor: fixed frame + dynamic glass effects ----------
+  var FW = 1100, FH = 900;
+  var frameCv = document.createElement('canvas'); frameCv.width = FW; frameCv.height = FH;
+  function drawFrame(cv, s) {
+    var g = cv.getContext('2d');
+    g.save(); g.translate(FW / 2, FH / 2); g.scale(1, 0.82);
+    var vg = g.createRadialGradient(0, 0, 330, 0, 0, 720);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(0.55, 'rgba(2,10,14,' + (0.28 * s) + ')'); vg.addColorStop(1, 'rgba(1,5,8,' + (0.92 * s) + ')');
+    g.fillStyle = vg; g.fillRect(-FW / 2 - 10, -FW / 2 - 10, FW + 20, FW + 20); g.restore();
+
+    var ix = 46, iy = 46, iw = FW - 92, ih = FH - 92, ir = 130;
+    g.beginPath(); g.rect(0, 0, FW, FH); rr(g, ix, iy, iw, ih, ir);
+    g.fillStyle = 'rgba(3,9,13,' + (0.9 * s) + ')'; g.fill('evenodd');
+    g.beginPath(); rr(g, ix, iy, iw, ih, ir);
+    g.fillStyle = 'rgba(98,240,212,0.025)'; g.fill();
+    g.lineWidth = 12; g.strokeStyle = 'rgba(98,240,212,0.10)'; g.stroke();
+    g.lineWidth = 2.5; g.strokeStyle = 'rgba(98,240,212,0.6)'; g.stroke();
+
+    g.strokeStyle = 'rgba(98,240,212,0.9)'; g.lineWidth = 5; g.lineCap = 'round';
+    var o = 18, L = 70;
+    [[ix + o, iy + o, 1, 1], [ix + iw - o, iy + o, -1, 1], [ix + o, iy + ih - o, 1, -1], [ix + iw - o, iy + ih - o, -1, -1]]
+      .forEach(function (c) {
+        g.beginPath(); g.moveTo(c[0] + c[2] * (ir * 0.55 + L), c[1]); g.lineTo(c[0] + c[2] * ir * 0.55, c[1]);
+        g.moveTo(c[0], c[1] + c[3] * (ir * 0.55 + L)); g.lineTo(c[0], c[1] + c[3] * ir * 0.55); g.stroke();
+      });
+    g.lineWidth = 2; g.strokeStyle = 'rgba(98,240,212,0.5)';
+    for (var k = -10; k <= 10; k++) {
+      var tl = k % 5 === 0 ? 16 : 8, x = FW / 2 + k * 26;
+      g.beginPath(); g.moveTo(x, iy + 10); g.lineTo(x, iy + 10 + tl); g.moveTo(x, iy + ih - 10); g.lineTo(x, iy + ih - 10 - tl); g.stroke();
+    }
+  }
+  var frameCvMR = document.createElement('canvas'); frameCvMR.width = FW; frameCvMR.height = FH;
+  drawFrame(frameCv, 1); drawFrame(frameCvMR, 0.35);
+
+  var FXW = 640, FXH = 520;
+  var fxCv = document.createElement('canvas'); fxCv.width = FXW; fxCv.height = FXH;
+  var fxCtx = fxCv.getContext('2d');
+  var frameTex = makeTex(frameCv), frameTexMR = makeTex(frameCvMR), fxTex = makeTex(fxCv);
+
+  var visor = new THREE.Group();
+  var frameMesh = new THREE.Mesh(patch(0.6, 110, 90), overlayMat(frameTex)); frameMesh.renderOrder = 998;
+  var fxMesh = new THREE.Mesh(patch(0.59, 110, 90), overlayMat(fxTex)); fxMesh.renderOrder = 997;
+  frameMesh.frustumCulled = fxMesh.frustumCulled = false;
+  visor.add(fxMesh); visor.add(frameMesh); scene.add(visor);
+
+  var drops = [], cracks = [], flash = 0;
+  function spawnDrop() {
+    var x, y, n = 0;
+    do { x = Math.random(); y = Math.random(); n++; } while (n < 8 && Math.abs(x - 0.5) < 0.28 && Math.abs(y - 0.5) < 0.28 && Math.random() < 0.8);
+    drops.push({ x: x, y: y, r: 2 + Math.random() * 5, age: 0, life: 5 + Math.random() * 6, vy: Math.random() < 0.35 ? 0.004 + Math.random() * 0.01 : 0 });
+  }
+  function makeCrack() {
+    var a = Math.random() * Math.PI * 2;
+    var sx = FXW / 2 + Math.cos(a) * FXW * (0.36 + Math.random() * 0.1);
+    var sy = FXH / 2 + Math.sin(a) * FXH * (0.36 + Math.random() * 0.1);
+    var segs = [];
+    (function branch(x, y, ang, len, depth) {
+      if (depth > 3 || len < 10) return;
+      var px = x, py = y, n = 3 + Math.floor(Math.random() * 3);
+      for (var i = 0; i < n; i++) {
+        var na = ang + (Math.random() - 0.5) * 0.7, l = len * (0.5 + Math.random() * 0.6);
+        var nx = px + Math.cos(na) * l, ny = py + Math.sin(na) * l;
+        segs.push([px, py, nx, ny, depth]);
+        if (Math.random() < 0.5) branch(nx, ny, na + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.6), len * 0.55, depth + 1);
+        px = nx; py = ny; ang = na;
+      }
+    })(sx, sy, a + Math.PI + (Math.random() - 0.5) * 0.8, 38, 0);
+    cracks.push({ segs: segs, age: 0, life: 3.2 });
+    if (cracks.length > 4) cracks.shift();
+  }
+  function damage() { flash = 1; makeCrack(); }
+
+  function drawFx(dt, t, yaw, pitch) {
+    var g = fxCtx; g.clearRect(0, 0, FXW, FXH);
+    if (flash > 0.01) {
+      g.save(); g.translate(FXW / 2, FXH / 2); g.scale(1, FXH / FXW);
+      var rg = g.createRadialGradient(0, 0, FXW * 0.12, 0, 0, FXW * 0.62);
+      rg.addColorStop(0, 'rgba(255,60,50,0)'); rg.addColorStop(1, 'rgba(255,60,50,' + (flash * 0.55).toFixed(3) + ')');
+      g.fillStyle = rg; g.fillRect(-FXW / 2, -FXW / 2, FXW, FXW); g.restore();
+      flash = Math.max(0, flash - dt * 1.1);
+    }
+    var breath = 0.5 + 0.5 * Math.sin(t * 0.4);
+    g.save(); g.translate(FXW / 2, FXH / 2); g.scale(1, FXH / FXW);
+    var hg = g.createRadialGradient(0, 0, FXW * 0.25, 0, 0, FXW * 0.6);
+    hg.addColorStop(0, 'rgba(190,225,230,0)'); hg.addColorStop(1, 'rgba(190,225,230,' + (0.05 + 0.1 * breath).toFixed(3) + ')');
+    g.fillStyle = hg; g.fillRect(-FXW / 2, -FXW / 2, FXW, FXW); g.restore();
+    if (drops.length < 28 && Math.random() < dt * 5) spawnDrop();
+    for (var i = drops.length - 1; i >= 0; i--) {
+      var d = drops[i]; d.age += dt; d.y += d.vy * dt * 3;
+      if (d.age > d.life || d.y > 1) { drops.splice(i, 1); continue; }
+      var a = Math.max(0, Math.min(1, d.age / 0.8, (d.life - d.age) / 1.5));
+      var px = d.x * FXW, py = d.y * FXH;
+      if (d.vy > 0) {
+        g.strokeStyle = 'rgba(200,235,240,' + (0.14 * a).toFixed(3) + ')'; g.lineWidth = d.r * 0.6;
+        g.beginPath(); g.moveTo(px, py - 26); g.lineTo(px, py); g.stroke();
+      }
+      var dg = g.createRadialGradient(px - d.r * 0.3, py - d.r * 0.3, 0, px, py, d.r);
+      dg.addColorStop(0, 'rgba(235,252,255,' + (0.55 * a).toFixed(3) + ')'); dg.addColorStop(1, 'rgba(160,210,220,' + (0.12 * a).toFixed(3) + ')');
+      g.fillStyle = dg; g.beginPath(); g.arc(px, py, d.r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,' + (0.3 * a).toFixed(3) + ')'; g.lineWidth = 1;
+      g.beginPath(); g.arc(px, py, d.r, 0.2, Math.PI * 0.8); g.stroke();
+    }
+    g.lineCap = 'round';
+    for (var c = cracks.length - 1; c >= 0; c--) {
+      var k = cracks[c]; k.age += dt;
+      if (k.age > k.life) { cracks.splice(c, 1); continue; }
+      var ca = Math.min(1, (k.life - k.age) / 1.2);
+      for (var pass = 0; pass < 2; pass++) {
+        g.strokeStyle = pass === 0 ? 'rgba(255,90,80,' + (0.25 * ca).toFixed(3) + ')' : 'rgba(235,250,255,' + (0.85 * ca).toFixed(3) + ')';
+        for (var s = 0; s < k.segs.length; s++) {
+          var sg = k.segs[s]; g.lineWidth = Math.max(0.8, 2.2 - sg[4] * 0.5) + (pass === 0 ? 3 : 0);
+          g.beginPath(); g.moveTo(sg[0], sg[1]); g.lineTo(sg[2], sg[3]); g.stroke();
+        }
+      }
+    }
+    var gx = FXW * (0.5 + 0.34 * Math.sin(yaw * 0.8)), gy = FXH * (0.28 - pitch * 0.5);
+    g.save(); g.translate(gx, gy); g.rotate(-0.5); g.scale(2.4, 0.35);
+    var gg = g.createRadialGradient(0, 0, 0, 0, 0, 120);
+    gg.addColorStop(0, 'rgba(255,255,255,0.13)'); gg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gg; g.beginPath(); g.arc(0, 0, 120, 0, Math.PI * 2); g.fill(); g.restore();
+    fxTex.needsUpdate = true;
+  }
+
+  // ---------- floating energy readout ----------
+  var HW = 720, HH = 270;
+  var hudCv = document.createElement('canvas'); hudCv.width = HW; hudCv.height = HH;
+  var hudCtx = hudCv.getContext('2d'), hudTex = makeTex(hudCv);
+  var hudGroup = new THREE.Group();
+  var panel = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.135),
+    new THREE.MeshBasicMaterial({ map: hudTex, transparent: true, depthTest: false, depthWrite: false, fog: false }));
+  panel.position.set(-0.2, -0.2, -0.62); panel.rotation.set(-0.25, 0.25, 0);
+  panel.renderOrder = 1000; panel.frustumCulled = false;
+  hudGroup.add(panel); scene.add(hudGroup);
+
+  function drawHud(energy, t) {
+    var g = hudCtx; g.clearRect(0, 0, HW, HH);
+    var low = energy <= 25, col = low ? WARN : HUD;
+    var pulse = low ? 0.6 + 0.4 * Math.sin(t * 10) : 1;
+    g.beginPath(); rr(g, 6, 6, HW - 12, HH - 12, 26);
+    var bg = g.createLinearGradient(0, 0, 0, HH);
+    bg.addColorStop(0, 'rgba(5,18,24,0.66)'); bg.addColorStop(1, 'rgba(5,18,24,0.44)');
+    g.fillStyle = bg; g.fill();
+    g.lineWidth = 3; g.strokeStyle = low ? 'rgba(255,90,77,0.7)' : 'rgba(98,240,212,0.5)'; g.stroke();
+
+    g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+    g.font = '600 34px "Chakra Petch", sans-serif';
+    if ('letterSpacing' in g) g.letterSpacing = '5px';
+    g.fillStyle = MUTED; g.fillText('SUIT ENERGY', 40, 74);
+    if ('letterSpacing' in g) g.letterSpacing = '0px';
+    var lt = link.state === 'linked' ? 'LINKED' : (role === 'headset' && link.code ? (link.state === 'error' ? 'NO LINK' : 'CODE ' + link.code) : '');
+    if (lt) { g.textAlign = 'right'; g.font = '600 24px "IBM Plex Mono", monospace'; g.fillStyle = link.state === 'linked' ? HUD : (link.state === 'error' ? WARN : MUTED); g.fillText(lt, HW - 44, 40); g.textAlign = 'left'; }
+
+    g.textAlign = 'right'; g.font = '600 96px "IBM Plex Mono", monospace';
+    g.globalAlpha = pulse; g.fillStyle = col; g.fillText(String(Math.round(energy)), HW - 44, 118); g.globalAlpha = 1;
+
+    var n = 10, gap = 8, x0 = 40, cw = (HW - 80 - gap * (n - 1)) / n, cy = 154, ch = 66;
+    for (var i = 0; i < n; i++) {
+      var x = x0 + i * (cw + gap), f = Math.max(0, Math.min(1, (energy - i * 10) / 10));
+      g.beginPath(); rr(g, x, cy, cw, ch, 8); g.fillStyle = 'rgba(98,240,212,0.08)'; g.fill();
+      g.lineWidth = 2; g.strokeStyle = 'rgba(122,160,168,0.55)'; g.stroke();
+      if (f > 0) {
+        g.save(); g.beginPath(); rr(g, x, cy, cw, ch, 8); g.clip();
+        g.globalAlpha = pulse; g.fillStyle = col; g.fillRect(x, cy, cw * f, ch); g.restore(); g.globalAlpha = 1;
+      }
+    }
+    hudTex.needsUpdate = true;
+  }
+
+  // ---------- energy cycle (the headset runs it; the control page mirrors it) ----------
+  var energy = 100, target = 100, phase = 'drain', timer = 2.5;
+  function stepEnergy(dt) {
+    timer -= dt;
+    if (phase === 'drain' && timer <= 0) {
+      target = Math.max(8, target - (9 + Math.random() * 9)); damage();
+      timer = 2.2 + Math.random() * 1.6;
+      if (target <= 20) { phase = 'hold'; timer = 2.8; }
+    } else if (phase === 'hold' && timer <= 0) { phase = 'refill'; target = 100; }
+    else if (phase === 'refill' && energy >= 99.5) { phase = 'drain'; timer = 3; }
+    if (energy > target) energy = Math.max(target, energy - 60 * dt);
+    else if (energy < target) energy = Math.min(target, energy + 14 * dt);
+  }
+
+  // ---------- spawned items: five primitives that drop with gravity ----------
+  var SHAPES = ['cube', 'sphere', 'cylinder', 'cone', 'torus'];
+  var SHAPE_HEX = { cube: 0xffb347, sphere: 0xff6b81, cylinder: 0x7ea8ff, cone: 0xb48cff, torus: 0x7fe28a };
+  var itemMats = {};
+  SHAPES.forEach(function (k) {
+    itemMats[k] = new THREE.MeshStandardMaterial({ color: SHAPE_HEX[k], emissive: SHAPE_HEX[k], emissiveIntensity: 0.2, roughness: 0.45, metalness: 0.1 });
+  });
+  var itemsGroup = new THREE.Group(); scene.add(itemsGroup);
+  var items = {};
+
+  var shadowCv = document.createElement('canvas'); shadowCv.width = shadowCv.height = 64;
+  (function () {
+    var g = shadowCv.getContext('2d'), rg = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+    rg.addColorStop(0, 'rgba(0,0,0,0.8)'); rg.addColorStop(0.6, 'rgba(0,0,0,0.35)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+  })();
+  var shadowTex = new THREE.CanvasTexture(shadowCv);
+  var shadowGeo = new THREE.PlaneGeometry(1, 1);
+
+  function geoFor(k, s) {
+    if (k === 'cube') return new THREE.BoxGeometry(s, s, s);
+    if (k === 'sphere') return new THREE.SphereGeometry(s / 2, 28, 20);
+    if (k === 'cylinder') return new THREE.CylinderGeometry(s / 2, s / 2, s, 32);
+    if (k === 'cone') return new THREE.ConeGeometry(s / 2, s, 32);
+    return new THREE.TorusGeometry(s * 0.32, s * 0.12, 14, 40);
+  }
+  function restFor(k, s) { return k === 'torus' ? s * 0.12 : s / 2; }
+  function hash01(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return ((h >>> 0) % 10000) / 10000;
+  }
+  function place(it) {
+    it.g.position.set(it.d.x, it.y, it.d.z); it.g.rotation.y = it.yaw;
+    it.sh.position.y = 0.006 - it.y;
+    it.sm.opacity = 0.6 * Math.max(0, 1 - (it.y - it.rest) / 3);
+  }
+  function addItem(d, drop) {
+    var g = new THREE.Group();
+    var mesh = new THREE.Mesh(geoFor(d.k, d.s), itemMats[d.k]);
+    if (d.k === 'torus') mesh.rotation.x = Math.PI / 2;
+    g.add(mesh);
+    var sm = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.6 });
+    var sh = new THREE.Mesh(shadowGeo, sm);
+    sh.rotation.x = -Math.PI / 2; sh.scale.set(d.s * 1.7, d.s * 1.7, 1); sh.renderOrder = 1;
+    g.add(sh); itemsGroup.add(g);
+    var rest = restFor(d.k, d.s);
+    var it = { d: d, g: g, sh: sh, sm: sm, rest: rest, y: drop ? DROP_Y : rest, vy: 0,
+      w: drop ? (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 4) : 0, yaw: hash01(d.id) * Math.PI * 2, settled: !drop };
+    items[d.id] = it; place(it);
+  }
+  function removeItem(id) {
+    var it = items[id]; if (!it) return;
+    itemsGroup.remove(it.g); it.g.children[0].geometry.dispose(); it.sm.dispose(); delete items[id];
+  }
+  function applyItems(list, initial) {
+    var seen = {};
+    list.forEach(function (d) { seen[d.id] = true; if (!items[d.id]) addItem(d, !initial); });
+    Object.keys(items).forEach(function (id) { if (!seen[id]) removeItem(id); });
+  }
+  function stepItems(dt) {
+    for (var id in items) {
+      var it = items[id];
+      if (!it.settled) {
+        it.vy -= 9.8 * dt; it.y += it.vy * dt;
+        if (it.y <= it.rest) {
+          it.y = it.rest;
+          if (Math.abs(it.vy) > 0.9) { it.vy = -it.vy * 0.42; it.w *= 0.55; }
+          else { it.vy = 0; it.w = 0; it.settled = true; }
+        }
+        it.yaw += it.w * dt;
+      }
+      place(it);
+    }
+  }
+  function cleanItem(d) {
+    if (!d || typeof d.id !== 'string' || d.id.length > 40 || SHAPES.indexOf(d.k) < 0) return null;
+    var s = +d.s, x = +d.x, z = +d.z;
+    if (!isFinite(s) || !isFinite(x) || !isFinite(z)) return null;
+    return { id: d.id, k: d.k, s: Math.max(0.05, Math.min(1.2, s)), x: Math.max(-5, Math.min(5, x)), z: Math.max(-5, Math.min(5, z)) };
+  }
+
+  // ---------- map-only helpers (control page) ----------
+  var mapOnly = new THREE.Group(); scene.add(mapOnly);
+  var bound = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-4, 0.02, -4), new THREE.Vector3(4, 0.02, -4), new THREE.Vector3(4, 0.02, 4), new THREE.Vector3(-4, 0.02, 4)]),
+    new THREE.LineBasicMaterial({ color: 0x62f0d4, transparent: true, opacity: 0.6 }));
+  mapOnly.add(bound);
+
+  var marker = new THREE.Group(); mapOnly.add(marker);
+  (function () {
+    var tri = new THREE.Shape(); tri.moveTo(0, 0.34); tri.lineTo(0.2, -0.2); tri.lineTo(-0.2, -0.2); tri.closePath();
+    var mk = function (geo, color, op) {
+      var m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: op, depthTest: false, side: THREE.DoubleSide }));
+      m.rotation.x = -Math.PI / 2; m.renderOrder = 5; marker.add(m); return m;
+    };
+    mk(new THREE.CircleGeometry(1.5, 28, Math.PI / 2 - 0.75, 1.5), 0x62f0d4, 0.14);
+    mk(new THREE.RingGeometry(0.3, 0.34, 32), 0x62f0d4, 0.9);
+    mk(new THREE.ShapeGeometry(tri), 0x62f0d4, 1);
+  })();
+
+  var ghost = new THREE.Group(); ghost.visible = false; mapOnly.add(ghost);
+  var ghostMat = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide });
+  var ghostFill = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.2, depthTest: false, side: THREE.DoubleSide });
+  (function () {
+    var r = new THREE.Mesh(new THREE.RingGeometry(0.44, 0.5, 48), ghostMat);
+    var d = new THREE.Mesh(new THREE.CircleGeometry(0.44, 40), ghostFill);
+    r.rotation.x = d.rotation.x = -Math.PI / 2; r.renderOrder = d.renderOrder = 6;
+    ghost.add(r); ghost.add(d);
+  })();
+
+  // ---------- head pose: the headset's real pose, or the pose mirrored from the headset ----------
+  var hp = new THREE.Vector3(0, 1.6, 0), hq = new THREE.Quaternion(), hs = new THREE.Vector3();
+  var lagQ = new THREE.Quaternion(), lagInit = false, euler = new THREE.Euler(), fwd = new THREE.Vector3();
+  var lookYaw = 0, lookPitch = 0, dragging = false, lastX = 0, lastY = 0, idle = 0;
+
+  var remote = { has: false, init: false, tp: new THREE.Vector3(), tq: new THREE.Quaternion(), cp: new THREE.Vector3(), cq: new THREE.Quaternion(), e: 100, m: 'preview' };
+  var lastE = 100;
+
+  stage.addEventListener('pointerdown', function (e) { if (role !== 'headset') return; dragging = true; lastX = e.clientX; lastY = e.clientY; idle = 0; });
+  window.addEventListener('pointerup', function () { dragging = false; });
+  window.addEventListener('pointermove', function (e) {
+    if (!dragging || role !== 'headset') return;
+    lookYaw -= (e.clientX - lastX) * 0.005;
+    lookPitch = Math.max(-1.2, Math.min(1.2, lookPitch - (e.clientY - lastY) * 0.005));
+    lastX = e.clientX; lastY = e.clientY; idle = 0;
+  });
+
+  function setMRLook(on) {
+    if (on === mrLook) return;
+    mrLook = on; orbitScale = on ? 0.6 : 1;
+    frameMesh.material.map = on ? frameTexMR : frameTex; frameMesh.material.needsUpdate = true;
+  }
+  function updateRemote(dt, t) {
+    if (remote.has) {
+      if (!remote.init) { remote.cp.copy(remote.tp); remote.cq.copy(remote.tq); remote.init = true; }
+      else { var k = 1 - Math.exp(-dt * 16); remote.cp.lerp(remote.tp, k); remote.cq.slerp(remote.tq, k); }
+      hp.copy(remote.cp); hq.copy(remote.cq);
+      if (remote.e < lastE - 4 && flash < 0.3) damage();
+      lastE = remote.e; energy = remote.e;
+      setMRLook(remote.m === 'mr');
+    } else {
+      hp.set(0, 1.6, 0); euler.set(Math.sin(t * 0.23) * 0.06, Math.sin(t * 0.3) * 0.5, 0, 'YXZ'); hq.setFromEuler(euler);
+      stepEnergy(dt); lastE = energy; setMRLook(false);
+    }
+  }
+
+  // ---------- link: the headset shows a code, the control page types it, then they talk peer to peer ----------
+  var lastSent = { t: -1, p: new THREE.Vector3(1e9, 0, 0), q: new THREE.Quaternion(), e: -1, m: '' };
+  var session = null, mrMode = false;
+  function curMode() { return session ? (mrMode ? 'mr' : 'vr') : 'preview'; }
+  function r3(v) { return Math.round(v * 1000) / 1000; }
+  function r4(v) { return Math.round(v * 10000) / 10000; }
+
+  var CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ', ID_PREFIX = 'vhud7-';
+  var link = { peer: null, conns: [], code: '', state: 'idle', msg: '', retries: 0 };   // state: idle | starting | waiting | linking | linked | error
+  var worldList = [], gotFirst = false;
+  function makeCode() {
+    var c = '';
+    for (var i = 0; i < 4; i++) c += CODE_LETTERS.charAt(Math.floor(Math.random() * CODE_LETTERS.length));
+    return c;
+  }
+  function peerOpts() { return window.VISOR_PEER_OPTS || {}; }
+  function linkSend(obj) {
+    link.conns.forEach(function (c) { if (c.open) { try { c.send(obj); } catch (e) {} } });
+  }
+  function setLink(state, msg) { link.state = state; link.msg = msg || ''; refreshChips(); refreshNote(); refreshPair(); }
+  function closePeer() {
+    var p = link.peer; link.peer = null;
+    link.conns.slice().forEach(function (c) { c._dead = true; try { c.close(); } catch (e) {} });
+    link.conns = []; remote.has = false;
+    if (p) { try { p.destroy(); } catch (e) {} }
+  }
+  function applyPose(d) {
+    var a = d.p, b = d.q;
+    if (!Array.isArray(a) || a.length !== 3 || !Array.isArray(b) || b.length !== 4) return;
+    if (!a.concat(b).every(function (v) { return typeof v === 'number' && isFinite(v); })) return;
+    remote.tp.set(a[0], a[1], a[2]); remote.tq.set(b[0], b[1], b[2], b[3]).normalize();
+    remote.e = Math.max(0, Math.min(100, +d.e || 0));
+    remote.m = d.m === 'mr' || d.m === 'vr' ? d.m : 'preview';
+    if (!remote.has) { remote.has = true; remote.init = false; refreshChips(); }
+  }
+  function onLinkData(d) {
+    if (!d || typeof d !== 'object') return;
+    if (d.t === 'pose' && role === 'control') applyPose(d);
+    else if (d.t === 'world' && role === 'headset' && Array.isArray(d.items)) {
+      var list = [];
+      d.items.forEach(function (x) { var c = cleanItem(x); if (c) list.push(c); });
+      list = list.slice(-MAX_ITEMS);
+      worldList = list; applyItems(list, !gotFirst); gotFirst = true;
+    }
+  }
+  function wireConn(c) {
+    c.on('open', function () {
+      if (c._dead) return;
+      link.conns.push(c); gotFirst = false; link.retries = 0; lastSent.t = -1;
+      setLink('linked');
+      if (role === 'control') linkSend({ t: 'world', items: worldList });
+    });
+    c.on('data', onLinkData);
+    function gone() {
+      if (c._dead) return; c._dead = true;
+      var i = link.conns.indexOf(c); if (i >= 0) link.conns.splice(i, 1);
+      if (link.conns.length) return;
+      remote.has = false;
+      if (role === 'headset') { setLink(link.peer ? 'waiting' : 'idle'); return; }
+      if (link.retries < 4 && link.code) {
+        link.retries++; setLink('linking');
+        var code = link.code;
+        setTimeout(function () { if (role === 'control' && !link.conns.length && link.state === 'linking') connectToCode(code, true); }, 2000);
+      } else setLink('idle', 'The link dropped. Type the code to link again.');
+    }
+    c.on('close', gone); c.on('error', gone);
+  }
+  function keepSignalling(p) {
+    p.on('disconnected', function () {
+      if (link.peer !== p || p.destroyed) return;
+      setTimeout(function () { if (link.peer === p && !p.destroyed) { try { p.reconnect(); } catch (e) {} } }, 1500);
+    });
+  }
+  function startHeadsetLink() {
+    closePeer();
+    if (!window.Peer) { setLink('error', 'The pairing library did not load. Reload the page.'); return; }
+    link.code = makeCode(); setLink('starting');
+    var p;
+    try { p = new Peer(ID_PREFIX + link.code, peerOpts()); } catch (e) { setLink('error', 'Could not start pairing. Reload the page.'); return; }
+    link.peer = p;
+    p.on('open', function () { if (link.peer === p && !link.conns.length) setLink('waiting'); });
+    p.on('connection', function (c) { if (link.peer === p) wireConn(c); });
+    keepSignalling(p);
+    p.on('error', function (err) {
+      if (link.peer !== p) return;
+      if (err && err.type === 'unavailable-id') { startHeadsetLink(); return; }
+      if (!link.conns.length) setLink('error', 'Could not reach the pairing service. Check the internet connection and reload.');
+    });
+  }
+  function connectToCode(raw, isRetry) {
+    var code = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '');
+    if (code.length !== 4) { setLink('idle', 'Type the 4 letters shown on the headset.'); return; }
+    if (!window.Peer) { setLink('error', 'The pairing library did not load. Reload the page.'); return; }
+    closePeer(); if (!isRetry) link.retries = 0;
+    link.code = code; setLink('linking');
+    var p;
+    try { p = new Peer(peerOpts()); } catch (e) { setLink('error', 'Could not start pairing. Reload the page.'); return; }
+    link.peer = p;
+    var timer = setTimeout(function () {
+      if (link.peer === p && link.state === 'linking') { closePeer(); setLink('idle', 'No answer from the headset. Check the code and that the headset page is open.'); }
+    }, 15000);
+    p.on('open', function () {
+      if (link.peer !== p) return;
+      wireConn(p.connect(ID_PREFIX + code, { serialization: 'json', reliable: true }));
+    });
+    keepSignalling(p);
+    p.on('error', function (err) {
+      if (link.peer !== p || link.conns.length) return;
+      clearTimeout(timer); closePeer();
+      setLink('idle', err && err.type === 'peer-unavailable'
+        ? 'No headset has that code. Check the letters and that the headset page is open.'
+        : 'Could not reach the pairing service. Check the internet connection.');
+    });
+  }
+  function roleLinkChange() {
+    closePeer(); link.retries = 0; link.msg = ''; link.state = 'idle';
+    if (role === 'headset') startHeadsetLink();
+    else {
+      setLink('idle');
+      var m = /[?&]code=([A-Za-z]{4})/.exec(location.search);
+      if (m) { codeIn.value = m[1].toUpperCase(); connectToCode(m[1]); }
+    }
+    refreshPair();
+  }
+  function publishPose(t) {
+    if (role !== 'headset' || !link.conns.length) return;
+    if (t - lastSent.t < 0.05) return;
+    var e = Math.round(energy), m = curMode();
+    var changed = hp.distanceToSquared(lastSent.p) > 4e-6 || Math.abs(hq.dot(lastSent.q)) < 0.999995 || e !== lastSent.e || m !== lastSent.m;
+    if (!changed && t - lastSent.t < 1) return;
+    lastSent.t = t; lastSent.p.copy(hp); lastSent.q.copy(hq); lastSent.e = e; lastSent.m = m;
+    linkSend({ t: 'pose', m: m, p: [r3(hp.x), r3(hp.y), r3(hp.z)], q: [r4(hq.x), r4(hq.y), r4(hq.z), r4(hq.w)], e: e });
+  }
+
+  var codeIn = $('codeIn'), codeGo = $('codeGo'), pairCodeEl = $('pairCode'), pairStateEl = $('pairState'), pairUrlEl = $('pairUrl');
+  codeIn.addEventListener('input', function () { codeIn.value = codeIn.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); });
+  codeIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') codeGo.click(); });
+  codeGo.addEventListener('click', function () {
+    if (link.state === 'linked') { closePeer(); setLink('idle'); }
+    else connectToCode(codeIn.value);
+  });
+
+  // ---------- UI state ----------
+  var sel = { shape: 'cube', size: 0.4 };
+  var CSS_NAMES = { mr: 'MR', vr: 'VR', preview: 'preview' };
+  function setChip(el, state, text) { el.setAttribute('data-state', state); el.querySelector('b').textContent = text; }
+  function refreshChips() {
+    var st = link.state;
+    if (st === 'linked') setChip(chipLive, 'on', 'Linked');
+    else if (st === 'error') setChip(chipLive, 'warn', 'Pairing unavailable');
+    else if (st === 'linking' || st === 'starting') setChip(chipLive, 'warn', 'Linking…');
+    else setChip(chipLive, 'off', role === 'headset' ? 'Waiting for control' : 'Not linked');
+    if (role === 'control') {
+      setChip(chipPeer, remote.has ? 'on' : 'off', remote.has ? 'Headset · ' + CSS_NAMES[remote.m] : 'No headset yet');
+      viewMeta.textContent = remote.has ? CSS_NAMES[remote.m] + ' · energy ' + Math.round(remote.e) : '';
+      viewEmpty.hidden = remote.has;
+    } else {
+      setChip(chipPeer, 'off', link.code ? 'Code ' + link.code : 'No code yet');
+    }
+  }
+  function refreshNote() {
+    var base = 'Click the map to drop a ' + sel.shape + ', ' + sel.size.toFixed(2) + ' m wide.';
+    var tail;
+    if (link.msg) tail = ' ' + link.msg;
+    else if (link.state === 'linked') tail = ' Linked to the headset.';
+    else if (link.state === 'linking') tail = ' Linking to the headset…';
+    else tail = ' Not linked yet, so shapes stay on this page. Type the headset’s 4-letter code in the Code box to link.';
+    note.textContent = base + tail;
+  }
+  function refreshPair() {
+    var st = link.state;
+    pairCodeEl.textContent = link.code && role === 'headset' ? link.code : '····';
+    pairStateEl.textContent = st === 'linked' ? 'Linked. You can enter VR or MR now.'
+      : st === 'error' ? link.msg
+      : st === 'waiting' ? 'Waiting for the control page. Open this site on another device, choose Control and type the code.'
+      : 'Getting a code…';
+    pairUrlEl.textContent = 'Control page: ' + location.origin + location.pathname.replace(/index\.html$/, '') + '#control';
+    codeGo.textContent = st === 'linked' ? 'Unlink' : (st === 'linking' ? 'Linking…' : 'Link');
+    codeGo.disabled = st === 'linking';
+    codeGo.className = st === 'linked' ? 'off' : '';
+    codeIn.disabled = st === 'linked' || st === 'linking';
+  }
+  function refreshMode() {
+    if (role === 'control') modeEl.textContent = 'control';
+    else modeEl.textContent = session ? (mrMode ? 'in MR' : 'in VR') : 'headset preview';
+  }
+  function setRole(r) {
+    if (r === role) return;
+    role = r; lagInit = false; remote.init = false; ghost.visible = false;
+    roleHeadsetBtn.setAttribute('aria-pressed', String(r === 'headset'));
+    roleControlBtn.setAttribute('aria-pressed', String(r === 'control'));
+    controlUI.hidden = r !== 'control'; headsetUI.hidden = r !== 'headset';
+    roleLinkChange(); resize(); refreshChips(); refreshMode(); refreshNote();
+  }
+  function chooseRole(r) {
+    try { location.hash = r; } catch (e) {}
+    setRole(r);
+  }
+  roleHeadsetBtn.addEventListener('click', function () { chooseRole('headset'); });
+  roleControlBtn.addEventListener('click', function () { chooseRole('control'); });
+  window.addEventListener('hashchange', function () {
+    var h = (location.hash || '').replace('#', '');
+    if (!session && (h === 'control' || h === 'headset')) setRole(h);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.shape'), function (b) {
+    b.addEventListener('click', function () {
+      sel.shape = b.getAttribute('data-shape');
+      Array.prototype.forEach.call(document.querySelectorAll('.shape'), function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+      ghostMat.color.setHex(SHAPE_HEX[sel.shape]); ghostFill.color.setHex(SHAPE_HEX[sel.shape]);
+      refreshNote();
+    });
+  });
+  var sizeIn = $('size'), sizeOut = $('sizeOut');
+  sizeIn.addEventListener('input', function () {
+    sel.size = +sizeIn.value; sizeOut.textContent = sel.size.toFixed(2) + ' m';
+    ghost.scale.set(sel.size, sel.size, sel.size); refreshNote();
+  });
+  ghost.scale.set(sel.size, sel.size, sel.size);
+
+  // ---------- map interaction ----------
+  var mapView = { hw: MAP_HALF, hh: MAP_HALF }, kx = 0, kz = 0;
+  function mapPoint(e) {
+    var b = mapPanel.getBoundingClientRect();
+    var u = (e.clientX - b.left) / b.width, v = (e.clientY - b.top) / b.height;
+    var x = (u * 2 - 1) * mapView.hw, z = (v * 2 - 1) * mapView.hh;
+    return { x: Math.max(-CLAMP, Math.min(CLAMP, x)), z: Math.max(-CLAMP, Math.min(CLAMP, z)) };
+  }
+  function showGhost(x, z) { ghost.position.set(x, 0.03, z); ghost.visible = true; }
+  function spawn(x, z) {
+    var d = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), k: sel.shape, s: Math.round(sel.size * 100) / 100,
+      x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 };
+    var next = worldList.concat([d]);
+    if (next.length > MAX_ITEMS) next = next.slice(next.length - MAX_ITEMS);
+    worldList = next; applyItems(next, false);
+    linkSend({ t: 'world', items: next });
+  }
+  mapPanel.addEventListener('pointermove', function (e) { var p = mapPoint(e); kx = p.x; kz = p.z; showGhost(p.x, p.z); });
+  mapPanel.addEventListener('pointerleave', function () { if (document.activeElement !== mapPanel) ghost.visible = false; });
+  mapPanel.addEventListener('click', function (e) { var p = mapPoint(e); kx = p.x; kz = p.z; showGhost(p.x, p.z); spawn(p.x, p.z); });
+  mapPanel.addEventListener('focus', function () { showGhost(kx, kz); });
+  mapPanel.addEventListener('blur', function () { ghost.visible = false; });
+  mapPanel.addEventListener('keydown', function (e) {
+    var step = 0.25, handled = true;
+    if (e.key === 'ArrowLeft') kx -= step; else if (e.key === 'ArrowRight') kx += step;
+    else if (e.key === 'ArrowUp') kz -= step; else if (e.key === 'ArrowDown') kz += step;
+    else if (e.key === 'Enter' || e.key === ' ') spawn(kx, kz);
+    else handled = false;
+    if (handled) {
+      e.preventDefault();
+      kx = Math.max(-CLAMP, Math.min(CLAMP, kx)); kz = Math.max(-CLAMP, Math.min(CLAMP, kz)); showGhost(kx, kz);
+    }
+  });
+
+  // ---------- sizing and rendering ----------
+  var W = window.innerWidth, H = window.innerHeight;
+  function resize() {
+    if (renderer.xr.isPresenting) return;
+    W = window.innerWidth; H = window.innerHeight;
+    renderer.setSize(W, H, false); camera.aspect = W / H; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
+
+  function setPass(p) {
+    var map = p === 'map';
+    envVR.visible = !map && !mrLook;
+    envFloor.visible = map || !mrLook;
+    mapOnly.visible = map;
+    visor.visible = hudGroup.visible = !map;
+  }
+  function rectOf(el) {
+    var b = el.getBoundingClientRect();
+    var x = b.left + 1, y = b.top + 1, w = b.width - 2, h = b.height - 2;
+    if (w < 8 || h < 8 || y + h < 0 || y > H) return null;
+    return { x: x, y: H - (y + h), w: w, h: h };
+  }
+  function viewport(r) { renderer.setViewport(r.x, r.y, r.w, r.h); renderer.setScissor(r.x, r.y, r.w, r.h); }
+
+  function renderHeadset(inXR) {
+    setPass('fp');
+    if (!inXR) { renderer.setScissorTest(false); renderer.setViewport(0, 0, W, H); }
+    renderer.setClearColor(0x04080c, inXR && mrLook ? 0 : 1);
+    renderer.render(scene, camera);
+  }
+  function renderControl() {
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, W, H);
+    renderer.setClearColor(0x04080c, 1); renderer.clear();
+    renderer.setScissorTest(true);
+    var r = rectOf(mapPanel);
+    if (r) {
+      var hw, hh;
+      if (r.w >= r.h) { hh = MAP_HALF; hw = MAP_HALF * r.w / r.h; } else { hw = MAP_HALF; hh = MAP_HALF * r.h / r.w; }
+      if (hw !== mapView.hw || hh !== mapView.hh) {
+        mapView.hw = hw; mapView.hh = hh;
+        mapCam.left = -hw; mapCam.right = hw; mapCam.top = hh; mapCam.bottom = -hh; mapCam.updateProjectionMatrix();
+      }
+      setPass('map'); viewport(r); renderer.setClearColor(0x071118, 1);
+      renderer.render(scene, mapCam);
+    }
+    r = rectOf(viewPanel);
+    if (r) {
+      fpCam.aspect = r.w / r.h; fpCam.updateProjectionMatrix();
+      fpCam.position.copy(hp); fpCam.quaternion.copy(hq);
+      setPass('fp'); viewport(r); renderer.setClearColor(0x04080c, 1);
+      renderer.render(scene, fpCam);
+    }
+    renderer.setScissorTest(false);
+  }
+
+  // ---------- main loop ----------
+  var last = performance.now() / 1000, hudClock = 0;
+  renderer.setAnimationLoop(function (now) {
+    var t = now / 1000, dt = Math.min(0.05, Math.max(0, t - last)); last = t;
+    if (!role) return;
+    var inXR = renderer.xr.isPresenting;
+
+    if (role === 'headset') {
+      if (!inXR) {
+        idle += dt;
+        var sway = idle > 4 ? Math.min(1, (idle - 4) / 2) : 0;
+        camera.rotation.set(lookPitch + Math.sin(t * 0.23) * 0.06 * sway, lookYaw + Math.sin(t * 0.3) * 0.5 * sway, 0, 'YXZ');
+        camera.updateMatrixWorld();
+      }
+      var headCam = inXR ? renderer.xr.getCamera(camera) : camera;
+      headCam.matrixWorld.decompose(hp, hq, hs);
+      stepEnergy(dt);
+      publishPose(t);
+    } else {
+      updateRemote(dt, t);
+    }
+
+    ring.rotation.y = t * 0.5; ring.rotation.x = Math.sin(t * 0.4) * 0.3;
+    orbiters.forEach(function (o) {
+      var u = o.userData, a = u.a + t * u.s;
+      o.position.set(Math.cos(a) * u.r * orbitScale, u.y + Math.sin(t + u.a) * 0.08, Math.sin(a) * u.r * orbitScale); o.rotation.y = t;
+    });
+    stepItems(dt);
+
+    visor.position.copy(hp); visor.quaternion.copy(hq);
+    if (!lagInit) { lagQ.copy(hq); lagInit = true; }
+    lagQ.slerp(hq, 1 - Math.exp(-dt * 5.5));
+    hudGroup.position.copy(hp); hudGroup.quaternion.copy(lagQ);
+
+    fwd.set(0, 0, -1).applyQuaternion(hq);
+    marker.position.set(hp.x, 2.2, hp.z); marker.rotation.y = Math.atan2(-fwd.x, -fwd.z);
+
+    euler.setFromQuaternion(hq, 'YXZ');
+    drawFx(dt, t, euler.y, euler.x);
+    hudClock += dt;
+    if (hudClock > 0.05) { hudClock = 0; drawHud(energy, t); if (role === 'control') refreshChips(); }
+
+    if (role === 'headset') renderHeadset(inXR); else renderControl();
+  });
+
+  if (document.fonts && document.fonts.load) {
+    Promise.all([document.fonts.load('600 34px "Chakra Petch"'), document.fonts.load('600 96px "IBM Plex Mono"')])
+      .then(function () { drawHud(energy, 0); }).catch(noop);
+  }
+  drawHud(energy, 0);
+
+  // ---------- VR / MR entry ----------
+  var vrOk = false, arOk = false;
+  function setHint(s) { hint.textContent = s; }
+  function setMR(on) {
+    mrMode = on; setMRLook(on);
+    renderer.setClearColor(0x04080c, on ? 0 : 1);
+  }
+  function refresh() {
+    enterBtn.textContent = session && !mrMode ? 'Exit VR' : (vrOk ? 'Enter VR' : 'VR unavailable');
+    enterMR.textContent = session && mrMode ? 'Exit MR' : (arOk ? 'Enter MR' : 'MR unavailable');
+    enterBtn.disabled = session ? mrMode : !vrOk;
+    enterMR.disabled = session ? !mrMode : !arOk;
+    roleHeadsetBtn.disabled = roleControlBtn.disabled = !!session;
+  }
+  function onEnd() {
+    session = null; lagInit = false; setMR(false); refreshMode(); refresh(); resize();
+  }
+  async function probe(mode) {
+    try { return !!(navigator.xr && await navigator.xr.isSessionSupported(mode)); } catch (e) { return false; }
+  }
+  async function initXR() {
+    vrOk = await probe('immersive-vr'); arOk = await probe('immersive-ar'); refresh();
+    if (!vrOk && !arOk) setHint('VR and MR are not available in this browser. Open this page in the Quest browser to enter them. The headset preview still works, and Control mode works anywhere.');
+  }
+  async function start(mode) {
+    var ar = mode === 'immersive-ar';
+    try {
+      renderer.xr.setReferenceSpaceType('local-floor');
+      setMR(ar);
+      session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'bounded-floor'] });
+      session.addEventListener('end', onEnd);
+      await renderer.xr.setSession(session);
+      lagInit = false; refreshMode(); refresh();
+    } catch (e) {
+      session = null; setMR(false); refresh();
+      setHint((ar ? 'Mixed reality' : 'VR') + ' could not start here. Open the page directly in the Quest browser and try again.');
+    }
+  }
+  enterBtn.addEventListener('click', function () { if (session) session.end(); else start('immersive-vr'); });
+  enterMR.addEventListener('click', function () { if (session) session.end(); else start('immersive-ar'); });
+
+  // ---------- start: pick a role, then connect ----------
+  async function decideRole() {
+    var h = (location.hash || '').replace('#', '');
+    if (h === 'control' || h === 'headset') return h;
+    if (/OculusBrowser|Quest/i.test(navigator.userAgent || '')) return 'headset';
+    return (await probe('immersive-vr')) ? 'headset' : 'control';
+  }
+  window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; } };
+  resize();
+  Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
+    .then(function (r) { setRole(r); initXR(); });
+})();
+</script>
+
+</body>
+</html>
