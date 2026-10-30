@@ -104,6 +104,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .gamebar .gtool[hidden] { display: none; }
 #selBar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 8px; background: rgba(18, 10, 36, .94); border: 1px solid var(--hud); padding: 8px 10px; pointer-events: auto; }
 #selBar[hidden] { display: none; }
+#selTxt { display: flex; flex-direction: column; max-width: 300px; } #selInfo { font: 500 12px var(--font-data); color: var(--muted); letter-spacing: 0; text-transform: none; margin-top: 2px; line-height: 1.3; } #selInfo b { color: var(--ac, var(--hud)); font-weight: 700; }
 #selName { font: 700 15px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); margin-right: 6px; }
 #selBar button { font: 700 15px var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: var(--hud); border: 0; padding: 0 16px; min-height: 48px; cursor: pointer; touch-action: manipulation; }
 #selBar button:disabled { background: var(--line); color: var(--muted); }
@@ -112,10 +113,12 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .gtool[hidden] { display: none; }
 .key { display: inline-grid; place-items: center; min-width: 18px; height: 18px; font: 600 11px var(--font-data); color: var(--hud); border: 1px solid var(--line); border-radius: 3px; flex: none; }
 .abil .gtool { min-width: 0; min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 4px 7px; letter-spacing: 0; font: 700 12px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(255, 166, 58, .05); border: 1px solid var(--line); border-left: 6px solid var(--ac, var(--hud)); touch-action: manipulation; }
+.abil .gtool { flex-wrap: wrap; align-content: center; row-gap: 1px; }
+.abil .gtool .ds { flex: 0 0 100%; font: 500 10px var(--font-body, sans-serif); letter-spacing: 0; text-transform: none; color: var(--muted); text-align: left; line-height: 1.15; }
 .abil .gtool .nm { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
 .abil .gtool .cs { font: 700 14px var(--font-data); color: var(--ac, var(--hud)); letter-spacing: 0; min-width: 2ch; text-align: right; }
 .abil .gtool[aria-pressed="true"] { background: color-mix(in srgb, var(--ac, var(--hud)) 28%, transparent); box-shadow: inset 0 0 0 2px var(--ac, var(--hud)); }
-.gtool[data-tool="lantern"] { --ac: #ffd25a; } .gtool[data-tool="frost"] { --ac: #7fd4ff; } .gtool[data-tool="tesla"] { --ac: #c08bff; } .gtool[data-tool="gen"] { --ac: #7dff8a; } .gtool[data-tool="wall"] { --ac: #b8b0c8; }
+.gtool[data-tool="lantern"] { --ac: #ffd25a; } .gtool[data-tool="frost"] { --ac: #7fd4ff; } .gtool[data-tool="tesla"] { --ac: #c08bff; } .gtool[data-tool="wall"] { --ac: #b8b0c8; }
 .gtool[data-tool="freeze"] { --ac: #7fd4ff; } .gtool[data-tool="push"] { --ac: #ffd9a0; } .gtool[data-tool="decoy"] { --ac: #ffd25a; } .gtool[data-tool="bomb"] { --ac: #ff7a2a; } .gtool[data-tool="ping"] { --ac: #c4b5ec; } .gtool[data-tool="blast"] { --ac: #ff5fb0; }
 .side { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
 #viewPanel { flex: none; aspect-ratio: 16 / 10; }
@@ -230,22 +233,21 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     <div class="work">
       <div class="abil gamebar" role="group" aria-label="Build menu. Pick one, then tap the map.">
         <span class="grp">Towers</span>
-        <button class="gtool" type="button" data-tool="lantern" aria-pressed="true" title="Fires light balls at the nearest enemy"><span class="nm">Lantern</span><small class="cs">20</small></button>
-        <button class="gtool" type="button" data-tool="frost" aria-pressed="false" title="Slows every enemy in range"><span class="nm">Frost</span><small class="cs">20</small></button>
-        <button class="gtool" type="button" data-tool="tesla" aria-pressed="false" title="Chain lightning that jumps between enemies"><span class="nm">Tesla</span><small class="cs">30</small></button>
-        <button class="gtool" type="button" data-tool="gen" aria-pressed="false" title="Slowly recharges the VR flashlight"><span class="nm">Battery</span><small class="cs">25</small></button>
+        <button class="gtool" type="button" data-tool="lantern" aria-pressed="true" title="Fires light balls at the nearest enemy"><span class="nm">Lantern</span><small class="cs">20</small><small class="ds">Shoots the nearest enemy</small></button>
+        <button class="gtool" type="button" data-tool="frost" aria-pressed="false" title="Slows every enemy in range"><span class="nm">Frost</span><small class="cs">20</small><small class="ds">Slows enemies in range</small></button>
+        <button class="gtool" type="button" data-tool="tesla" aria-pressed="false" title="Chain lightning that jumps between enemies"><span class="nm">Tesla</span><small class="cs">30</small><small class="ds">Lightning hops between enemies</small></button>
         <span class="grp">Walls and traps</span>
-        <button class="gtool" type="button" data-tool="wall" aria-pressed="false" title="Enemies walk around it. Build lines to steer them."><span class="nm">Wall</span><small class="cs">4</small></button>
-        <button class="gtool" type="button" data-tool="freeze" aria-pressed="false" title="Enemies inside stand frozen for a few seconds"><span class="nm">Freeze</span><small class="cs">8</small></button>
-        <button class="gtool" type="button" data-tool="decoy" aria-pressed="false" title="A lantern that enemies walk to instead of the player"><span class="nm">Decoy</span><small class="cs">10</small></button>
-        <button class="gtool" type="button" data-tool="bomb" aria-pressed="false" title="The VR player has to shoot it to set it off"><span class="nm">Bomb</span><small class="cs">12</small></button>
+        <button class="gtool" type="button" data-tool="wall" aria-pressed="false" title="Enemies walk around it. Build lines to steer them."><span class="nm">Wall</span><small class="cs">4</small><small class="ds">Blocks and steers enemies</small></button>
+        <button class="gtool" type="button" data-tool="freeze" aria-pressed="false" title="Enemies inside stand frozen for a few seconds"><span class="nm">Freeze</span><small class="cs">8</small><small class="ds">Freezes enemies in place</small></button>
+        <button class="gtool" type="button" data-tool="decoy" aria-pressed="false" title="A lantern that enemies walk to instead of the player"><span class="nm">Decoy</span><small class="cs">10</small><small class="ds">Lures enemies away from VR</small></button>
+        <button class="gtool" type="button" data-tool="bomb" aria-pressed="false" title="The VR player has to shoot it to set it off"><span class="nm">Bomb</span><small class="cs">12</small><small class="ds">VR shoots it to blow it up</small></button>
         <span class="grp">Quick abilities</span>
-        <button class="gtool" type="button" data-tool="push" aria-pressed="false" title="Blasts nearby enemies away. Uses build points."><span class="nm">Push</span><small class="cs">3</small></button>
-        <button class="gtool" type="button" data-tool="ping" aria-pressed="false" title="Point the VR player in a direction"><span class="nm">Ping</span><small class="cs">free</small></button>
-        <button class="gtool gblast" id="gBlast" type="button" data-tool="blast" aria-pressed="false" hidden title="Tap the map to set off a giant explosion there"><span class="nm">Big blast</span><small class="cs">1</small></button>
+        <button class="gtool" type="button" data-tool="push" aria-pressed="false" title="Blasts nearby enemies away. Uses build points."><span class="nm">Push</span><small class="cs">3</small><small class="ds">Shoves nearby enemies back</small></button>
+        <button class="gtool" type="button" data-tool="ping" aria-pressed="false" title="Point the VR player in a direction"><span class="nm">Ping</span><small class="cs">free</small><small class="ds">Points the VR player</small></button>
+        <button class="gtool gblast" id="gBlast" type="button" data-tool="blast" aria-pressed="false" hidden title="Tap the map to set off a giant explosion there"><span class="nm">Big blast</span><small class="cs">1</small><small class="ds">One giant explosion</small></button>
       </div>
       <section class="panel" id="mapPanel" tabindex="0" aria-label="Map of the headset's world. Tap to use the chosen ability there, or to pick up a pickup.">
-        <span class="cap">Map · play area 8 × 8 m</span><div id="selBar" hidden><span id="selName"></span><button id="selUp" type="button"></button><button id="selSell" type="button"></button><button id="selX" type="button" aria-label="Close">✕</button></div><span class="cap r">top = north</span><canvas class="rose" id="rose" width="136" height="136" aria-hidden="true"></canvas>
+        <span class="cap">Map · play area 8 × 8 m</span><div id="selBar" hidden><div id="selTxt"><span id="selName"></span><span id="selInfo"></span></div><button id="selUp" type="button"></button><button id="selSell" type="button"></button><button id="selX" type="button" aria-label="Close">✕</button></div><span class="cap r">top = north</span><canvas class="rose" id="rose" width="136" height="136" aria-hidden="true"></canvas>
       </section>
       <div class="side">
       <section class="panel" id="viewPanel" aria-label="Live view from the headset">
@@ -1218,9 +1220,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var TW = {
     lantern: { n: 'Lantern', cost: 20, c: '#ffd25a', range: [7, 7.5, 8], gap: [1.1, 0.8, 0.55], dmg: [1, 1, 2] },
     frost: { n: 'Frost', cost: 20, c: '#7fd4ff', range: [3.5, 4, 4.6], slow: [0.55, 0.4, 0.28] },
-    tesla: { n: 'Tesla', cost: 30, c: '#c08bff', range: [4.5, 5, 5.5], gap: [1.6, 1.3, 1.0], dmg: [2, 2, 3], chain: [2, 3, 4] },
-    gen: { n: 'Battery', cost: 25, c: '#7dff8a', range: [0, 0, 0], rate: [2, 3.5, 5] }
-  }, TW_KINDS = ['lantern', 'frost', 'tesla', 'gen'], TW_HP = [10, 14, 18];
+    tesla: { n: 'Tesla', cost: 30, c: '#c08bff', range: [4.5, 5, 5.5], gap: [1.6, 1.3, 1.0], dmg: [2, 2, 3], chain: [2, 3, 4] }
+  }, TW_KINDS = ['lantern', 'frost', 'tesla'], TW_HP = [10, 14, 18];
   function upCost(t) { var b = TW[t.kind].cost; return t.lv === 0 ? Math.round(b * 0.75) : Math.round(b * 1.25); }
   function worth(t) { var b = TW[t.kind].cost, w = b; if (t.lv >= 1) w += Math.round(b * 0.75); if (t.lv >= 2) w += Math.round(b * 1.25); return Math.floor(w / 2); }
   var UP_COST = [8, 14, 20, 28, 40], UP_MAX = 5, SCORE_VAL = { ghost: 100, runner: 60, wisp: 150, brute: 400, splitter: 200, mini: 40, teleporter: 250, shielded: 250, bat: 40, phantom: 300 }, COIN_VAL = { ghost: 4, runner: 2, wisp: 6, brute: 16, splitter: 8, mini: 2, teleporter: 10, shielded: 10, bat: 2, phantom: 12 }, ORB_RANGE = 9, BATT_REGEN = 12, BATT_ADD = 45, ORB_SPEED = 22, FREEZE_R = 2.2, PUSH_R = 3.5, BOMB_R = 2.6, BLAST_R = 4.5;
@@ -1359,7 +1360,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var sp = new THREE.Sprite(iconMat(key)); sp.scale.set(1.0, 1.17, 1); sp.position.set(0, 1.25, 0); sp.renderOrder = 20; g.add(sp);
     g.userData.c = c; g.userData.sp = sp; return g;
   }
-  var TW_ICON = { lantern: 'flame', frost: 'snow', tesla: 'zap', gen: 'bat' };
+  var TW_ICON = { lantern: 'flame', frost: 'snow', tesla: 'zap' };
   var towerDark = new THREE.MeshStandardMaterial({ color: 0x2a2438, roughness: 0.6, metalness: 0.4, flatShading: true });
   function drawTowerLabel(u, t) {
     var g = u.cv.getContext('2d'), c = TW[t.kind].c; g.clearRect(0, 0, 128, 150);
@@ -1390,6 +1391,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     }
     g.add(body); var u = { body: body, key: '' };
     if (kind === 'frost') { var au = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: 0x7fd4ff, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide })); au.rotation.x = -Math.PI / 2; au.position.y = 0.03; g.add(au); u.aura = au; }
+    { var rg = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(TW[kind].c), transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide })); rg.rotation.x = -Math.PI / 2; rg.position.y = 0.04; rg.visible = false; g.add(rg); u.ring = rg; }
     u.cv = document.createElement('canvas'); u.cv.width = 128; u.cv.height = 150; u.tex = new THREE.CanvasTexture(u.cv); u.tex.encoding = THREE.sRGBEncoding; u.tex.minFilter = THREE.LinearFilter; u.tex.generateMipmaps = false;
     u.sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: u.tex, transparent: true, depthTest: false, depthWrite: false, fog: false })); u.sp.position.y = 2.1; u.sp.renderOrder = 22; u.sp.visible = false; g.add(u.sp);
     g.userData = u; return g;
@@ -1471,7 +1473,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.towers.forEach(function (t) {
       var key = 'T' + t.id; seen[key] = 1; var m = gm[key]; if (!m) { m = gm[key] = mkTower(t.kind); gameGroup.add(m); }
       var u = m.userData; m.position.set(t.x, 0, t.z); u.body.scale.setScalar(1 + 0.12 * t.lv);
-      if (u.aura) u.aura.scale.setScalar(TW.frost.range[t.lv]);
+      if (u.aura) u.aura.scale.setScalar(TW.frost.range[t.lv]); if (u.ring) u.ring.scale.setScalar(TW[t.kind].range[t.lv]);
       var lk = t.lv + ':' + Math.round(10 * t.hp / t.hpMax); if (lk !== u.key) { u.key = lk; drawTowerLabel(u, t); }
       if (t.kind === 'frost') u.body.rotation.y = performance.now() / 2500;
     });
@@ -1711,8 +1713,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function towerStep(dt) {
     G.towers.forEach(function (t) {
       t.hit = Math.max(0, (t.hit || 0) - dt); t.cd = (t.cd || 0) - dt * (G.rally.act > 0 ? 1.5 : 1);
-      if (t.kind === 'gen') G.battery = Math.min(100, G.battery + TW.gen.rate[t.lv] * dt);
-      else if (t.kind === 'lantern' && t.cd <= 0) { var e = nearestTo(t.x, t.z, TW.lantern.range[t.lv]); if (e) { towerShot(t, e); t.cd = TW.lantern.gap[t.lv]; } else t.cd = 0.15; }
+      if (t.kind === 'lantern' && t.cd <= 0) { var e = nearestTo(t.x, t.z, TW.lantern.range[t.lv]); if (e) { towerShot(t, e); t.cd = TW.lantern.gap[t.lv]; } else t.cd = 0.15; }
       else if (t.kind === 'tesla' && t.cd <= 0) { t.cd = teslaZap(t) ? TW.tesla.gap[t.lv] : 0.2; }
     });
   }
@@ -2164,7 +2165,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   // control-page UI
   var tool = 'freeze';
   var gStart = $('gStart'), gStats = $('gStats'), gTools = Array.prototype.slice.call(document.querySelectorAll('.gtool:not(.gblast)')), gBlast = $('gBlast');
-  var selId = null, selBar = $('selBar'), selName = $('selName'), selUp = $('selUp'), selSell = $('selSell');
+  var selId = null, selBar = $('selBar'), selName = $('selName'), selUp = $('selUp'), selSell = $('selSell'), selInfo = $('selInfo');
   function findStruct(id) {
     for (var i = 0; i < G.towers.length; i++) if (G.towers[i].id === id) return { o: G.towers[i], wall: false };
     for (var j = 0; j < G.walls.length; j++) if (G.walls[j].id === id) return { o: G.walls[j], wall: true };
@@ -2175,12 +2176,20 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (link.state !== 'linked') { link.msg = 'Link to the headset first, or turn on Solo test.'; refreshNote(); return; }
     var o = { t: 'cmd' }; for (var k in c) o[k] = c[k]; linkSend(o);
   }
+  var TW_DESC = { lantern: 'Fires light orbs at the nearest enemy.', frost: 'Slows every enemy inside its ring.', tesla: 'Zaps an enemy, then the lightning hops to more.' };
+  function twStats(k, lv) {
+    var T = TW[k]; if (k === 'lantern') return 'range ' + T.range[lv] + ' m, ' + T.dmg[lv] + ' dmg, shot every ' + T.gap[lv] + ' s';
+    if (k === 'frost') return 'range ' + T.range[lv] + ' m, enemies at ' + Math.round(T.slow[lv] * 100) + '% speed';
+    if (k === 'tesla') return 'range ' + T.range[lv] + ' m, ' + T.dmg[lv] + ' dmg, hits ' + T.chain[lv] + ' enemies, every ' + T.gap[lv] + ' s';
+    return '';
+  }
   function refreshSel() {
     var f = selId != null ? findStruct(selId) : null;
     if (!f) { selId = null; selBar.hidden = true; return; }
     var free = G.fx.free > 0; selBar.hidden = false;
-    if (f.wall) { selName.textContent = 'Wall'; selUp.hidden = true; selSell.textContent = 'Sell +' + Math.floor(WALL_COST / 2); return; }
+    if (f.wall) { selName.textContent = 'Wall · HP ' + Math.round(100 * f.o.hp / f.o.hpMax) + '%'; selInfo.textContent = 'Blocks the way. Enemies walk around it, or chew through it.'; selUp.hidden = true; selSell.textContent = 'Sell +' + Math.floor(WALL_COST / 2); return; }
     var t = f.o; selName.textContent = TW[t.kind].n + ' · LV ' + (t.lv + 1) + ' · HP ' + Math.round(100 * t.hp / t.hpMax) + '%';
+    selInfo.innerHTML = TW_DESC[t.kind] + '<br><b>Now:</b> ' + twStats(t.kind, t.lv) + (t.lv < 2 ? '<br><b>Next:</b> ' + twStats(t.kind, t.lv + 1) : '');
     selUp.hidden = false; selUp.textContent = t.lv >= 2 ? 'Max level' : 'Upgrade ' + (free ? 'free' : upCost(t)); selUp.disabled = t.lv >= 2 || (!free && G.coins < upCost(t));
     selSell.textContent = 'Sell +' + worth(t);
   }
@@ -2189,7 +2198,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   selUp.addEventListener('click', function () { if (selId != null) sendCmd({ c: 'tup', id: selId }); });
   selSell.addEventListener('click', function () { if (selId != null) { sendCmd({ c: 'tsell', id: selId }); selId = null; refreshSel(); } });
   $('selX').addEventListener('click', function () { selId = null; refreshSel(); });
-  var BUILD = { lantern: 1, frost: 1, tesla: 1, gen: 1, wall: 1 };
+  var BUILD = { lantern: 1, frost: 1, tesla: 1, wall: 1 };
   function toolRange(tl) { return tl === 'lantern' ? TW.lantern.range[0] : tl === 'frost' ? TW.frost.range[0] : tl === 'tesla' ? TW.tesla.range[0] : tl === 'wall' ? WALL_R : tl === 'freeze' ? FREEZE_R : tl === 'bomb' ? BOMB_R : tl === 'push' ? PUSH_R : tl === 'blast' ? BLAST_R : 0; }
   function toolPrice(tl) { return tl === 'wall' ? WALL_COST : TW[tl] ? TW[tl].cost : TRAP[tl] || 0; }
   function updateGhostRange() { var r = toolRange(tool); gRange.visible = r > 0; if (r > 0) gRange.scale.setScalar(r); }
@@ -2366,7 +2375,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var nd = near ? Math.hypot(near.x - hp.x, near.z - hp.z) : 99;
     function has(k) { return G.zones.some(function (z) { return z.kind === k; }); }
     var spF = new THREE.Vector3(0, 0, -1).applyQuaternion(hq), ba = Math.atan2(spF.x, spF.z) + (Math.random() - 0.5) * 2.2;
-    if (G.towers.length < [2, 4, 5, 6][sk] && G.coins >= 20) { var kd = ['lantern', 'frost', 'tesla', 'gen'][G.towers.length % 4]; if (G.coins >= TW[kd].cost) gameCmd({ c: 'build', k: kd, x: hp.x + Math.sin(ba) * (3 + Math.random() * 3), z: hp.z + Math.cos(ba) * (3 + Math.random() * 3) }); }
+    if (G.towers.length < [2, 4, 5, 6][sk] && G.coins >= 20) { var kd = ['lantern', 'frost', 'tesla'][G.towers.length % 3]; if (G.coins >= TW[kd].cost) gameCmd({ c: 'build', k: kd, x: hp.x + Math.sin(ba) * (3 + Math.random() * 3), z: hp.z + Math.cos(ba) * (3 + Math.random() * 3) }); }
     else if (sk >= 2 && G.walls.length < (sk === 3 ? 10 : 5) && G.coins >= 4 && G.towers.length >= 2) gameCmd({ c: 'build', k: 'wall', x: hp.x + Math.sin(ba) * 5, z: hp.z + Math.cos(ba) * 5 });
     var low = G.towers.slice().sort(function (a, b) { return a.lv - b.lv; })[0]; if (sk >= 1 && low && low.lv < 2 && G.coins >= upCost(low) + 5) gameCmd({ c: 'tup', id: low.id });
     var upk = ['dmg', 'bat', 'rng'].sort(function (a, b) { return G.up[a] - G.up[b]; })[0];
@@ -2836,7 +2845,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     ambLight.intensity = map ? 0.42 : 0.42 + 1.1 * spooky.f;
     envFloor.visible = map || !mrLook;
     mapOnly.visible = map;
-    for (var dk in gm) { var gu = gm[dk].userData; if (dk.charAt(0) === 'd' && gu.sp) gu.sp.scale.set(map ? 2.1 : 0.9, map ? 2.46 : 1.05, 1); else if (dk.charAt(0) === 'T' && gu.sp) { gu.sp.visible = map; gu.sp.scale.set(1.5, 1.76, 1); } }
+    for (var dk in gm) { var gu = gm[dk].userData; if (dk.charAt(0) === 'd' && gu.sp) gu.sp.scale.set(map ? 2.1 : 0.9, map ? 2.46 : 1.05, 1); else if (dk.charAt(0) === 'T' && gu.sp) { gu.sp.visible = map; gu.sp.scale.set(1.5, 1.76, 1); if (gu.ring) gu.ring.visible = map; } }
     visor.visible = hudGroup.visible = !map && role !== 'control';
     scene.fog = mrLook && !map ? null : duskFog; duskFog.near = map ? 1e5 : 14; duskFog.far = map ? 2e5 : 46;
     mrOutline.visible = !map && role === 'control' && mrLook;
