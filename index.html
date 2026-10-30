@@ -73,6 +73,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .gstart { font: 600 12px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--hud); border: 0; padding: 9px 14px; cursor: pointer; }
 .gtool.poor { opacity: .5; }
 .rose { position: absolute; left: 10px; bottom: 10px; width: 68px; height: 68px; pointer-events: none; }
+.soloopts { display: grid; gap: 6px; justify-items: start; }
 .pair .gsolo { justify-self: start; margin-top: 4px; }
 .gstats { font: 500 12px var(--font-data); color: var(--muted); margin-left: 6px; }
 .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -189,7 +190,15 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   </main>
 
   <section id="headsetUI" hidden>
-    <div class="pair"><span class="pair-label">Pairing code</span><output id="pairCode" class="pair-code" aria-live="polite">····</output><span id="pairState" class="pair-state">Getting a code…</span><span id="pairUrl" class="pair-url"></span><button class="gsolo" id="soloHead" type="button" aria-pressed="false" title="Starts the game with a bot as the control player, so you can test alone">Solo test: off</button></div>
+    <div class="pair"><span class="pair-label">Pairing code</span><output id="pairCode" class="pair-code" aria-live="polite">····</output><span id="pairState" class="pair-state">Getting a code…</span><span id="pairUrl" class="pair-url"></span><button class="gsolo" id="soloHead" type="button" aria-pressed="false" title="Play without a control player. The game starts when you enter VR or MR.">Solo test: off</button>
+    <div class="soloopts" id="soloOpts" hidden>
+      <button class="gsolo" id="optBot" type="button" aria-pressed="true">Bot controller: on</button>
+      <button class="gsolo" id="optPractice" type="button" aria-pressed="false">Practice enemy: off</button>
+      <button class="gsolo" id="optSlow" type="button" aria-pressed="false">Slow balls: off</button>
+      <button class="gsolo" id="optInv" type="button" aria-pressed="false">Invincible: off</button>
+      <label class="sizebox" for="optRate">Throw every <input id="optRate" type="range" min="0.8" max="6.5" step="0.1" value="6.5"><output id="optRateOut" for="optRate">auto</output></label>
+      <span class="pair-url">The game starts when you enter VR or MR. Set these before you put the headset on.</span>
+    </div></div>
     <div class="dock">
       <button id="enter" type="button" disabled>Checking VR…</button>
       <button id="enterMR" type="button" disabled>Checking MR…</button>
@@ -1003,11 +1012,11 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.wave = n; G.toSpawn = 2 + n; G.spawnT = 1.5; G.budget = Math.min(BUDGET_MAX, G.budget + (n > 1 ? 4 : 0));
   }
   function spawnEnemy() {
-    var a = Math.random() * Math.PI * 2, r = 11 + Math.random() * 1.5, hpMax = 3 + Math.floor(G.wave / 4);
+    var a = Math.random() * Math.PI * 2, r = (opts.practice && solo.head ? 8 : 11) + Math.random() * 1.5, hpMax = 3 + Math.floor(G.wave / 4);
     G.enemies.push({ id: G.nid++, x: hp.x + Math.sin(a) * r, z: hp.z + Math.cos(a) * r, hp: hpMax, face: 0, cd: 1.5 + Math.random() * 2, flash: 0, ang: a, dir: Math.random() < 0.5 ? -1 : 1 });
   }
   function enemyThrow(e) {
-    var sy = 1.3, err = Math.max(0.12, 0.55 - 0.03 * G.wave), spd = Math.min(9, 4 + 0.25 * G.wave);
+    var sy = 1.3, err = Math.max(0.12, 0.55 - 0.03 * G.wave), spd = Math.min(9, 4 + 0.25 * G.wave) * (opts.slow ? 0.5 : 1);
     var tx = hp.x + (Math.random() - 0.5) * err * 2, tz = hp.z + (Math.random() - 0.5) * err * 2, ty = hp.y - 0.3 + (Math.random() - 0.5) * err;
     var dx = tx - e.x, dz = tz - e.z, hd = Math.max(0.5, Math.hypot(dx, dz)), T = hd / spd;
     var it = newBall('eball', e.x, sy, e.z, false, 'enemy');
@@ -1033,7 +1042,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.energy = Math.min(100, G.energy + dt * 0.4);
     G.pingT = Math.max(0, G.pingT - dt);
     // waves
-    if (G.toSpawn > 0) { G.spawnT -= dt; if (G.spawnT <= 0) { spawnEnemy(); G.toSpawn--; G.spawnT = Math.max(0.8, 2.6 - 0.1 * G.wave); } }
+    if (opts.practice && solo.head) { G.toSpawn = 0; if (!G.enemies.length) { G.practiceT = (G.practiceT || 0) - dt; if (G.practiceT <= 0) { spawnEnemy(); G.practiceT = 2; } } }
+    else if (G.toSpawn > 0) { G.spawnT -= dt; if (G.spawnT <= 0) { spawnEnemy(); G.toSpawn--; G.spawnT = Math.max(0.8, 2.6 - 0.1 * G.wave); } }
     else if (!G.enemies.length) { G.breakT += dt; if (G.breakT > 4) { G.breakT = 0; startWave(G.wave + 1); } }
     // enemies
     G.enemies.slice().forEach(function (e) {
@@ -1047,7 +1057,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       G.barriers.forEach(function (b) { if (Math.hypot(nx - b.x, nz - b.z) < 0.7) blocked = b; });
       if (blocked) { blocked.hp -= dt * 0.7; } else { e.x = nx; e.z = nz; }
       e.cd -= dt;
-      if (dist < STOP_DIST + 0.4 && e.cd <= 0) { enemyThrow(e); e.cd = Math.max(1.6, 4 - 0.2 * G.wave) + Math.random(); }
+      if (dist < STOP_DIST + 0.4 && e.cd <= 0) { enemyThrow(e); e.cd = (opts.rate > 0 ? opts.rate : Math.max(1.6, 4 - 0.2 * G.wave)) + Math.random() * (opts.rate > 0 ? 0.3 : 1); }
     });
     G.barriers = G.barriers.filter(function (b) { return b.hp > 0; });
     // turrets
@@ -1088,7 +1098,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         // hit the player
         var hx = it.d.x - hp.x, hz = it.d.z - hp.z, hy = it.y - (hp.y - 0.3);
         if (hx * hx + hz * hz < 0.08 && hy > -0.75 && hy < 0.35) {
-          G.energy -= 12; damage(); soundTone(hp.x, hp.y - 0.3, hp.z, 140, 60, 0.3, 1.2, 'sawtooth'); removeLocal(it);
+          if (!opts.invincible) G.energy -= 12; damage(); soundTone(hp.x, hp.y - 0.3, hp.z, 140, 60, 0.3, 1.2, 'sawtooth'); removeLocal(it);
           if (G.energy <= 0) { G.energy = 0; G.running = false; G.over = true; }
           return;
         }
@@ -1169,6 +1179,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   });
 
   // ---------- solo testing: a bot plays the missing player ----------
+  var opts = { bot: true, practice: false, slow: false, invincible: false, rate: 0 };
   var solo = { head: false, control: false }, bc = { t: 0, lastId: 0, overT: 0 }, soloBtn = $('soloBtn'), soloHead = $('soloHead');
   function resetGame() {
     localBalls().forEach(removeLocal);
@@ -1181,7 +1192,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function setSoloHead(on) {
     solo.head = on; soloHead.setAttribute('aria-pressed', String(on)); soloHead.textContent = 'Solo test: ' + (on ? 'on' : 'off');
-    bc.t = 0; bc.lastId = 0; bc.overT = 0;
+    bc.t = 0; bc.lastId = 0; bc.overT = 0; $('soloOpts').hidden = !on;
     if (on) gameStart(); else resetGame();
   }
   function setSoloControl(on) {
@@ -1195,9 +1206,22 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     refreshChips(); refreshNote(); refreshGame();
   }
   soloHead.addEventListener('click', function () { setSoloHead(!solo.head); });
+  function optToggle(id, key, label) {
+    var b = $(id); b.addEventListener('click', function () {
+      opts[key] = !opts[key]; b.setAttribute('aria-pressed', String(opts[key])); b.textContent = label + ': ' + (opts[key] ? 'on' : 'off');
+      if (key === 'practice' && solo.head) { G.enemies = []; G.toSpawn = 0; G.practiceT = 0.5; }
+    });
+  }
+  optToggle('optBot', 'bot', 'Bot controller'); optToggle('optPractice', 'practice', 'Practice enemy'); optToggle('optSlow', 'slow', 'Slow balls'); optToggle('optInv', 'invincible', 'Invincible');
+  $('optRate').addEventListener('input', function (e) {
+    var v = +e.target.value; opts.rate = v >= 6.5 ? 0 : v; $('optRateOut').textContent = v >= 6.5 ? 'auto' : v.toFixed(1) + ' s';
+  });
+  function soloHeadStep(dt) {
+    if (G.over) { bc.overT += dt; if (bc.overT > 6) { bc.overT = 0; gameStart(); bc.lastId = 0; } return; }
+    if (opts.bot) botController(dt);
+  }
   soloBtn.addEventListener('click', function () { setSoloControl(!solo.control); });
   function botController(dt) {
-    if (G.over) { bc.overT += dt; if (bc.overT > 6) { bc.overT = 0; gameStart(); bc.lastId = 0; } return; }
     if (!G.running) return;
     bc.t -= dt; if (bc.t > 0) return; bc.t = 0.9;
     var near = nearestEnemy(), newest = null;
@@ -1756,7 +1780,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       o.position.set(Math.cos(a) * u.r * orbitScale, u.y + Math.sin(t + u.a) * 0.08, Math.sin(a) * u.r * orbitScale); o.rotation.y = t;
     });
     stepItems(dt);
-    if (role === 'headset') { if (solo.head) botController(dt); gameStep(dt, t); }
+    if (role === 'headset') { if (solo.head) soloHeadStep(dt); gameStep(dt, t); }
     else if (solo.control) soloControlStep(dt, t);
     gSync(); fxStep(dt);
     publishItems(t); publishGame(t);
@@ -1817,6 +1841,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       session.addEventListener('end', onEnd);
       await renderer.xr.setSession(session);
       lagInit = false; refreshMode(); refresh();
+      if (solo.head) { bc.t = 0; bc.lastId = 0; bc.overT = 0; gameStart(); }
     } catch (e) {
       session = null; setMR(false); refresh();
       setHint((ar ? 'Mixed reality' : 'VR') + ' could not start here. Open the page directly in the Quest browser and try again.');
@@ -1833,7 +1858,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
+    t: { opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
