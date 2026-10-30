@@ -666,11 +666,12 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       var it = items[id];
       if (!it.held.length && !it.settled && !it.ext) {
         var d = it.d, rest = it.rest * it.f, k;
-        it.vy -= 9.8 * (it.owner === 'player' ? GRAV_P : 1) * dt; it.y += it.vy * dt; d.x += it.vx * dt; d.z += it.vz * dt;
+        if (it.owner === 'enemy' && it.ax) { it.vx += it.ax * dt; it.vz += it.az * dt; }
+        it.vy -= 9.8 * (it.owner === 'player' ? GRAV_P : (it.owner === 'enemy' && it.gk !== undefined ? it.gk : 1)) * dt; it.y += it.vy * dt; d.x += it.vx * dt; d.z += it.vz * dt;
         var cl = it.local ? 16 : CLAMP;
         if (Math.abs(d.x) > cl) { d.x = d.x > 0 ? cl : -cl; it.vx *= -0.5; }
         if (Math.abs(d.z) > cl) { d.z = d.z > 0 ? cl : -cl; it.vz *= -0.5; }
-        if (it.y > 3.6) { it.y = 3.6; it.vy = -Math.abs(it.vy) * 0.3; }
+        var ceil = it.local ? 14 : 3.6; if (it.y > ceil) { it.y = ceil; it.vy = -Math.abs(it.vy) * 0.3; }
         if (it.y <= rest) {
           it.y = rest;
           if (role === 'headset' && Math.abs(it.vy) > 0.6) soundThud(d.x, rest, d.z, d.s * it.f, Math.abs(it.vy) / 6);
@@ -942,6 +943,11 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   itemMats.ball = new THREE.MeshStandardMaterial({ color: 0xffe066, emissive: 0xffc400, emissiveIntensity: 0.35, roughness: 0.4 });
   itemMats.eball = new THREE.MeshStandardMaterial({ color: 0xff8a1e, emissive: 0xff5a00, emissiveIntensity: 0.55, roughness: 0.5, flatShading: true });
   itemMats.pball = new THREE.MeshStandardMaterial({ color: 0xe9d9ff, emissive: 0xb89cff, emissiveIntensity: 0.55, roughness: 0.35 });
+  var THROW_STYLES = { straight: { col: 0xff8a1e, em: 0xff5a00, v: 0.55, gk: 0.12 }, lob: { col: 0x7a8cff, em: 0x4a5cff, v: 0.6, gk: 1 },
+                       fast: { col: 0xff3b3b, em: 0xd01010, v: 1.7, gk: 0.2 }, curve: { col: 0x6be36b, em: 0x2fb52f, v: 1.0, gk: 0.3 } };
+  Object.keys(THROW_STYLES).forEach(function (k) {
+    var c = THROW_STYLES[k]; itemMats['eball_' + k] = new THREE.MeshStandardMaterial({ color: c.col, emissive: c.em, emissiveIntensity: 0.6, roughness: 0.5, flatShading: true });
+  });
   var COST = { ball: 1, barrier: 3, turret: 5 }, BUDGET_MAX = 12, STOP_DIST = 5;
   var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
             toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0, coins: 0 };
@@ -1017,17 +1023,17 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function setOwner(it, o) {
     if (it.owner === o) return; it.owner = o;
-    it.g.children[0].material = itemMats[o === 'enemy' ? 'eball' : o === 'player' ? 'pball' : 'ball'];
+    it.g.children[0].material = itemMats[o === 'enemy' ? (it.style && itemMats['eball_' + it.style] ? 'eball_' + it.style : 'eball') : o === 'player' ? 'pball' : 'ball'];
     if (it.g.children[1]) it.g.children[1].visible = o === 'enemy';
   }
   var OWNER_CODE = { neutral: 0, enemy: 1, player: 2 }, CODE_OWNER = ['neutral', 'enemy', 'player'];
   function removeLocal(it) { var id = it.d.id; removeItem(id); linkSend({ t: 'idel', id: id }); }
-  function newBall(kind, x, y, z, drop, owner) {
+  function newBall(kind, x, y, z, drop, owner, style) {
     var id = (kind === 'eball' ? 'e' : 'a') + (G.nid++) + Math.random().toString(36).slice(2, 5);
     var d = { id: id, k: kind, s: 0.2, x: x, z: z };
     addItem(d, drop); var it = items[id]; it.local = true; it.ball = true; it.age = 0;
-    if (!drop) it.y = y; it.owner = ''; setOwner(it, owner || 'neutral');
-    linkSend({ t: 'inew', d: { id: id, k: kind, s: 0.2, x: x, z: z, y: it.y, o: OWNER_CODE[owner || 'neutral'], drop: !!drop } });
+    if (!drop) it.y = y; it.owner = ''; it.style = style || ''; setOwner(it, owner || 'neutral');
+    linkSend({ t: 'inew', d: { id: id, k: kind, s: 0.2, x: x, z: z, y: it.y, o: OWNER_CODE[owner || 'neutral'], drop: !!drop, st: it.style } });
     return it;
   }
   function localBalls() { var l = []; for (var id in items) if (items[id].local) l.push(items[id]); return l; }
@@ -1052,12 +1058,15 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.enemies.push({ id: G.nid++, x: hp.x + Math.sin(a) * r, z: hp.z + Math.cos(a) * r, hp: hpMax, face: 0, cd: 1.5 + Math.random() * 2, flash: 0, ang: a, dir: Math.random() < 0.5 ? -1 : 1 });
   }
   function enemyThrow(e) {
-    var sy = 1.3, err = Math.max(0.12, 0.55 - 0.03 * G.wave), spd = Math.min(9, 4 + 0.25 * G.wave) * (opts.slow ? 0.5 : 1);
+    var r = Math.random(), style = r < 0.3 ? 'straight' : r < 0.55 ? 'lob' : r < 0.8 ? 'fast' : 'curve', cfg = THROW_STYLES[style];
+    var sy = 1.3, err = Math.max(0.12, 0.55 - 0.03 * G.wave), base = Math.min(9, 4 + 0.25 * G.wave) * (opts.slow ? 0.5 : 1), spd = Math.max(2.2, Math.min(13, base * cfg.v));
     var tx = hp.x + (Math.random() - 0.5) * err * 2, tz = hp.z + (Math.random() - 0.5) * err * 2, ty = hp.y - 0.3 + (Math.random() - 0.5) * err;
-    var dx = tx - e.x, dz = tz - e.z, hd = Math.max(0.5, Math.hypot(dx, dz)), T = hd / spd;
-    var it = newBall('eball', e.x, sy, e.z, false, 'enemy');
-    it.settled = false; it.vx = dx / T; it.vz = dz / T; it.vy = ((ty - sy) + 0.5 * 9.8 * T * T) / T;
-    soundTone(e.x, 1.3, e.z, 300, 600, 0.2, 1, 'triangle');
+    var dx = tx - e.x, dz = tz - e.z, hd = Math.max(0.5, Math.hypot(dx, dz)), sgn = Math.random() < 0.5 ? -1 : 1, L = 1.3, px = -dz / hd, pz = dx / hd;
+    if (style === 'curve') { tx += px * sgn * L; tz += pz * sgn * L; dx = tx - e.x; dz = tz - e.z; hd = Math.max(0.5, Math.hypot(dx, dz)); }
+    var T = hd / spd, it = newBall('eball', e.x, sy, e.z, false, 'enemy', style);
+    it.settled = false; it.gk = cfg.gk; it.vx = dx / T; it.vz = dz / T; it.vy = ((ty - sy) + 0.5 * 9.8 * cfg.gk * T * T) / T;
+    if (style === 'curve') { it.ax = -px * sgn * 2 * L / (T * T); it.az = -pz * sgn * 2 * L / (T * T); }
+    soundTone(e.x, 1.3, e.z, style === 'fast' ? 500 : style === 'lob' ? 200 : 300, style === 'fast' ? 900 : 600, 0.2, 1, 'triangle');
   }
   function turretThrow(u, e) {
     var sy = 1.62, spd = 8, dx = e.x - u.x, dz = e.z - u.z, hd = Math.max(0.5, Math.hypot(dx, dz)), T = hd / spd;
@@ -1522,7 +1531,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     else if (d.t === 'fx' && role === 'control' && (d.k === 'pop' || d.k === 'crit' || d.k === 'hit') && [d.x, d.y, d.z].every(function (v) { return typeof v === 'number' && isFinite(v); })) fxLocal(d.k, d.x, d.y, d.z);
     else if (d.t === 'inew' && role === 'control' && d.d && (d.d.k === 'ball' || d.d.k === 'eball') && typeof d.d.id === 'string' && !items[d.d.id]) {
       var q = d.d, ok = ['s', 'x', 'z', 'y'].every(function (k) { return typeof q[k] === 'number' && isFinite(q[k]); });
-      if (ok) { addItem({ id: q.id.slice(0, 40), k: q.k, s: 0.2, x: q.x, z: q.z }, !!q.drop); var ni = items[q.id.slice(0, 40)]; ni.local = true; ni.ball = true; if (!q.drop) { ni.y = q.y; ni.settled = true; ni.ext = true; } ni.owner = ''; setOwner(ni, CODE_OWNER[q.o | 0] || 'neutral'); }
+      if (ok) { addItem({ id: q.id.slice(0, 40), k: q.k, s: 0.2, x: q.x, z: q.z }, !!q.drop); var ni = items[q.id.slice(0, 40)]; ni.local = true; ni.ball = true; if (!q.drop) { ni.y = q.y; ni.settled = true; ni.ext = true; } ni.owner = ''; ni.style = THROW_STYLES[q.st] ? q.st : ''; setOwner(ni, CODE_OWNER[q.o | 0] || 'neutral'); }
     }
     else if (d.t === 'idel' && role === 'control' && typeof d.id === 'string' && items[d.id] && items[d.id].local) removeItem(d.id);
     else if (d.t === 'xf' && role === 'control' && Array.isArray(d.i)) {
