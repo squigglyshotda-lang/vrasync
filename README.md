@@ -45,6 +45,7 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 
 ## VR player extras
 - Melee swat: swing a controller fast (over about 2 m/s) at an enemy that is within about 1.3 m of you. It is knocked back around 2 m, stunned for 1 s and takes 1 damage (0.5 s cooldown per hand). Swatting a Bomber bats it away and it explodes harmlessly. Stunned enemies cannot move or hurt you, but they are not frozen.
+- Accuracy and combo: the kill-streak multiplier (up to x5) is scaled by your recent accuracy, so 50% accuracy halves the bonus (you can see x2.5 and so on). A shot that ends without hitting anything and with no enemy within 3 m counts as a miss, and every 2 misses cost one kill off your streak. Tower shots never count. The VR HUD and toasts show COMBO x and COMBO DOWN.
 - Dual wielding: both controllers have a flashlight, and each trigger fires independently, so you can shoot with both hands at once.
 - Danger arrows: when an enemy is within 5 m, a red arrow appears on your visor pointing toward it (brighter and faster-pulsing the closer it gets; hidden for enemies straight ahead). Orange arrows point to Bombers within 12 m that are hunting towers.
 - Rally cry: squeeze both grips, or squeeze a grip with a hand raised above your head, to boost every tower's fire rate by 50% for 6 s (recharges after about 20 s more; the VR HUD shows READY or the countdown).

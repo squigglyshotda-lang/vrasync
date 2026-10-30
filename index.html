@@ -1246,7 +1246,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var UP_COST = [8, 14, 20, 28, 40], UP_MAX = 5, SCORE_VAL = { ghost: 100, runner: 60, wisp: 150, brute: 400, splitter: 200, mini: 40, teleporter: 250, shielded: 250, bat: 40, phantom: 300, bomber: 200 }, COIN_VAL = { ghost: 4, runner: 2, wisp: 6, brute: 16, splitter: 8, mini: 2, teleporter: 10, shielded: 10, bat: 2, phantom: 12, bomber: 8 }, ORB_RANGE = 9, BATT_REGEN = 12, BATT_ADD = 45, ORB_SPEED = 22, FREEZE_R = 2.2, PUSH_R = 3.5, BOMB_R = 2.6, BLAST_R = 4.5;
   var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
             toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0, coins: 0, battery: 100, orbs: [], zones: [], drops: [], up: { dmg: 0, bat: 0, rng: 0 }, hitT: 0, fireCd: 0,
-            score: 0, pending: false, rally: { act: 0, cd: 0 }, combo: { n: 0, t: 0, m: 1 }, towers: [], walls: [], q: [], nextQ: null, fx: { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }, blasts: 0, cd: 0, cdN: 0, dying: 0, deadT: 0, inv: 0, clr: false };
+            score: 0, pending: false, rally: { act: 0, cd: 0 }, combo: { n: 0, t: 0, m: 1 }, acc: { h: 0, m: 0, mc: 0 }, towers: [], walls: [], q: [], nextQ: null, fx: { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }, blasts: 0, cd: 0, cdN: 0, dying: 0, deadT: 0, inv: 0, clr: false };
   var gameGroup = new THREE.Group(); scene.add(gameGroup);
   var gm = {}, enemyGeo = new THREE.CylinderGeometry(0.2, 0.25, 1.0, 12), headGeo = new THREE.SphereGeometry(0.16, 12, 8),
       noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), 
@@ -1620,13 +1620,13 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function fxLine() {
     var a = []; ['rapid', 'pierce', 'slow', 'free', 'dbl', 'magnet'].forEach(function (k) { if (G.fx[k] > 0) a.push(PU_INFO[k].s + ' ' + Math.ceil(G.fx[k])); });
     if (G.fx.shield > 0) a.unshift('SHIELD'); if (G.blasts > 0) a.push('BLAST x' + G.blasts);
-    if (G.rally.act > 0) a.push('RALLY ' + Math.ceil(G.rally.act)); if (G.combo.m > 1 && G.combo.t > 0) a.push('COMBO x' + G.combo.m);
+    if (G.rally.act > 0) a.push('RALLY ' + Math.ceil(G.rally.act)); if (G.combo.m > 1 && G.combo.t > 0) a.push('COMBO x' + fmtMult(G.combo.m));
     return a.join('  ');
   }
   function gameStart() {
     localBalls().forEach(removeLocal);
     G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.up = { dmg: 0, bat: 0, rng: 0 }; G.running = true; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.budget = 6; G.pingT = 0;
-    G.fx = { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }; G.blasts = 0; G.towers = []; G.walls = []; G.q = []; G.nextQ = { n: 1, q: makeQueue(1) }; G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.score = 0; G.pending = false; G.cd = 3; G.cdN = 4; G.dying = 0; G.deadT = 0; G.inv = 0; G.clr = false; G.toSpawn = 0; G.breakT = 0;
+    G.fx = { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }; G.blasts = 0; G.towers = []; G.walls = []; G.q = []; G.nextQ = { n: 1, q: makeQueue(1) }; G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.acc = { h: 0, m: 0, mc: 0 }; G.score = 0; G.pending = false; G.cd = 3; G.cdN = 4; G.dying = 0; G.deadT = 0; G.inv = 0; G.clr = false; G.toSpawn = 0; G.breakT = 0;
     ev.bn = null; overlay(0xff0000, 0, 0, 4);
   }
   function countdownStep(dt) {
@@ -1820,12 +1820,28 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (!actx || actx.state !== 'running') return;
     var t = actx.currentTime + 0.01, g = voiceAt(x, 1.1, z, 10); tone(g, 'sine', 500, 2600, t, 0.55, 0.45); tone(g, 'triangle', 250, 1300, t, 0.55, 0.3);
   }
+  // ---- accuracy: the kill-streak multiplier is scaled by recent accuracy, and misses eat the streak ----
+  function accRatio() { var a = G.acc; return (a.h + 2) / (a.h + a.m + 2); }
+  function comboMult() { var base = Math.min(5, 1 + Math.floor(G.combo.n / 3)); return Math.max(1, Math.round((1 + (base - 1) * accRatio()) * 10) / 10); }
+  function fmtMult(m) { return m % 1 ? m.toFixed(1) : String(m); }
+  function comboChange(cb, mult) {
+    if (mult > cb.m + 0.05) toast('COMBO x' + fmtMult(mult), mult >= 4 ? '#ff6b6b' : '#ffa63a');
+    else if (mult < cb.m - 0.05 && cb.t > 0) toastOnce('cdn', 'COMBO DOWN x' + fmtMult(mult), '#8aa0ff', 1.2);
+    cb.m = mult;
+  }
+  function shotResult(hit, x, z) {   // called when a player shot ends; a miss only counts if no enemy was within 3 m
+    var a = G.acc;
+    if (hit) a.h++; else if (!G.enemies.some(function (e) { return Math.hypot(e.x - x, e.z - z) < 3; })) {
+      a.m++; a.mc++; if (a.mc >= 2) { a.mc = 0; if (G.combo.n > 0 && G.combo.t > 0) G.combo.n--; }
+    } else return;
+    if (a.h + a.m > 20) { a.h *= 0.8; a.m *= 0.8; }
+    if (G.combo.t > 0) comboChange(G.combo, comboMult());
+  }
   function defeat(e, crit) {
     G.enemies.splice(G.enemies.indexOf(e), 1); G.kills++; soundTone(e.x, 0.8, e.z, 500, 120, 0.3, 1, 'square');
     fxEmit(crit ? 'crit' : 'pop', e.x, FLY[e.type] ? e.y : 1.2 * (e.sc || 1), e.z);
-    var cb = G.combo; cb.n = cb.t > 0 ? cb.n + 1 : 1; cb.t = 3; var mult = Math.min(5, 1 + Math.floor(cb.n / 3));
-    if (mult > cb.m) toast('COMBO x' + mult, mult >= 4 ? '#ff6b6b' : '#ffa63a'); cb.m = mult;
-    G.coins += (COIN_VAL[e.type || 'ghost'] || 1) * (G.fx.dbl > 0 ? 2 : 1) * mult; G.score += (SCORE_VAL[e.type || 'ghost'] || 50) * mult;
+    var cb = G.combo; cb.n = cb.t > 0 ? cb.n + 1 : 1; cb.t = 3; var mult = comboMult(); comboChange(cb, mult);
+    G.coins += Math.round((COIN_VAL[e.type || 'ghost'] || 1) * (G.fx.dbl > 0 ? 2 : 1) * mult); G.score += Math.round((SCORE_VAL[e.type || 'ghost'] || 50) * mult);
     var dc = e.type === 'brute' ? 0.5 : (e.type === 'runner' || e.type === 'mini' || e.type === 'bat') ? 0.05 : 0.12;
     if (G.drops.length < 20 && !G.drops.some(function (d) { return !d.pk; }) && Math.random() < dc) { G.drops.push({ id: G.nid++, x: e.x, z: e.z, val: e.type === 'brute' ? 100 : 50, life: 12, max: 12 }); soundTone(e.x, 0.6, e.z, 800, 1400, 0.15, 2, 'sine'); }
     var pr = e.type === 'brute' ? 0.18 : (e.type === 'runner' || e.type === 'mini' || e.type === 'bat') ? 0.01 : (e.type === 'teleporter' || e.type === 'shielded' || e.type === 'phantom') ? 0.06 : 0.035;
@@ -2108,7 +2124,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         var da = Math.atan2(o.x - e.x, o.z - e.z) - (e.face + e.sh); da = Math.atan2(Math.sin(da), Math.cos(da));
         if (Math.abs(da) < 0.95) { e.flash = 0.7; soundTone(e.x, o.y, e.z, 2000, 900, 0.12, 1.6, 'square'); fxEmit('hit', o.x, o.y, o.z); return true; }
       }
-      var head = !o.tw && (fly ? o.y > e.y : o.y > 1.0 * sc), shat = !o.tw && (e.frz || e.chilled); e.hp -= o.tw ? o.dmg : (1 + dmgBonus()) * (head ? 2 : 1) * (shat ? 2 : 1); e.flash = 1;
+      var head = !o.tw && (fly ? o.y > e.y : o.y > 1.0 * sc), shat = !o.tw && (e.frz || e.chilled); if (!o.tw) o.landed = true; e.hp -= o.tw ? o.dmg : (1 + dmgBonus()) * (head ? 2 : 1) * (shat ? 2 : 1); e.flash = 1;
       soundTone(e.x, o.y, e.z, head ? 700 : 260, head ? 1100 : 120, 0.16, 1, 'square');
       if (e.hp <= 0) {
         defeat(e, head);
@@ -2126,7 +2142,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       var o = G.orbs[i]; o.life -= dt;
       var n = Math.max(1, Math.ceil(ORB_SPEED * dt / 0.2)), h = dt / n, hit = false;
       for (var s = 0; s < n && !hit; s++) { o.x += o.vx * h; o.y += o.vy * h; o.z += o.vz * h; if (auth && G.running) hit = orbHit(o); }
-      if (hit || o.life <= 0 || o.y < 0) { G.orbs.splice(i, 1); if (auth) linkSend({ t: 'od', id: o.id }); }
+      if (hit || o.life <= 0 || o.y < 0) { if (auth && G.running && !o.tw) shotResult(!!o.landed, o.x, o.z); G.orbs.splice(i, 1); if (auth) linkSend({ t: 'od', id: o.id }); }
     }
   }
   var SNAP_TOOLS = { lantern: 1, frost: 1, tesla: 1, wall: 1, wall2: 1, wallL: 1, freeze: 1, decoy: 1, bomb: 1 };
@@ -2250,7 +2266,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.towers = (Array.isArray(d.tw) ? d.tw : []).filter(function (a) { return nums(a, 6) && TW_KINDS[a[1]]; }).slice(0, 12).map(function (a) { return { id: a[0], kind: TW_KINDS[a[1]], x: a[2], z: a[3], lv: Math.max(0, Math.min(2, a[4] | 0)), hp: Math.max(0, Math.min(100, a[5])), hpMax: 100 }; });
     G.walls = (Array.isArray(d.wl) ? d.wl : []).filter(function (a) { return nums(a, 3); }).slice(0, 30).map(function (a) { var sh = WALL_KINDS[a[4] | 0] || 'wall', rt = (a[5] | 0) & 3; return { id: a[0], x: a[1], z: a[2], shape: sh, rot: rt, lv: Math.max(0, Math.min(2, a[6] | 0)), cells: wallCells(sh, a[1], a[2], rt), hp: a.length > 3 ? Math.max(0, Math.min(100, a[3])) : 100, hpMax: 100 }; });
     if (Array.isArray(d.ry) && d.ry.length >= 2) G.rally = { act: Math.max(0, +d.ry[0] || 0), cd: Math.max(0, +d.ry[1] || 0) };
-    if (Array.isArray(d.cb) && d.cb.length >= 2) G.combo = { n: 0, m: Math.max(1, Math.min(5, d.cb[0] | 0)), t: Math.max(0, +d.cb[1] || 0) };
+    if (Array.isArray(d.cb) && d.cb.length >= 2) G.combo = { n: 0, m: Math.max(1, Math.min(5, +d.cb[0] || 1)), t: Math.max(0, +d.cb[1] || 0) };
     G.score = Math.max(0, +d.sc || 0); G.plan = !!d.pl; G.planT = +d.pt || 0; G.planW = +d.nw || 0; G.planC = Array.isArray(d.nx) ? d.nx.slice(0, 12).map(function (v) { return v | 0; }) : [];
     G.barriers = []; G.turrets = [];
     refreshGame();
@@ -2423,7 +2439,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var opts = { skill: 1, bot: true, practice: false, slow: false, invincible: false, inf: false };
   var solo = { head: false, control: false }, bc = { t: 0, lastId: 0, overT: 0 }, soloBtn = $('soloBtn'), soloHead = $('soloHead');
   function resetGame() {
-    G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.towers = []; G.walls = []; G.q = []; G.nextQ = null; G.cd = 0; G.dying = 0; G.blasts = 0; Object.keys(G.fx).forEach(function (k) { G.fx[k] = 0; }); clearEvents();
+    G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.acc = { h: 0, m: 0, mc: 0 }; G.towers = []; G.walls = []; G.q = []; G.nextQ = null; G.cd = 0; G.dying = 0; G.blasts = 0; Object.keys(G.fx).forEach(function (k) { G.fx[k] = 0; }); clearEvents();
     localBalls().forEach(removeLocal);
     G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.running = false; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.toSpawn = 0;
   }
