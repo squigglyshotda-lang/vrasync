@@ -44,3 +44,24 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 - Combo: kills within 3 s of each other build a coin multiplier up to x5.
 - Bomb chain: shooting a bomb that catches several enemies pays bonus coins.
 - Headshots that kill give +2 coins and a small battery refund.
+
+## Score and scoreboard
+- Kills score by enemy type (ghost 100 up to brute 400, phantom 300), multiplied by the combo (x1 to x5), plus a bonus of 250 x wave for each wave cleared. The score shows on the VR HUD and in the control page's top bar.
+- When a run ends and the score makes the top 10, the control page asks for the VR player's and the controller's initials and saves them. The VR death card says "TOP 10" and waits (the VR trigger will not restart the run) until the controller has saved or skipped.
+- Shared online board: create a free Firebase project, add a Realtime Database, paste its URL into `SCORE_DB_URL` near the top of the game code in `index.html`, and set the database rules to:
+
+```json
+{
+  "rules": {
+    "scores": {
+      ".read": true,
+      ".indexOn": ["score"],
+      "$id": {
+        ".write": "!data.exists()",
+        ".validate": "newData.hasChildren(['score','wave','vr','ctl','t']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() < 10000000 && newData.child('vr').isString() && newData.child('vr').val().length <= 3 && newData.child('ctl').isString() && newData.child('ctl').val().length <= 3"
+      }
+    }
+  }
+}
+```
+- Until a URL is set (or if the database can't be reached) scores are kept on that device only, and the board says so.
