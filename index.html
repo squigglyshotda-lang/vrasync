@@ -1785,8 +1785,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var cb = G.combo; cb.n = cb.t > 0 ? cb.n + 1 : 1; cb.t = 3; var mult = Math.min(5, 1 + Math.floor(cb.n / 3));
     if (mult > cb.m) toast('COMBO x' + mult, mult >= 4 ? '#ff6b6b' : '#ffa63a'); cb.m = mult;
     G.coins += (COIN_VAL[e.type || 'ghost'] || 1) * (G.fx.dbl > 0 ? 2 : 1) * mult; G.score += (SCORE_VAL[e.type || 'ghost'] || 50) * mult;
-    var dc = e.type === 'brute' ? 1 : (e.type === 'runner' || e.type === 'mini') ? 0.16 : 0.33;
-    if (G.drops.length < 20 && Math.random() < dc) { G.drops.push({ id: G.nid++, x: e.x, z: e.z, val: e.type === 'brute' ? 100 : 50, life: 12, max: 12 }); soundTone(e.x, 0.6, e.z, 800, 1400, 0.15, 2, 'sine'); }
+    var dc = e.type === 'brute' ? 0.5 : (e.type === 'runner' || e.type === 'mini' || e.type === 'bat') ? 0.05 : 0.12;
+    if (G.drops.length < 20 && !G.drops.some(function (d) { return !d.pk; }) && Math.random() < dc) { G.drops.push({ id: G.nid++, x: e.x, z: e.z, val: e.type === 'brute' ? 100 : 50, life: 12, max: 12 }); soundTone(e.x, 0.6, e.z, 800, 1400, 0.15, 2, 'sine'); }
     var pr = e.type === 'brute' ? 0.18 : (e.type === 'runner' || e.type === 'mini' || e.type === 'bat') ? 0.01 : (e.type === 'teleporter' || e.type === 'shielded' || e.type === 'phantom') ? 0.06 : 0.035;
     if (G.drops.length < 20 && !G.drops.some(function (d) { return d.pk; }) && Math.random() < pr) { G.drops.push({ id: G.nid++, x: e.x + 0.6, z: e.z, val: 0, pk: PU[Math.floor(Math.random() * PU.length)], life: 14, max: 14 }); soundTone(e.x, 0.6, e.z, 600, 1800, 0.2, 2.5, 'triangle'); }
     if (e.type === 'splitter') { [-1, 1].forEach(function (k) { var m = addEnemy('mini', e.x + k * 0.4, e.z); m.kx = k * 3; }); soundEnemySpawn('splitter', e.x, e.z); }
