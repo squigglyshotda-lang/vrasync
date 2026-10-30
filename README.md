@@ -33,7 +33,9 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 ## Tower defence for the control player
 - Coins are the one currency: flashlight upgrades, towers, walls and traps all cost coins. Enemies pay out double what they used to.
 - Towers (max 6): Lantern (shoots), Frost (slows enemies in range), Tesla (chain lightning), Battery (recharges the VR flashlight). Tap a built tower to upgrade it (3 levels) or sell it for half back.
-- Walls (max 12): ground enemies walk around them, so lines of walls steer the crowd. Flyers (wisps, bats) and teleporters ignore the maze. Enemies that reach a tower chew on it until it breaks.
+- Walls (max 12): ground enemies walk around them, so lines of walls steer the crowd. Flyers (wisps, bats) and teleporters ignore the maze. Ground enemies within about 3.5 m of a tower or wall go for it and chew it until it breaks (walls have 8 HP, towers 10/14/18 by level), so walls also work as bait and towers need protecting. Sell and rebuild, or upgrade a tower to refill its health.
+- Bot skill: Test tools (control page) and the headset test options both have a Bot skill button cycling Beginner, Average, Good and Expert. It changes how well the practice bots shoot and how smartly they build.
+- The control player's headset-view panel shows only the game footage, without the VR player's HUD.
 - Traps: Freeze, Decoy and Bomb now cost coins. Push and Ping stay as quick abilities (Push uses build points).
 - Between waves you get 8 seconds of build time, with a preview of the next wave. The red zone on the map shows where enemies will appear (the 180 degrees in front of the VR player).
 - Keys: 1-4 towers, 5 wall, 6 Freeze, 7 Decoy, 8 Bomb, 9 Push, 0 Ping, Q/W/E flashlight upgrades, B Big blast, U upgrade and X sell the selected tower.

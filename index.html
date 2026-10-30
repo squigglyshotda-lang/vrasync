@@ -223,7 +223,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       <output class="gstats" id="gStats">Game not started</output>
       <details class="cfg"><summary aria-label="Link and test settings">Link</summary><div class="cfgbody">
       <div class="pairbox"><label for="codeIn">Code</label><input id="codeIn" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD" aria-describedby="note"><button id="codeGo" type="button">Link</button></div>
-        <details class="rkset testmenu"><summary>Test tools</summary><button class="gsolo" id="soloBtn" type="button" aria-pressed="false" title="Plays the game on this page with a bot as the VR player, no headset needed">Solo test: off</button></details>
+        <details class="rkset testmenu"><summary>Test tools</summary><button class="gsolo" id="soloBtn" type="button" aria-pressed="false" title="Plays the game on this page with a bot as the VR player, no headset needed">Solo test: off</button><button class="gsolo" id="botSkill" type="button" title="How well the bot plays">Bot skill: Average</button></details>
       </div></details>
     </div>
     <p id="note" role="status"></p>
@@ -279,6 +279,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     <div class="pair"><span class="pair-label">Pairing code</span><output id="pairCode" class="pair-code" aria-live="polite">····</output><span id="pairState" class="pair-state">Getting a code…</span><span id="pairUrl" class="pair-url"></span><button class="gsolo" id="soloHead" type="button" aria-pressed="false" title="Play without a control player. The game starts when you enter VR or MR.">Solo test: off</button>
     <div class="soloopts" id="soloOpts" hidden>
       <button class="gsolo" id="optBot" type="button" aria-pressed="true">Bot controller: on</button>
+      <button class="gsolo" id="optSkill" type="button" title="How well the bot plays">Bot skill: Average</button>
       <button class="gsolo" id="optPractice" type="button" aria-pressed="false">Practice enemy: off</button>
       <button class="gsolo" id="optSlow" type="button" aria-pressed="false">Slow enemies: off</button>
       <button class="gsolo" id="optInv" type="button" aria-pressed="false">Invincible: off</button>
@@ -1213,7 +1214,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var c = THROW_STYLES[k]; itemMats['eball_' + k] = new THREE.MeshStandardMaterial({ color: c.col, emissive: c.em, emissiveIntensity: 0.6, roughness: 0.5, flatShading: true });
   });
   var COST = { push: 3 }, BUDGET_MAX = 12;
-  var TRAP = { freeze: 8, decoy: 10, bomb: 12 }, WALL_COST = 4, WALL_MAX = 12, TOWER_MAX = 6, WALL_R = 0.5, TOWER_R = 0.5;
+  var TRAP = { freeze: 8, decoy: 10, bomb: 12 }, WALL_COST = 4, WALL_MAX = 12, TOWER_MAX = 6, WALL_R = 0.5, TOWER_R = 0.5, WALL_HP = 8, AGGRO = 3.6;
   var TW = {
     lantern: { n: 'Lantern', cost: 20, c: '#ffd25a', range: [7, 7.5, 8], gap: [1.1, 0.8, 0.55], dmg: [1, 1, 2] },
     frost: { n: 'Frost', cost: 20, c: '#7fd4ff', range: [3.5, 4, 4.6], slow: [0.55, 0.4, 0.28] },
@@ -1474,7 +1475,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       var lk = t.lv + ':' + Math.round(10 * t.hp / t.hpMax); if (lk !== u.key) { u.key = lk; drawTowerLabel(u, t); }
       if (t.kind === 'frost') u.body.rotation.y = performance.now() / 2500;
     });
-    G.walls.forEach(function (w) { var key = 'W' + w.id; seen[key] = 1; var m = gm[key]; if (!m) { m = gm[key] = mkWall(); gameGroup.add(m); } m.position.set(w.x, 0, w.z); });
+    G.walls.forEach(function (w) { var key = 'W' + w.id; seen[key] = 1; var m = gm[key]; if (!m) { m = gm[key] = mkWall(); gameGroup.add(m); } m.position.set(w.x, 0, w.z); var wf = Math.max(0.3, w.hp / w.hpMax); m.scale.y = 0.55 + 0.45 * wf; m.rotation.z = wf < 0.5 ? 0.12 : 0; });
     var sf = selId != null ? findStruct(selId) : null; if (sf) { selRing.position.set(sf.o.x, 0.06, sf.o.z); selRing.visible = true; if (!selRing.parent) gameGroup.add(selRing); } else selRing.visible = false;
     Object.keys(gm).forEach(function (k) { if (!seen[k]) { gameGroup.remove(gm[k]); delete gm[k]; } });
   }
@@ -1684,6 +1685,10 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var i = G.towers.indexOf(t); if (i < 0) return; G.towers.splice(i, 1);
     fxEmit('pop', t.x, 0.8, t.z); soundTone(t.x, 0.6, t.z, 300, 60, 0.5, 3, 'sawtooth'); toast(TW[t.kind].n.toUpperCase() + ' DESTROYED', '#ff6b6b');
   }
+  function destroyWall(w) {
+    var i = G.walls.indexOf(w); if (i < 0) return; G.walls.splice(i, 1);
+    fxEmit('pop', w.x, 0.6, w.z); soundTone(w.x, 0.6, w.z, 260, 70, 0.4, 2.5, 'sawtooth'); toastOnce('wallx', 'WALL DESTROYED', '#ff6b6b', 1.5);
+  }
   function visibleEnemy(e) { return !(e.type === 'phantom' && e.alpha < 0.45); }
   function nearestTo(x, z, rng, skip) {
     var best = null, bd = rng; G.enemies.forEach(function (e) { if (skip && skip[e.id] || !visibleEnemy(e)) return; var d = Math.hypot(e.x - x, e.z - z); if (d < bd) { bd = d; best = e; } }); return best;
@@ -1825,7 +1830,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       var tx = hp.x, tz = hp.z, dec = null, bd = 7;
       G.zones.forEach(function (z) { if (z.kind === 'decoy') { var dd = Math.hypot(z.x - e.x, z.z - e.z); if (dd < bd) { bd = dd; dec = z; } } });
       if (dec) { tx = dec.x; tz = dec.z; }
-      var ET = ETYPES[e.type || 'ghost'], dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, stopD = (dec ? 0.5 : 0.75) + 0.2 * (ET.sc - 1);
+      var tgt = null;
+      if (!dec && !dead) { var ab = AGGRO; obst.forEach(function (o) { var dd = Math.hypot(o.x - e.x, o.z - e.z); if (dd < ab && dd < Math.hypot(hp.x - e.x, hp.z - e.z)) { ab = dd; tgt = o; } }); if (tgt) { tx = tgt.x; tz = tgt.z; } }
+      var ET = ETYPES[e.type || 'ghost'], dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, stopD = (dec ? 0.5 : tgt ? (tgt.kind ? TOWER_R : WALL_R) + 0.3 * ET.sc + 0.05 : 0.75) + 0.2 * (ET.sc - 1);
       e.ph = (e.ph || 0) + dt * 2; if (e.type === 'wisp') e.y = 1.35 + 0.3 * Math.sin(e.ph * 0.8); else if (e.type === 'bat') e.y = 1.5 + 0.55 * Math.sin(e.ph * 1.7 + e.id);
       e.face = Math.atan2(dx, dz);
       e.frz = G.zones.some(function (z) { return z.kind === 'freeze' && Math.hypot(z.x - e.x, z.z - e.z) < FREEZE_R; });
@@ -1845,7 +1852,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       if (!e.frz) {
         if (dist > stopD) { var sp = (0.9 + 0.04 * G.wave) * ET.spd * slowMul * chill, st = Math.min(sp * dt, dist - stopD); e.x += dx / dist * st; e.z += dz / dist * st;
           if (FLY[e.type] && dist > 2) { var wv = (e.type === 'bat' ? Math.cos(e.ph * 2.4) * 3.2 : Math.cos(e.ph) * 0.9) * dt; e.x += -dz / dist * wv; e.z += dx / dist * wv; } }
-        else if (dec) dec.life -= dt; else touching += ET.drain;
+        else if (dec) dec.life -= dt;
+        else if (tgt) { tgt.hp -= 1.5 * ET.drain * dt; tgt.hit = 0.3; if (tgt.hp <= 0) { if (tgt.kind) destroyTower(tgt); else destroyWall(tgt); var ti = obst.indexOf(tgt); if (ti >= 0) obst.splice(ti, 1); } }
+        else touching += ET.drain;
       }
       if (!FLY[e.type]) {   // walls and towers are in the way: slide around them; towers get chewed
         var er = 0.3 * ET.sc;
@@ -1854,7 +1863,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
           if (od >= mind) continue; if (od < 0.001) { ox = 1; oz = 0; od = 1; }
           var nx = ox / od, nz = oz / od, tx2 = -nz, tz2 = nx; if (tx2 * dx + tz2 * dz < 0) { tx2 = -tx2; tz2 = -tz2; }
           var slide = Math.max(0.6, 0.9 * ET.spd) * dt * slowMul; e.x = ob.x + nx * mind + tx2 * slide; e.z = ob.z + nz * mind + tz2 * slide;
-          if (ob.kind && !dead && !e.frz) { ob.hp -= 1.5 * ET.drain * dt; ob.hit = 0.3; if (ob.hp <= 0) { destroyTower(ob); obst.splice(oi, 1); oi--; } }
+          if (ob !== tgt && !dead && !e.frz && !FLY[e.type]) { ob.hp -= 1.5 * ET.drain * dt; ob.hit = 0.3; if (ob.hp <= 0) { if (ob.kind) destroyTower(ob); else destroyWall(ob); obst.splice(oi, 1); oi--; } }
         }
       }
     });
@@ -2078,7 +2087,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       if (isW ? G.walls.length >= WALL_MAX : G.towers.length >= TOWER_MAX) return;
       x = Math.max(-11, Math.min(11, x)); z = Math.max(-11, Math.min(11, z)); if (!structFree(x, z, isW ? 0.85 : 1.1)) return;
       G.coins -= price;
-      if (isW) G.walls.push({ id: G.nid++, x: x, z: z }); else G.towers.push({ id: G.nid++, kind: bk, x: x, z: z, lv: 0, hp: TW_HP[0], hpMax: TW_HP[0], cd: 0.6 });
+      if (isW) G.walls.push({ id: G.nid++, x: x, z: z, hp: WALL_HP, hpMax: WALL_HP }); else G.towers.push({ id: G.nid++, kind: bk, x: x, z: z, lv: 0, hp: TW_HP[0], hpMax: TW_HP[0], cd: 0.6 });
       soundTone(x, 0.5, z, 200, 500, 0.2, 2.5, 'triangle'); toast('BUILT ' + (isW ? 'WALL' : TW[bk].n.toUpperCase()), isW ? '#b8b0c8' : TW[bk].c); return;
     }
     if (m.c === 'tup') {
@@ -2131,7 +2140,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       zn: G.zones.map(function (z) { return [z.id, ZC[z.kind], r3(z.x), r3(z.z), Math.round(1000 * z.life / z.max) / 1000]; }),
       dr: G.drops.map(function (d) { return [d.id, r3(d.x), r3(d.z), d.val, Math.round(1000 * d.life / d.max) / 1000, d.pk ? PU.indexOf(d.pk) + 1 : 0]; }),
       tw: G.towers.map(function (t) { return [t.id, TW_KINDS.indexOf(t.kind), r3(t.x), r3(t.z), t.lv, Math.round(100 * t.hp / t.hpMax)]; }),
-      wl: G.walls.map(function (w) { return [w.id, r3(w.x), r3(w.z)]; }),
+      wl: G.walls.map(function (w) { return [w.id, r3(w.x), r3(w.z), Math.round(100 * w.hp / w.hpMax)]; }),
       sc: G.score, ry: [Math.round(G.rally.act * 10) / 10, Math.round(G.rally.cd * 10) / 10], cb: [G.combo.m, Math.round(G.combo.t * 10) / 10],
       pl: G.cd > 0 || G.clr ? 1 : 0, pt: Math.round(Math.max(0, 8 - G.breakT) * 10) / 10, nw: G.nextQ ? G.nextQ.n : 0, nx: G.nextQ ? previewCounts(G.nextQ.q) : [] });
   }
@@ -2145,7 +2154,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.drops = (Array.isArray(d.dr) ? d.dr : []).filter(function (a) { return nums(a, 5); }).slice(0, 30).map(function (a) { var pi = (a[5] | 0) - 1; return { id: a[0], x: a[1], z: a[2], val: a[3], pk: PU[pi], life: a[4] * (pi >= 0 ? 14 : 12), max: pi >= 0 ? 14 : 12 }; });
     if (Array.isArray(d.fx) && d.fx.length >= 8) { var fk = ['rapid', 'pierce', 'shield', 'slow', 'free', 'dbl', 'magnet']; fk.forEach(function (k, ii) { G.fx[k] = Math.max(0, +d.fx[ii] || 0); }); G.blasts = Math.max(0, Math.min(3, d.fx[7] | 0)); }
     G.towers = (Array.isArray(d.tw) ? d.tw : []).filter(function (a) { return nums(a, 6) && TW_KINDS[a[1]]; }).slice(0, 12).map(function (a) { return { id: a[0], kind: TW_KINDS[a[1]], x: a[2], z: a[3], lv: Math.max(0, Math.min(2, a[4] | 0)), hp: Math.max(0, Math.min(100, a[5])), hpMax: 100 }; });
-    G.walls = (Array.isArray(d.wl) ? d.wl : []).filter(function (a) { return nums(a, 3); }).slice(0, 30).map(function (a) { return { id: a[0], x: a[1], z: a[2] }; });
+    G.walls = (Array.isArray(d.wl) ? d.wl : []).filter(function (a) { return nums(a, 3); }).slice(0, 30).map(function (a) { return { id: a[0], x: a[1], z: a[2], hp: a.length > 3 ? Math.max(0, Math.min(100, a[3])) : 100, hpMax: 100 }; });
     if (Array.isArray(d.ry) && d.ry.length >= 2) G.rally = { act: Math.max(0, +d.ry[0] || 0), cd: Math.max(0, +d.ry[1] || 0) };
     if (Array.isArray(d.cb) && d.cb.length >= 2) G.combo = { n: 0, m: Math.max(1, Math.min(5, d.cb[0] | 0)), t: Math.max(0, +d.cb[1] || 0) };
     G.score = Math.max(0, +d.sc || 0); G.plan = !!d.pl; G.planT = +d.pt || 0; G.planW = +d.nw || 0; G.planC = Array.isArray(d.nx) ? d.nx.slice(0, 12).map(function (v) { return v | 0; }) : [];
@@ -2304,7 +2313,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   });
 
   // ---------- solo testing: a bot plays the missing player ----------
-  var opts = { bot: true, practice: false, slow: false, invincible: false, inf: false };
+  var opts = { skill: 1, bot: true, practice: false, slow: false, invincible: false, inf: false };
   var solo = { head: false, control: false }, bc = { t: 0, lastId: 0, overT: 0 }, soloBtn = $('soloBtn'), soloHead = $('soloHead');
   function resetGame() {
     G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.towers = []; G.walls = []; G.q = []; G.nextQ = null; G.cd = 0; G.dying = 0; G.blasts = 0; Object.keys(G.fx).forEach(function (k) { G.fx[k] = 0; }); clearEvents();
@@ -2338,6 +2347,10 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       if (key === 'practice' && solo.head) { G.enemies = []; G.toSpawn = 0; G.practiceT = 0.5; }
     });
   }
+  var SKILLS = ['Beginner', 'Average', 'Good', 'Expert'];
+  function skillLabels() { ['optSkill', 'botSkill'].forEach(function (id) { var b = $(id); if (b) b.textContent = 'Bot skill: ' + SKILLS[opts.skill]; }); }
+  ['optSkill', 'botSkill'].forEach(function (id) { $(id).addEventListener('click', function () { opts.skill = (opts.skill + 1) % 4; skillLabels(); }); });
+  skillLabels();
   optToggle('optBot', 'bot', 'Bot controller'); optToggle('optPractice', 'practice', 'Practice enemy'); optToggle('optSlow', 'slow', 'Slow enemies'); optToggle('optInv', 'invincible', 'Invincible'); optToggle('optInf', 'inf', 'Infinite battery');
   function soloHeadStep(dt) {
     if (G.over) { bc.overT += dt; if (bc.overT > 6) { bc.overT = 0; gameStart(); bc.lastId = 0; } return; }
@@ -2346,34 +2359,38 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   soloBtn.addEventListener('click', function () { setSoloControl(!solo.control); });
   function botController(dt) {
     if (!G.running) return;
-    bc.t -= dt; if (bc.t > 0) return; bc.t = 0.9;
+    var sk = opts.skill; bc.t -= dt; if (bc.t > 0) return; bc.t = [2.5, 1.6, 0.9, 0.5][sk];
     var near = nearestEnemy(), newest = null;
     G.enemies.forEach(function (e) { if (e.id > bc.lastId) { newest = e; } });
     if (newest) { bc.lastId = newest.id; gameCmd({ c: 'ping', x: newest.x, z: newest.z }); }
     var nd = near ? Math.hypot(near.x - hp.x, near.z - hp.z) : 99;
     function has(k) { return G.zones.some(function (z) { return z.kind === k; }); }
     var spF = new THREE.Vector3(0, 0, -1).applyQuaternion(hq), ba = Math.atan2(spF.x, spF.z) + (Math.random() - 0.5) * 2.2;
-    if (G.towers.length < 4 && G.coins >= 20) { var kd = ['lantern', 'frost', 'tesla', 'gen'][G.towers.length % 4]; if (G.coins >= TW[kd].cost) gameCmd({ c: 'build', k: kd, x: hp.x + Math.sin(ba) * (3 + Math.random() * 3), z: hp.z + Math.cos(ba) * (3 + Math.random() * 3) }); }
-    else if (G.walls.length < 5 && G.coins >= 4 && G.towers.length >= 2) gameCmd({ c: 'build', k: 'wall', x: hp.x + Math.sin(ba) * 5, z: hp.z + Math.cos(ba) * 5 });
-    var low = G.towers.slice().sort(function (a, b) { return a.lv - b.lv; })[0]; if (low && low.lv < 2 && G.coins >= upCost(low) + 5) gameCmd({ c: 'tup', id: low.id });
+    if (G.towers.length < [2, 4, 5, 6][sk] && G.coins >= 20) { var kd = ['lantern', 'frost', 'tesla', 'gen'][G.towers.length % 4]; if (G.coins >= TW[kd].cost) gameCmd({ c: 'build', k: kd, x: hp.x + Math.sin(ba) * (3 + Math.random() * 3), z: hp.z + Math.cos(ba) * (3 + Math.random() * 3) }); }
+    else if (sk >= 2 && G.walls.length < (sk === 3 ? 10 : 5) && G.coins >= 4 && G.towers.length >= 2) gameCmd({ c: 'build', k: 'wall', x: hp.x + Math.sin(ba) * 5, z: hp.z + Math.cos(ba) * 5 });
+    var low = G.towers.slice().sort(function (a, b) { return a.lv - b.lv; })[0]; if (sk >= 1 && low && low.lv < 2 && G.coins >= upCost(low) + 5) gameCmd({ c: 'tup', id: low.id });
     var upk = ['dmg', 'bat', 'rng'].sort(function (a, b) { return G.up[a] - G.up[b]; })[0];
-    if (G.towers.length >= 3 && G.up[upk] < UP_MAX && G.coins >= UP_COST[G.up[upk]]) gameCmd({ c: 'upgrade', k: upk });
-    if (G.drops.length) gameCmd({ c: 'collect', id: G.drops[0].id });
-    else if (near && nd < 2.8 && G.budget >= COST.push) gameCmd({ c: 'push', x: hp.x + (near.x - hp.x) * 0.3, z: hp.z + (near.z - hp.z) * 0.3 });
-    else if (near && nd < 9 && G.coins >= TRAP.bomb && !has('bomb')) gameCmd({ c: 'bomb', x: near.x, z: near.z });
-    else if (near && nd < 10 && G.coins >= TRAP.freeze && !has('freeze')) gameCmd({ c: 'freeze', x: near.x, z: near.z });
+    if (sk >= 1 && G.towers.length >= Math.min(3, [2, 4, 5, 6][sk]) && G.up[upk] < UP_MAX && G.coins >= UP_COST[G.up[upk]]) gameCmd({ c: 'upgrade', k: upk });
+    if (sk >= 3 && G.blasts > 0 && G.enemies.length >= 3) { var cx = 0, cz = 0; G.enemies.forEach(function (q) { cx += q.x; cz += q.z; }); gameCmd({ c: 'blast', x: cx / G.enemies.length, z: cz / G.enemies.length }); }
+    if (G.drops.length) { if (sk > 0 || Math.random() < 0.4) gameCmd({ c: 'collect', id: G.drops[0].id }); }
+    else if (sk >= 1 && near && nd < 2.8 && G.budget >= COST.push) gameCmd({ c: 'push', x: hp.x + (near.x - hp.x) * 0.3, z: hp.z + (near.z - hp.z) * 0.3 });
+    else if (sk >= 2 && near && nd < 9 && G.coins >= TRAP.bomb && !has('bomb')) gameCmd({ c: 'bomb', x: near.x, z: near.z });
+    else if (sk >= 2 && near && nd < 10 && G.coins >= TRAP.freeze && !has('freeze')) gameCmd({ c: 'freeze', x: near.x, z: near.z });
   }
   var botCd = 0;
   function botVr(dt) {
     if (!G.running) return;
-    botCd = Math.max(0, botCd - dt); if (botCd > 0) return;
-    var bomb = null; G.zones.forEach(function (z) { if (z.kind === 'bomb' && !bomb && G.enemies.some(function (q) { return Math.hypot(q.x - z.x, q.z - z.z) < BOMB_R * 0.8; })) bomb = z; });
-    if (bomb) { botCd = 0.35; tryShoot(hp.x + 0.2, hp.y - 0.35, hp.z - 0.2, bomb.x - hp.x - 0.2, 0.25 - (hp.y - 0.35), bomb.z - hp.z + 0.2); return; }
+    var sk = opts.skill, CD = [0.9, 0.55, 0.35, 0.22][sk], AE = [1.2, 0.6, 0.3, 0.1][sk], HD = [0.1, 0.3, 0.4, 0.7][sk], RG = [8, 11, 14, 16][sk];
+    botCd = Math.max(0, botCd - dt);
+    if (sk >= 2 && G.towers.length && G.rally.cd <= 0 && G.enemies.some(function (q) { return Math.hypot(q.x - hp.x, q.z - hp.z) < 9; })) rallyCry();
+    if (botCd > 0) return;
+    var bomb = null; if (sk >= 2) G.zones.forEach(function (z) { if (z.kind === 'bomb' && !bomb && G.enemies.some(function (q) { return Math.hypot(q.x - z.x, q.z - z.z) < BOMB_R * 0.8; })) bomb = z; });
+    if (bomb) { botCd = CD; tryShoot(hp.x + 0.2, hp.y - 0.35, hp.z - 0.2, bomb.x - hp.x - 0.2, 0.25 - (hp.y - 0.35), bomb.z - hp.z + 0.2); return; }
     var e = nearestEnemy(); if (!e) return;
-    if (Math.hypot(e.x - hp.x, e.z - hp.z) > 14) return;
-    botCd = 0.35;
-    var es = e.sc || 1, ty = e.type === 'wisp' ? e.y : (Math.random() < 0.4 ? 1.25 : 0.8) * es;
-    tryShoot(hp.x + 0.2, hp.y - 0.35, hp.z - 0.2, e.x + (Math.random() - 0.5) * 0.3 - hp.x - 0.2, ty - (hp.y - 0.35), e.z + (Math.random() - 0.5) * 0.3 - hp.z + 0.2);
+    if (Math.hypot(e.x - hp.x, e.z - hp.z) > RG) return;
+    botCd = CD;
+    var es = e.sc || 1, ty = e.type === 'wisp' ? e.y : (Math.random() < HD ? 1.25 : 0.8) * es;
+    tryShoot(hp.x + 0.2, hp.y - 0.35, hp.z - 0.2, e.x + (Math.random() - 0.5) * AE - hp.x - 0.2, ty - (hp.y - 0.35), e.z + (Math.random() - 0.5) * AE - hp.z + 0.2);
   }
   function soloControlStep(dt, t) {
     remote.has = true; remote.tp.set(0, 1.6, 0); remote.e = G.energy;
@@ -2820,7 +2837,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     envFloor.visible = map || !mrLook;
     mapOnly.visible = map;
     for (var dk in gm) { var gu = gm[dk].userData; if (dk.charAt(0) === 'd' && gu.sp) gu.sp.scale.set(map ? 2.1 : 0.9, map ? 2.46 : 1.05, 1); else if (dk.charAt(0) === 'T' && gu.sp) { gu.sp.visible = map; gu.sp.scale.set(1.5, 1.76, 1); } }
-    visor.visible = hudGroup.visible = !map;
+    visor.visible = hudGroup.visible = !map && role !== 'control';
     scene.fog = mrLook && !map ? null : duskFog; duskFog.near = map ? 1e5 : 14; duskFog.far = map ? 2e5 : 46;
     mrOutline.visible = !map && role === 'control' && mrLook;
   }
