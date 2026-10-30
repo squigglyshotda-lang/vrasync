@@ -178,7 +178,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     </div>
     <div class="panels">
       <section class="panel" id="mapPanel" tabindex="0" aria-label="Map of the headset's world. Click to drop the chosen shape. With the keyboard, use the arrow keys to move the marker and Enter to drop.">
-        <span class="cap">Map · 8 × 8 m</span><span class="cap r">top = straight ahead</span>
+        <span class="cap">Map · play area 8 × 8 m</span><span class="cap r">top = straight ahead</span>
       </section>
       <section class="panel" id="viewPanel" aria-label="Live view from the headset">
         <span class="cap">Headset view</span><span class="cap r" id="viewMeta"></span>
@@ -203,7 +203,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 (function () {
   var rad = Math.PI / 180;
   var HUD = '#62f0d4', WARN = '#ff5a4d', MUTED = '#7aa0a8';
-  var MAX_ITEMS = 30, CLAMP = 3.9, DROP_Y = 2.8, MAP_HALF = 4.4;
+  var MAX_ITEMS = 30, CLAMP = 3.9, DROP_Y = 2.8, MAP_HALF = 12.5;
   function $(id) { return document.getElementById(id); }
   function noop() {}
   var stage = $('stage'), modeEl = $('mode'), hint = $('hint'), note = $('note');
@@ -239,9 +239,6 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var envVR = new THREE.Group(), envFloor = new THREE.Group();   // hidden in mixed reality (the real room shows instead)
   scene.add(envVR); scene.add(envFloor);
 
-  var roomShell = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 10),
-    new THREE.MeshStandardMaterial({ color: 0x10222c, side: THREE.BackSide, roughness: 0.9 }));
-  roomShell.position.y = 2; envVR.add(roomShell);
   var mrOutline = new THREE.Group(); mrOutline.visible = false; scene.add(mrOutline);
   (function () {
     var m = new THREE.LineBasicMaterial({ color: 0x62f0d4, transparent: true, opacity: 0.55 });
@@ -250,22 +247,24 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var gm = new THREE.LineBasicMaterial({ color: 0x62f0d4, transparent: true, opacity: 0.22 });
     mrOutline.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), gm));
   })();
-  var floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshStandardMaterial({ color: 0x0a141a, roughness: 1 }));
+  var floorCv = document.createElement('canvas'); floorCv.width = floorCv.height = 1024;
+  (function () {
+    var g = floorCv.getContext('2d'), N = 1024, M = 40, px = N / M;
+    g.fillStyle = '#0a141a'; g.fillRect(0, 0, N, N);
+    g.lineWidth = 1.5; g.strokeStyle = 'rgba(42,106,114,0.9)';
+    for (var i = -M / 2; i <= M / 2; i += 1) {
+      var q = (i + M / 2) * px; g.beginPath(); g.moveTo(q, 0); g.lineTo(q, N); g.moveTo(0, q); g.lineTo(N, q); g.stroke();
+    }
+    g.lineWidth = 5; g.strokeStyle = 'rgba(98,240,212,0.95)'; g.strokeRect((M / 2 - 4) * px, (M / 2 - 4) * px, 8 * px, 8 * px);
+    g.globalCompositeOperation = 'destination-in';
+    var rg = g.createRadialGradient(N / 2, N / 2, N * 0.06, N / 2, N / 2, N / 2);
+    rg.addColorStop(0, 'rgba(0,0,0,1)'); rg.addColorStop(0.55, 'rgba(0,0,0,0.75)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, N, N);
+  })();
+  var floorTex = new THREE.CanvasTexture(floorCv); floorTex.anisotropy = 4;
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ map: floorTex, transparent: true, depthWrite: false }));
   floor.rotation.x = -Math.PI / 2; floor.position.y = 0.003; envFloor.add(floor);
-  var grid = new THREE.GridHelper(10, 20, 0x2a6a72, 0x143640); grid.position.y = 0.01; envFloor.add(grid);
 
-  var stripMat = new THREE.MeshBasicMaterial({ color: 0x62f0d4 });
-  [[0, 2.6, -4.95, 6, 0.06, 0.04], [0, 2.6, 4.95, 6, 0.06, 0.04], [-4.95, 2.6, 0, 0.04, 0.06, 6], [4.95, 2.6, 0, 0.04, 0.06, 6]]
-    .forEach(function (s) {
-      var m = new THREE.Mesh(new THREE.BoxGeometry(s[3], s[4], s[5]), stripMat);
-      m.position.set(s[0], s[1], s[2]); envVR.add(m);
-    });
-  var crateMat = new THREE.MeshStandardMaterial({ color: 0x1b3440, roughness: 0.7, metalness: 0.2 });
-  [[-2.6, .4, -2.2, .8], [2.8, .3, -3, .6], [3.4, .5, 1.6, 1], [-3.2, .35, 2.4, .7], [0.6, .25, 3.2, .5], [-1.2, .6, -4, 1.2]]
-    .forEach(function (b) {
-      var m = new THREE.Mesh(new THREE.BoxGeometry(b[3], b[3], b[3]), crateMat);
-      m.position.set(b[0], b[1], b[2]); m.rotation.y = b[0]; envFloor.add(m);
-    });
   var ring = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.035, 12, 72), new THREE.MeshBasicMaterial({ color: 0x62f0d4 }));
   ring.position.set(0, 1.5, -3.6); envVR.add(ring);
 
@@ -607,8 +606,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       if (!it.held.length && !it.settled && !it.ext) {
         var d = it.d, rest = it.rest * it.f, k;
         it.vy -= 9.8 * dt; it.y += it.vy * dt; d.x += it.vx * dt; d.z += it.vz * dt;
-        if (Math.abs(d.x) > CLAMP) { d.x = d.x > 0 ? CLAMP : -CLAMP; it.vx *= -0.5; }
-        if (Math.abs(d.z) > CLAMP) { d.z = d.z > 0 ? CLAMP : -CLAMP; it.vz *= -0.5; }
+        var cl = it.local ? 16 : CLAMP;
+        if (Math.abs(d.x) > cl) { d.x = d.x > 0 ? cl : -cl; it.vx *= -0.5; }
+        if (Math.abs(d.z) > cl) { d.z = d.z > 0 ? cl : -cl; it.vz *= -0.5; }
         if (it.y > 3.6) { it.y = 3.6; it.vy = -Math.abs(it.vy) * 0.3; }
         if (it.y <= rest) {
           it.y = rest;
@@ -846,14 +846,15 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   itemMats.ball = new THREE.MeshStandardMaterial({ color: 0xe6ff5a, emissive: 0xe6ff5a, emissiveIntensity: 0.25, roughness: 0.4 });
   itemMats.eball = new THREE.MeshStandardMaterial({ color: 0xff4d3a, emissive: 0xff4d3a, emissiveIntensity: 0.45, roughness: 0.4 });
   itemMats.pball = new THREE.MeshStandardMaterial({ color: 0x62f0d4, emissive: 0x62f0d4, emissiveIntensity: 0.4, roughness: 0.4 });
-  var COST = { ball: 1, barrier: 3, turret: 5 }, BUDGET_MAX = 12, STOP_DIST = 3;
+  var COST = { ball: 1, barrier: 3, turret: 5 }, BUDGET_MAX = 12, STOP_DIST = 5;
   var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
             toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0 };
   var gameGroup = new THREE.Group(); scene.add(gameGroup);
   var gm = {}, enemyGeo = new THREE.CylinderGeometry(0.2, 0.25, 1.0, 12), headGeo = new THREE.SphereGeometry(0.16, 12, 8),
-      noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), barGeo = new THREE.BoxGeometry(1.3, 0.95, 0.14),
-      turBase = new THREE.CylinderGeometry(0.17, 0.22, 0.35, 12), turHead = new THREE.SphereGeometry(0.15, 12, 8);
-  var barMat = new THREE.MeshStandardMaterial({ color: 0x4aa8ff, emissive: 0x4aa8ff, emissiveIntensity: 0.3, roughness: 0.5 });
+      noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), barGeo = new THREE.BoxGeometry(1.3, 1.7, 0.1),
+      turBase = new THREE.CylinderGeometry(0.16, 0.24, 1.45, 14), turHead = new THREE.SphereGeometry(0.22, 14, 10);
+  var barMat = new THREE.MeshStandardMaterial({ color: 0x4aa8ff, emissive: 0x4aa8ff, emissiveIntensity: 0.5, roughness: 0.3, transparent: true, opacity: 0.32, depthWrite: false });
+  var barEdge = new THREE.LineBasicMaterial({ color: 0x9bd4ff, transparent: true, opacity: 0.9 }), barEdgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.3, 1.7, 0.1));
   var turMat = new THREE.MeshStandardMaterial({ color: 0xffd34a, emissive: 0xffd34a, emissiveIntensity: 0.3, roughness: 0.5 });
   function mkEnemy() {
     var g = new THREE.Group(), bm = new THREE.MeshStandardMaterial({ color: 0xff4d5e, emissive: 0xff4d5e, emissiveIntensity: 0.3, roughness: 0.5 });
@@ -862,8 +863,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var n = new THREE.Mesh(noseGeo, turMat); n.rotation.x = Math.PI / 2; n.position.set(0, 1.12, 0.22); g.add(n);
     g.userData.mat = bm; return g;
   }
-  function mkBarrier() { var m = new THREE.Mesh(barGeo, barMat); return m; }
-  function mkTurret() { var g = new THREE.Group(), b = new THREE.Mesh(turBase, turMat); b.position.y = 0.175; g.add(b); var h = new THREE.Mesh(turHead, turMat); h.position.y = 0.47; g.add(h); return g; }
+  function mkBarrier() { var m = new THREE.Mesh(barGeo, barMat); m.add(new THREE.LineSegments(barEdgeGeo, barEdge)); return m; }
+  function mkTurret() { var g = new THREE.Group(), b = new THREE.Mesh(turBase, turMat); b.position.y = 0.725; g.add(b); var h = new THREE.Mesh(turHead, turMat); h.position.y = 1.62; g.add(h); return g; }
   function gSync() {
     var seen = {};
     function put(list, pre, mk, fn) {
@@ -874,7 +875,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       });
     }
     put(G.enemies, 'e', mkEnemy, function (m, e) { m.position.set(e.x, 0, e.z); m.rotation.y = e.face || 0; m.userData.mat.emissiveIntensity = 0.3 + (e.flash || 0) * 1.2; });
-    put(G.barriers, 'b', mkBarrier, function (m, e) { var f = 0.4 + 0.6 * Math.max(0, e.hp) / 3; m.scale.y = f; m.position.set(e.x, 0.475 * f, e.z); m.rotation.y = e.a; });
+    put(G.barriers, 'b', mkBarrier, function (m, e) { var f = 0.5 + 0.5 * Math.max(0, e.hp) / 3; m.scale.y = f; m.position.set(e.x, 0.85 * f, e.z); m.rotation.y = e.a; });
     put(G.turrets, 't', mkTurret, function (m, e) { m.position.set(e.x, 0, e.z); });
     Object.keys(gm).forEach(function (k) { if (!seen[k]) { gameGroup.remove(gm[k]); delete gm[k]; } });
   }
@@ -910,7 +911,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.wave = n; G.toSpawn = 2 + n; G.spawnT = 1.5; G.budget = Math.min(BUDGET_MAX, G.budget + (n > 1 ? 4 : 0));
   }
   function spawnEnemy() {
-    var a = Math.random() * Math.PI * 2, r = 5.8 + Math.random() * 0.8, hpMax = 3 + Math.floor(G.wave / 4);
+    var a = Math.random() * Math.PI * 2, r = 11 + Math.random() * 1.5, hpMax = 3 + Math.floor(G.wave / 4);
     G.enemies.push({ id: G.nid++, x: hp.x + Math.sin(a) * r, z: hp.z + Math.cos(a) * r, hp: hpMax, face: 0, cd: 1.5 + Math.random() * 2, flash: 0, ang: a, dir: Math.random() < 0.5 ? -1 : 1 });
   }
   function enemyThrow(e) {
@@ -920,6 +921,15 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var it = newBall('eball', e.x, sy, e.z, false, 'enemy');
     it.settled = false; it.vx = dx / T; it.vz = dz / T; it.vy = ((ty - sy) + 0.5 * 9.8 * T * T) / T;
     soundTone(e.x, 1.3, e.z, 300, 600, 0.2, 1, 'triangle');
+  }
+  function turretThrow(u, e) {
+    var sy = 1.62, spd = 9, dx = e.x - u.x, dz = e.z - u.z, hd = Math.max(0.5, Math.hypot(dx, dz)), T = hd / spd;
+    var pd = Math.hypot(hp.x - e.x, hp.z - e.z) || 1;
+    if (pd > STOP_DIST) { var sp = 0.6 + 0.03 * G.wave; dx += (hp.x - e.x) / pd * sp * T; dz += (hp.z - e.z) / pd * sp * T; hd = Math.max(0.5, Math.hypot(dx, dz)); T = hd / spd; }
+    var all = localBalls(); if (all.length > 40) { var old = all.filter(function (b) { return b.owner !== 'enemy' && !b.held.length; }).sort(function (a, b) { return b.age - a.age; })[0]; if (old) removeLocal(old); }
+    var it = newBall('ball', u.x, sy, u.z, false, 'player');
+    it.settled = false; it.age = 0; it.vx = dx / T; it.vz = dz / T; it.vy = ((1.0 - sy) + 0.5 * 9.8 * T * T) / T;
+    soundTone(u.x, sy, u.z, 700, 350, 0.15, 1, 'triangle');
   }
   function defeat(e) {
     G.enemies.splice(G.enemies.indexOf(e), 1); G.kills++; soundTone(e.x, 0.8, e.z, 500, 120, 0.3, 1, 'square');
@@ -952,9 +962,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       u.life -= dt; u.cd -= dt;
       if (u.life <= 0) { G.turrets.splice(G.turrets.indexOf(u), 1); return; }
       if (u.cd > 0) return;
-      var best = null, bd = 6.5;
+      var best = null, bd = 12;
       G.enemies.forEach(function (e) { var d = Math.hypot(e.x - u.x, e.z - u.z); if (d < bd) { bd = d; best = e; } });
-      if (best) { u.cd = 1.1; best.hp -= 1; best.flash = 1; soundTone(u.x, 0.5, u.z, 1400, 300, 0.12, 1, 'sawtooth'); if (best.hp <= 0) defeat(best); }
+      if (best) { u.cd = 1.4; turretThrow(u, best); }
     });
     // balls
     localBalls().forEach(function (it) {
@@ -971,7 +981,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         for (var i = 0; i < G.barriers.length; i++) {
           var b = G.barriers[i], rx = it.d.x - b.x, rz = it.d.z - b.z, c = Math.cos(b.a), s2 = Math.sin(b.a);
           var lx = rx * c - rz * s2, lz = rx * s2 + rz * c;
-          if (Math.abs(lx) < 0.7 && Math.abs(lz) < 0.2 && it.y < 1.05) { b.hp -= 0.5; soundTone(b.x, 0.6, b.z, 200, 100, 0.12, 1, 'square'); removeLocal(it); return; }
+          if (Math.abs(lx) < 0.7 && Math.abs(lz) < 0.2 && it.y < 1.8) { b.hp -= 0.5; soundTone(b.x, 0.6, b.z, 200, 100, 0.12, 1, 'square'); removeLocal(it); return; }
         }
         // catch with an empty hand
         for (var j = 0; j < ptrs.length; j++) {
@@ -1387,10 +1397,11 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var b = mapPanel.getBoundingClientRect();
     var u = (e.clientX - b.left) / b.width, v = (e.clientY - b.top) / b.height;
     var x = (u * 2 - 1) * mapView.hw, z = (v * 2 - 1) * mapView.hh;
-    return { x: Math.max(-CLAMP, Math.min(CLAMP, x)), z: Math.max(-CLAMP, Math.min(CLAMP, z)) };
+    return { x: Math.max(-12, Math.min(12, x)), z: Math.max(-12, Math.min(12, z)) };
   }
   function showGhost(x, z) { ghost.position.set(x, 0.03, z); ghost.visible = true; }
   function spawn(x, z) {
+    if (tool !== 'ping') { x = Math.max(-CLAMP, Math.min(CLAMP, x)); z = Math.max(-CLAMP, Math.min(CLAMP, z)); }
     if (tool !== 'shape') {
       if (link.state !== 'linked' && !solo.control) { link.msg = 'Link to the headset first, or turn on Solo test.'; refreshNote(); return; }
       if (!G.running) { link.msg = 'Start the game first.'; refreshNote(); return; }
