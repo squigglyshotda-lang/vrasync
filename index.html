@@ -202,7 +202,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     <div class="dock">
       <button id="enter" type="button" disabled>Checking VR…</button>
       <button id="enterMR" type="button" disabled>Checking MR…</button>
-      <p id="hint">Open this page on a tablet, phone or computer, choose Control and type the code above. Then enter VR or MR. In the headset, swat or punch an enemy ball with your hand to hit it back, pinch (hands) or squeeze the grip or trigger (controllers) next to a shape to pick it up, turn your wrist to rotate it, hold it with both hands and pull apart to resize, and let go while moving to throw. In the preview, drag to look around.</p>
+      <p id="hint">Open this page on a tablet, phone or computer, choose Control and type the code above. Then enter VR or MR. In the headset, hit enemy balls back with the glowing racket on each controller (with bare hands, swat or punch them), pinch (hands) or squeeze the grip or trigger (controllers) next to a shape to pick it up, turn your wrist to rotate it, hold it with both hands and pull apart to resize, and let go while moving to throw. In the preview, drag to look around.</p>
     </div>
   </section>
 </div>
@@ -767,16 +767,36 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var ptrs = [0, 1].map(function (i) {
     return { i: i, vis: false, hand: false, want: false, down: false, pos: new THREE.Vector3(), q: new THREE.Quaternion(),
              item: null, off: new THREE.Vector3(), qrel: new THREE.Quaternion(), hist: [], hov: null,
-             palm: new THREE.Vector3(), vel: new THREE.Vector3(), palmPrev: new THREE.Vector3(), palmT: -1, src: null, palmFlash: 0 };
+             palm: new THREE.Vector3(), rq: new THREE.Quaternion(), grip: new THREE.Vector3(), vel: new THREE.Vector3(), palmPrev: new THREE.Vector3(), palmT: -1, src: null, palmFlash: 0 };
   });
   var dotGeo = new THREE.SphereGeometry(0.008, 6, 4), dotMat = new THREE.MeshBasicMaterial({ color: 0xffa63a, transparent: true, opacity: 0.75, depthWrite: false });
   var markGeo = new THREE.SphereGeometry(0.014, 12, 8);
   var haloMat = new THREE.MeshBasicMaterial({ color: 0xffa63a, transparent: true, opacity: 0.22, depthWrite: false });
   var haloGeo = new THREE.SphereGeometry(1, 16, 12);
+  var RK_HEAD = 0.40, RK_A = 0.2, RK_B = 0.16;
+  var stringTex = (function () {
+    var cv = document.createElement('canvas'); cv.width = cv.height = 128; var g = cv.getContext('2d');
+    g.fillStyle = 'rgba(255,166,58,0.14)'; g.fillRect(0, 0, 128, 128);
+    g.strokeStyle = 'rgba(255,200,110,0.75)'; g.lineWidth = 2;
+    for (var i = 8; i < 128; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.moveTo(0, i); g.lineTo(128, i); g.stroke(); }
+    return new THREE.CanvasTexture(cv);
+  })();
+  var rkGlow = new THREE.MeshBasicMaterial({ color: 0xffa63a }), rkHandle = new THREE.MeshBasicMaterial({ color: 0x3a2a63 });
+  function mkRacket() {
+    var g = new THREE.Group();
+    var handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.2, 8), rkHandle); handle.rotation.x = Math.PI / 2; handle.position.z = -0.1; g.add(handle);
+    var head = new THREE.Group(); head.position.z = -RK_HEAD; head.rotation.y = Math.PI / 2; g.add(head);   // head plane faces +x
+    var face = new THREE.Mesh(new THREE.CircleGeometry(1, 36), new THREE.MeshBasicMaterial({ map: stringTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.9 }));
+    face.scale.set(RK_A, RK_B, 1); head.add(face);
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 6, 40), rkGlow); ring.scale.set(RK_A, RK_B, 0.2); head.add(ring);
+    var throat = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, RK_HEAD - RK_A - 0.2, 6), rkGlow); throat.rotation.x = Math.PI / 2; throat.position.z = -(0.2 + (RK_HEAD - RK_A - 0.2) / 2); g.add(throat);
+    g.userData.face = face; return g;
+  }
   ptrs.forEach(function (p) {
     p.marker = new THREE.Mesh(markGeo, new THREE.MeshBasicMaterial({ color: 0xffa63a, transparent: true, opacity: 0.9, depthTest: false }));
     p.marker.renderOrder = 5; p.marker.visible = false; scene.add(p.marker);
     p.halo = new THREE.Mesh(haloGeo, haloMat); p.halo.visible = false; scene.add(p.halo);
+    p.racket = mkRacket(); p.racket.visible = false; scene.add(p.racket);
     p.palmMark = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffa63a, transparent: true, opacity: 0.16, depthWrite: false })); p.palmMark.visible = false; scene.add(p.palmMark);
     p.dots = []; p.dotGroup = new THREE.Group(); p.dotGroup.visible = false; scene.add(p.dotGroup);
   });
@@ -828,14 +848,15 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function grabLogic(dt, t) {
     ptrs.forEach(function (p) {
       p.marker.visible = p.vis; if (!p.vis) p.palmMark.visible = false;
-      if (!p.vis) { if (p.item) release(p); p.down = false; p.halo.visible = false; p.dotGroup.visible = false; p.palmMark.visible = false; return; }
+      if (!p.vis) { if (p.item) release(p); p.down = false; p.halo.visible = false; p.dotGroup.visible = false; p.palmMark.visible = false; p.racket.visible = false; return; }
       p.hist.push({ t: t, pos: p.pos.clone() }); while (p.hist.length > 2 && t - p.hist[0].t > 0.25) p.hist.shift();
       if (p.latched && p.item) { var hh = p.hist, hn = hh.length; if (hn > 2 && (hh[hn - 1].pos.distanceTo(hh[Math.max(0, hn - 4)].pos) / Math.max(0.016, hh[hn - 1].t - hh[Math.max(0, hn - 4)].t)) > 3) { p.latched = false; release(p); p.down = p.want; return; } }
       if (p.want && !p.down) { p.latched = false; tryGrab(p); }
       if (!p.want && p.down) { p.latched = false; release(p); }
       p.down = p.want;
       p.marker.position.copy(p.pos); p.marker.scale.setScalar(p.item ? 1.5 : 1);
-      p.palmMark.visible = !p.item; p.palmMark.position.copy(p.palm); p.palmFlash = Math.max(0, p.palmFlash - dt * 4); p.palmMark.scale.setScalar(1 + p.palmFlash * 0.6); p.palmMark.material.opacity = 0.16 + p.palmFlash * 0.5;
+      p.racket.visible = !p.hand; if (!p.hand) { p.racket.position.copy(p.grip); p.racket.quaternion.copy(p.rq); p.racket.userData.face.material.opacity = 0.9 + p.palmFlash * 0.1; p.racket.userData.face.material.color.setScalar(1 + p.palmFlash); }
+      p.palmMark.visible = !p.item && p.hand; p.palmMark.position.copy(p.palm); p.palmFlash = Math.max(0, p.palmFlash - dt * 4); p.palmMark.scale.setScalar(1 + p.palmFlash * 0.6); p.palmMark.material.opacity = 0.16 + p.palmFlash * 0.5;
       p.hov = p.item ? null : nearestItem(p.pos);
       var tgt = p.item || p.hov;
       if (tgt) { p.halo.visible = true; p.halo.position.set(tgt.d.x, tgt.y, tgt.d.z); p.halo.scale.setScalar(tgt.d.s * tgt.f * 0.75); p.halo.material.opacity = p.item ? 0.35 : 0.18; }
@@ -891,7 +912,11 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         p.q.set(gp.transform.orientation.x, gp.transform.orientation.y, gp.transform.orientation.z, gp.transform.orientation.w);
         p.pos.set(0, 0, -0.05).applyQuaternion(p.q).add(gA.set(gp.transform.position.x, gp.transform.position.y, gp.transform.position.z));
         var b = src.gamepad && src.gamepad.buttons;
-        p.want = !!(b && ((b[0] && b[0].pressed) || (b[1] && b[1].pressed))); p.hand = false; p.vis = true; p.src = src; p.palm.copy(p.pos); p.dotGroup.visible = false;
+        p.want = !!(b && ((b[0] && b[0].pressed) || (b[1] && b[1].pressed))); p.hand = false; p.vis = true; p.src = src; p.dotGroup.visible = false;
+        p.grip.set(gp.transform.position.x, gp.transform.position.y, gp.transform.position.z);
+        var rp = src.targetRaySpace && frame.getPose(src.targetRaySpace, ref);
+        if (rp) p.rq.set(rp.transform.orientation.x, rp.transform.orientation.y, rp.transform.orientation.z, rp.transform.orientation.w); else p.rq.copy(p.q);
+        p.palm.set(0, 0, -RK_HEAD).applyQuaternion(p.rq).add(p.grip);
       }
     });
     ptrs.forEach(function (p) {
@@ -1102,7 +1127,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         else for (var j = 0; j < ptrs.length; j++) {
           var p = ptrs[j]; if (!p.vis || p.item) continue;
           var qx = it.d.x - p.palm.x, qy = it.y - p.palm.y, qz = it.d.z - p.palm.z;
-          if (qx * qx + qy * qy + qz * qz < 0.23 * 0.23) { hitBall(it, p); return; }
+          if (p.hand) { if (qx * qx + qy * qy + qz * qz < 0.23 * 0.23) { hitBall(it, p); return; } }
+          else if (racketHits(it, qx, qy, qz, p)) { racketHit(it, p); return; }
         }
         // hit the player
         var hx = it.d.x - hp.x, hz = it.d.z - hp.z, hy = it.y - (hp.y - 0.3);
@@ -1137,6 +1163,27 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     setOwner(it, 'player'); p.palmFlash = 1;
     soundTone(it.d.x, it.y, it.d.z, 420, 160, 0.12, 1.2, 'square');
     try { var h = p.src && p.src.gamepad && p.src.gamepad.hapticActuators && p.src.gamepad.hapticActuators[0]; if (h && h.pulse) h.pulse(0.8, 60); } catch (err) {}
+  }
+  var rkN = new THREE.Vector3(), rkU = new THREE.Vector3(), rkV = new THREE.Vector3(), rkB = new THREE.Vector3(), rkR = new THREE.Vector3();
+  function racketHits(it, qx, qy, qz, p) {
+    rkN.set(1, 0, 0).applyQuaternion(p.rq); rkU.set(0, 0, -1).applyQuaternion(p.rq); rkV.set(0, 1, 0).applyQuaternion(p.rq);
+    var dn = qx * rkN.x + qy * rkN.y + qz * rkN.z, u = qx * rkU.x + qy * rkU.y + qz * rkU.z, v = qx * rkV.x + qy * rkV.y + qz * rkV.z;
+    return Math.abs(dn) < 0.14 && (u / (RK_A + 0.04)) * (u / (RK_A + 0.04)) + (v / (RK_B + 0.04)) * (v / (RK_B + 0.04)) < 1;
+  }
+  function racketHit(it, p) {
+    rkN.set(1, 0, 0).applyQuaternion(p.rq);
+    var side = (it.d.x - p.palm.x) * rkN.x + (it.y - p.palm.y) * rkN.y + (it.d.z - p.palm.z) * rkN.z; if (side < 0) rkN.negate();
+    rkB.set(it.vx, it.vy, it.vz); rkR.copy(rkB).sub(p.vel);
+    var vn = rkR.dot(rkN); if (vn < 0) rkR.addScaledVector(rkN, -1.9 * vn);
+    rkB.copy(rkR).add(p.vel);
+    var e = nearestEnemy();
+    if (e) { hbT.set(e.x - it.d.x, 1.0 - it.y, e.z - it.d.z).normalize(); var l0 = rkB.length(); rkB.normalize().multiplyScalar(0.92).addScaledVector(hbT, 0.08).normalize().multiplyScalar(l0); }
+    var sp = Math.min(13, Math.max(6.5, rkB.length())); if (rkB.lengthSq() < 1e-4) rkB.set(0, 0.2, -1);
+    rkB.setLength(sp); it.vx = rkB.x; it.vy = Math.max(-1, rkB.y); it.vz = rkB.z;
+    var hs = p.vel.length(); it.ext = false; it.settled = false; it.age = 0; it.big = hs > 4.5; it.hitCd = 0.25;
+    setOwner(it, 'player'); p.palmFlash = 1;
+    soundTone(it.d.x, it.y, it.d.z, 520, 180, 0.12, 1.2, 'square');
+    try { var h = p.src && p.src.gamepad && p.src.gamepad.hapticActuators && p.src.gamepad.hapticActuators[0]; if (h && h.pulse) h.pulse(1.0, 70); } catch (err) {}
   }
   function gameCmd(m) {
     if (!m || typeof m.c !== 'string') return;
@@ -1882,7 +1929,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
+    t: { racketHits: racketHits, racketHit: racketHit, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
