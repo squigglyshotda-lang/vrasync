@@ -18,6 +18,8 @@ Enemy types unlock by wave: Runner (wave 2, packs of three, fast, one hit), Wisp
 
 Update: one touch from an enemy ends the run. The flashlight has a small battery (10 shots) that refills by itself when you stop shooting, and the visor HUD is now a big flashlight meter, one segment per shot. Bombs only go off when the VR player shoots them. Enemies sometimes drop battery pickups that the control player taps on the map to send an instant boost. The flashlight model is a yellow low-poly torch and the scene is now a night scene.
 
-Control page hot keys: 1 Freeze, 2 Push, 3 Decoy, 4 Bomb, 5 Ping, 6 to 0 pick the shapes (cube, sphere, cylinder, cone, torus). The key number shows on each button.
+Control page hot keys: 1 Freeze, 2 Push, 3 Decoy, 4 Bomb, 5 Ping, 6 Damage, 7 Battery, 8 Range upgrades. The key number shows on each button.
 
 Atmosphere: drifting ground fog, fences, crooked crosses, lit mausoleums, flickering lantern posts, fireflies, marsh lights, bats and distant lightning with thunder. Whispers and moans come from the edge of the arena, enemies make footsteps as they walk in, and a heartbeat speeds up when one gets close.
+
+Coins and upgrades: every kill gives coins straight to the control player (ghost 2, runner 1, wisp 3, brute 8, splitter 4, mini 1). Spend them on Damage, Battery (more shots per charge) and Range, five levels each costing 5, 10, 15, 20, 30 coins. Upgrades reset every run. The light ball is now a glowing ball of light and its default range is 9 m.
