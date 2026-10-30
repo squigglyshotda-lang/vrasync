@@ -50,7 +50,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 }
 .seg button[aria-pressed="true"] { color: var(--ink); background: var(--hud); }
 .seg button:disabled { cursor: not-allowed; opacity: .5; }
-.seg button:focus-visible, .shape:focus-visible, #enter:focus-visible, #enterMR:focus-visible, #mapPanel:focus-visible {
+.seg button:focus-visible, .shape:focus-visible, .gtool:focus-visible, .gstart:focus-visible, #enter:focus-visible, #enterMR:focus-visible, #mapPanel:focus-visible {
   outline: 2px solid var(--text); outline-offset: 2px;
 }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
@@ -69,14 +69,18 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; pointer-events: auto;
   background: var(--glass); border: 1px solid var(--line); padding: 10px 12px;
 }
+.gamebar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gstart { font: 600 12px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--hud); border: 0; padding: 9px 14px; cursor: pointer; }
+.gtool.poor { opacity: .5; }
+.gstats { font: 500 12px var(--font-data); color: var(--muted); margin-left: 6px; }
 .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
-.shape {
+.shape, .gtool {
   display: inline-flex; align-items: center; gap: 8px; font: 600 12px var(--font-display); letter-spacing: .1em;
   text-transform: uppercase; color: var(--text); background: transparent; border: 1px solid var(--line);
   padding: 7px 10px; cursor: pointer;
 }
 .shape svg { width: 20px; height: 20px; flex: none; }
-.shape[aria-pressed="true"] { border-color: var(--hud); box-shadow: inset 0 0 0 1px var(--hud); background: rgba(98, 240, 212, .08); }
+.shape[aria-pressed="true"], .gtool[aria-pressed="true"] { border-color: var(--hud); box-shadow: inset 0 0 0 1px var(--hud); background: rgba(98, 240, 212, .08); }
 .sizebox { display: flex; align-items: center; gap: 10px; font: 500 12px var(--font-data); color: var(--muted); }
 .sizebox input { width: 140px; accent-color: var(--hud); }
 .sizebox output { color: var(--text); min-width: 6ch; font-variant-numeric: tabular-nums; }
@@ -149,6 +153,14 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   <main id="controlUI" hidden>
     <div class="tools">
       <div class="pairbox"><label for="codeIn">Code</label><input id="codeIn" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD" aria-describedby="note"><button id="codeGo" type="button">Link</button></div>
+      <div class="gamebar" role="group" aria-label="Game">
+        <button class="gstart" id="gStart" type="button">Start game</button>
+        <button class="gtool" type="button" data-tool="ball" aria-pressed="false">Ball · 1</button>
+        <button class="gtool" type="button" data-tool="barrier" aria-pressed="false">Barrier · 3</button>
+        <button class="gtool" type="button" data-tool="turret" aria-pressed="false">Turret · 5</button>
+        <button class="gtool" type="button" data-tool="ping" aria-pressed="false">Ping</button>
+        <output class="gstats" id="gStats">Game not started</output>
+      </div>
       <div class="shapes" role="group" aria-label="Shape to drop">
         <button class="shape" type="button" data-shape="cube" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" fill="#ffb347"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9" stroke="rgba(0,0,0,.4)" stroke-width="1.2" fill="none"/></svg>Cube</button>
         <button class="shape" type="button" data-shape="sphere" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ff6b81"/><circle cx="9" cy="9" r="3" fill="rgba(255,255,255,.35)"/></svg>Sphere</button>
@@ -432,6 +444,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if ('letterSpacing' in g) g.letterSpacing = '5px';
     g.fillStyle = MUTED; g.fillText('SUIT ENERGY', 40, 74);
     if ('letterSpacing' in g) g.letterSpacing = '0px';
+    if (G.running || G.over) { g.textAlign = 'right'; g.font = '600 26px "Chakra Petch", sans-serif'; g.fillStyle = G.over ? WARN : HUD; g.fillText(G.over ? 'RUN OVER  WAVE ' + G.wave : 'WAVE ' + G.wave + '  KILLS ' + G.kills, HW - 44, HH - 26); g.textAlign = 'left'; }
     var lt = link.state === 'linked' ? 'LINKED' : (role === 'headset' && link.code ? (link.state === 'error' ? 'NO LINK' : 'CODE ' + link.code) : '');
     if (lt) { g.textAlign = 'right'; g.font = '600 24px "IBM Plex Mono", monospace'; g.fillStyle = link.state === 'linked' ? HUD : (link.state === 'error' ? WARN : MUTED); g.fillText(lt, HW - 44, 40); g.textAlign = 'left'; }
 
@@ -486,7 +499,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 
   function geoFor(k, s) {
     if (k === 'cube') return new THREE.BoxGeometry(s, s, s);
-    if (k === 'sphere') return new THREE.SphereGeometry(s / 2, 28, 20);
+    if (k === 'sphere' || k === 'ball' || k === 'eball') return new THREE.SphereGeometry(s / 2, 20, 14);
     if (k === 'cylinder') return new THREE.CylinderGeometry(s / 2, s / 2, s, 32);
     if (k === 'cone') return new THREE.ConeGeometry(s / 2, s, 32);
     return new THREE.TorusGeometry(s * 0.32, s * 0.12, 14, 40);
@@ -583,7 +596,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function applyItems(list, initial) {
     var seen = {};
     list.forEach(function (d) { seen[d.id] = true; if (!items[d.id]) addItem(d, !initial); });
-    Object.keys(items).forEach(function (id) { if (!seen[id]) removeItem(id); });
+    Object.keys(items).forEach(function (id) { if (!seen[id] && !items[id].local) removeItem(id); });
   }
   var AY = new THREE.Vector3(0, 1, 0), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), uprQ = new THREE.Quaternion();
   function stepItems(dt) {
@@ -727,6 +740,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     }
   }
   function tryGrab(p) {
+    if (p.item) return;
     var it = nearestItem(p.pos);
     if (!it || it.held.length >= 2 || it.held.indexOf(p) >= 0) return;
     it.settled = false; it.ext = false; it.vx = it.vy = it.vz = it.w = 0;
@@ -751,8 +765,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       p.marker.visible = p.vis;
       if (!p.vis) { if (p.item) release(p); p.down = false; p.halo.visible = false; p.dotGroup.visible = false; return; }
       p.hist.push({ t: t, pos: p.pos.clone() }); while (p.hist.length > 2 && t - p.hist[0].t > 0.25) p.hist.shift();
-      if (p.want && !p.down) tryGrab(p);
-      if (!p.want && p.down) release(p);
+      if (p.latched && p.item) { var hh = p.hist, hn = hh.length; if (hn > 2 && (hh[hn - 1].pos.distanceTo(hh[Math.max(0, hn - 4)].pos) / Math.max(0.016, hh[hn - 1].t - hh[Math.max(0, hn - 4)].t)) > 3) { p.latched = false; release(p); p.down = p.want; return; } }
+      if (p.want && !p.down) { p.latched = false; tryGrab(p); }
+      if (!p.want && p.down) { p.latched = false; release(p); }
       p.down = p.want;
       p.marker.position.copy(p.pos); p.marker.scale.setScalar(p.item ? 1.5 : 1);
       p.hov = p.item ? null : nearestItem(p.pos);
@@ -819,11 +834,232 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     for (var id in items) {
       var it = items[id]; if (!it.dirty) continue;
       if (!it.held.length && it.settled) it.dirty = false;
-      out.push([id, r3(it.d.x), r3(it.y), r3(it.d.z), r3(it.f), r4(it.q.x), r4(it.q.y), r4(it.q.z), r4(it.q.w)]);
+      out.push([id, r3(it.d.x), r3(it.y), r3(it.d.z), r3(it.f), r4(it.q.x), r4(it.q.y), r4(it.q.z), r4(it.q.w), OWNER_CODE[it.owner] || 0]);
     }
     lastXf = t;
     if (out.length) linkSend({ t: 'xf', i: out });
   }
+
+  // ---------- the game: enemies throw balls, the headset player catches or dodges, the control player builds ----------
+  itemMats.ball = new THREE.MeshStandardMaterial({ color: 0xe6ff5a, emissive: 0xe6ff5a, emissiveIntensity: 0.25, roughness: 0.4 });
+  itemMats.eball = new THREE.MeshStandardMaterial({ color: 0xff4d3a, emissive: 0xff4d3a, emissiveIntensity: 0.45, roughness: 0.4 });
+  itemMats.pball = new THREE.MeshStandardMaterial({ color: 0x62f0d4, emissive: 0x62f0d4, emissiveIntensity: 0.4, roughness: 0.4 });
+  var COST = { ball: 1, barrier: 3, turret: 5 }, BUDGET_MAX = 12, STOP_DIST = 3;
+  var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
+            toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0 };
+  var gameGroup = new THREE.Group(); scene.add(gameGroup);
+  var gm = {}, enemyGeo = new THREE.CylinderGeometry(0.2, 0.25, 1.0, 12), headGeo = new THREE.SphereGeometry(0.16, 12, 8),
+      noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), barGeo = new THREE.BoxGeometry(1.3, 0.95, 0.14),
+      turBase = new THREE.CylinderGeometry(0.17, 0.22, 0.35, 12), turHead = new THREE.SphereGeometry(0.15, 12, 8);
+  var barMat = new THREE.MeshStandardMaterial({ color: 0x4aa8ff, emissive: 0x4aa8ff, emissiveIntensity: 0.3, roughness: 0.5 });
+  var turMat = new THREE.MeshStandardMaterial({ color: 0xffd34a, emissive: 0xffd34a, emissiveIntensity: 0.3, roughness: 0.5 });
+  function mkEnemy() {
+    var g = new THREE.Group(), bm = new THREE.MeshStandardMaterial({ color: 0xff4d5e, emissive: 0xff4d5e, emissiveIntensity: 0.3, roughness: 0.5 });
+    var b = new THREE.Mesh(enemyGeo, bm); b.position.y = 0.5; g.add(b);
+    var h = new THREE.Mesh(headGeo, bm); h.position.y = 1.15; g.add(h);
+    var n = new THREE.Mesh(noseGeo, turMat); n.rotation.x = Math.PI / 2; n.position.set(0, 1.12, 0.22); g.add(n);
+    g.userData.mat = bm; return g;
+  }
+  function mkBarrier() { var m = new THREE.Mesh(barGeo, barMat); return m; }
+  function mkTurret() { var g = new THREE.Group(), b = new THREE.Mesh(turBase, turMat); b.position.y = 0.175; g.add(b); var h = new THREE.Mesh(turHead, turMat); h.position.y = 0.47; g.add(h); return g; }
+  function gSync() {
+    var seen = {};
+    function put(list, pre, mk, fn) {
+      list.forEach(function (e) {
+        var key = pre + e.id; seen[key] = 1;
+        var m = gm[key]; if (!m) { m = gm[key] = mk(); gameGroup.add(m); }
+        fn(m, e);
+      });
+    }
+    put(G.enemies, 'e', mkEnemy, function (m, e) { m.position.set(e.x, 0, e.z); m.rotation.y = e.face || 0; m.userData.mat.emissiveIntensity = 0.3 + (e.flash || 0) * 1.2; });
+    put(G.barriers, 'b', mkBarrier, function (m, e) { var f = 0.4 + 0.6 * Math.max(0, e.hp) / 3; m.scale.y = f; m.position.set(e.x, 0.475 * f, e.z); m.rotation.y = e.a; });
+    put(G.turrets, 't', mkTurret, function (m, e) { m.position.set(e.x, 0, e.z); });
+    Object.keys(gm).forEach(function (k) { if (!seen[k]) { gameGroup.remove(gm[k]); delete gm[k]; } });
+  }
+  function setOwner(it, o) {
+    if (it.owner === o) return; it.owner = o;
+    it.g.children[0].material = itemMats[o === 'enemy' ? 'eball' : o === 'player' ? 'pball' : 'ball'];
+  }
+  var OWNER_CODE = { neutral: 0, enemy: 1, player: 2 }, CODE_OWNER = ['neutral', 'enemy', 'player'];
+  function removeLocal(it) { var id = it.d.id; removeItem(id); linkSend({ t: 'idel', id: id }); }
+  function newBall(kind, x, y, z, drop, owner) {
+    var id = (kind === 'eball' ? 'e' : 'a') + (G.nid++) + Math.random().toString(36).slice(2, 5);
+    var d = { id: id, k: kind, s: 0.2, x: x, z: z };
+    addItem(d, drop); var it = items[id]; it.local = true; it.ball = true; it.age = 0;
+    if (!drop) it.y = y; it.owner = ''; setOwner(it, owner || 'neutral');
+    linkSend({ t: 'inew', d: { id: id, k: kind, s: 0.2, x: x, z: z, y: it.y, o: OWNER_CODE[owner || 'neutral'], drop: !!drop } });
+    return it;
+  }
+  function localBalls() { var l = []; for (var id in items) if (items[id].local) l.push(items[id]); return l; }
+  function soundTone(x, y, z, a, b, dur, vol, type) { if (!actx || actx.state !== 'running') return; var t = actx.currentTime + 0.01, g = voiceAt(x, y, z, vol || 1); tone(g, type || 'sine', a, b, t, dur, 0.6); }
+  function soundPing(x, y, z) {
+    if (!actx || actx.state !== 'running') return;
+    [0, 0.45].forEach(function (off) {
+      var t = actx.currentTime + 0.01 + off, g = voiceAt(x, y, z, 1.4);
+      tone(g, 'sine', 660, 660, t, 0.14, 0.7); tone(g, 'sine', 990, 990, t + 0.16, 0.22, 0.7);
+    });
+  }
+  function gameStart() {
+    localBalls().forEach(removeLocal);
+    G.enemies = []; G.turrets = []; G.barriers = []; G.running = true; G.over = false; G.wave = 0; G.kills = 0; G.energy = 100; G.budget = 8; G.pingT = 0;
+    startWave(1);
+  }
+  function startWave(n) {
+    G.wave = n; G.toSpawn = 2 + n; G.spawnT = 1.5; G.budget = Math.min(BUDGET_MAX, G.budget + (n > 1 ? 4 : 0));
+  }
+  function spawnEnemy() {
+    var a = Math.random() * Math.PI * 2, r = 5.8 + Math.random() * 0.8, hpMax = 3 + Math.floor(G.wave / 4);
+    G.enemies.push({ id: G.nid++, x: hp.x + Math.sin(a) * r, z: hp.z + Math.cos(a) * r, hp: hpMax, face: 0, cd: 1.5 + Math.random() * 2, flash: 0, ang: a, dir: Math.random() < 0.5 ? -1 : 1 });
+  }
+  function enemyThrow(e) {
+    var sy = 1.3, err = Math.max(0.12, 0.55 - 0.03 * G.wave), spd = Math.min(9, 4 + 0.25 * G.wave);
+    var tx = hp.x + (Math.random() - 0.5) * err * 2, tz = hp.z + (Math.random() - 0.5) * err * 2, ty = hp.y - 0.3 + (Math.random() - 0.5) * err;
+    var dx = tx - e.x, dz = tz - e.z, hd = Math.max(0.5, Math.hypot(dx, dz)), T = hd / spd;
+    var it = newBall('eball', e.x, sy, e.z, false, 'enemy');
+    it.settled = false; it.vx = dx / T; it.vz = dz / T; it.vy = ((ty - sy) + 0.5 * 9.8 * T * T) / T;
+    soundTone(e.x, 1.3, e.z, 300, 600, 0.2, 1, 'triangle');
+  }
+  function defeat(e) {
+    G.enemies.splice(G.enemies.indexOf(e), 1); G.kills++; soundTone(e.x, 0.8, e.z, 500, 120, 0.3, 1, 'square');
+  }
+  function gameStep(dt, t) {
+    if (!G.running) return;
+    G.budget = Math.min(BUDGET_MAX, G.budget + dt * 0.9);
+    G.energy = Math.min(100, G.energy + dt * 0.4);
+    G.pingT = Math.max(0, G.pingT - dt);
+    // waves
+    if (G.toSpawn > 0) { G.spawnT -= dt; if (G.spawnT <= 0) { spawnEnemy(); G.toSpawn--; G.spawnT = Math.max(0.8, 2.6 - 0.1 * G.wave); } }
+    else if (!G.enemies.length) { G.breakT += dt; if (G.breakT > 4) { G.breakT = 0; startWave(G.wave + 1); } }
+    // enemies
+    G.enemies.slice().forEach(function (e) {
+      e.flash = Math.max(0, e.flash - dt * 3);
+      var dx = hp.x - e.x, dz = hp.z - e.z, dist = Math.hypot(dx, dz) || 1;
+      e.face = Math.atan2(dx, dz);
+      var nx = e.x, nz = e.z;
+      if (dist > STOP_DIST) { var sp = 0.6 + 0.03 * G.wave; nx += dx / dist * sp * dt; nz += dz / dist * sp * dt; }
+      else { nx += (dz / dist) * e.dir * 0.2 * dt; nz += (-dx / dist) * e.dir * 0.2 * dt; }
+      var blocked = null;
+      G.barriers.forEach(function (b) { if (Math.hypot(nx - b.x, nz - b.z) < 0.7) blocked = b; });
+      if (blocked) { blocked.hp -= dt * 0.7; } else { e.x = nx; e.z = nz; }
+      e.cd -= dt;
+      if (dist < STOP_DIST + 0.4 && e.cd <= 0) { enemyThrow(e); e.cd = Math.max(1.6, 4 - 0.2 * G.wave) + Math.random(); }
+    });
+    G.barriers = G.barriers.filter(function (b) { return b.hp > 0; });
+    // turrets
+    G.turrets.slice().forEach(function (u) {
+      u.life -= dt; u.cd -= dt;
+      if (u.life <= 0) { G.turrets.splice(G.turrets.indexOf(u), 1); return; }
+      if (u.cd > 0) return;
+      var best = null, bd = 6.5;
+      G.enemies.forEach(function (e) { var d = Math.hypot(e.x - u.x, e.z - u.z); if (d < bd) { bd = d; best = e; } });
+      if (best) { u.cd = 1.1; best.hp -= 1; best.flash = 1; soundTone(u.x, 0.5, u.z, 1400, 300, 0.12, 1, 'sawtooth'); if (best.hp <= 0) defeat(best); }
+    });
+    // balls
+    localBalls().forEach(function (it) {
+      it.age += dt;
+      if (it.age > 30 || it.y < -1) { removeLocal(it); return; }
+      var rest = it.rest * it.f;
+      if (it.held.length) { it.wasHeld = true; setOwner(it, 'player'); return; }
+      if (it.wasHeld) { it.wasHeld = false; setOwner(it, 'player'); }
+      if (it.owner === 'enemy' && it.y <= rest + 0.02) setOwner(it, 'neutral');
+      if (it.owner === 'player' && it.settled) setOwner(it, 'neutral');
+      var sp = Math.hypot(it.vx, it.vy, it.vz);
+      if (it.owner === 'enemy') {
+        // blocked by a barrier?
+        for (var i = 0; i < G.barriers.length; i++) {
+          var b = G.barriers[i], rx = it.d.x - b.x, rz = it.d.z - b.z, c = Math.cos(b.a), s2 = Math.sin(b.a);
+          var lx = rx * c - rz * s2, lz = rx * s2 + rz * c;
+          if (Math.abs(lx) < 0.7 && Math.abs(lz) < 0.2 && it.y < 1.05) { b.hp -= 0.5; soundTone(b.x, 0.6, b.z, 200, 100, 0.12, 1, 'square'); removeLocal(it); return; }
+        }
+        // catch with an empty hand
+        for (var j = 0; j < ptrs.length; j++) {
+          var p = ptrs[j];
+          if (p.vis && !p.item && p.pos.distanceTo(gA.set(it.d.x, it.y, it.d.z)) < 0.17) {
+            p.item = it; it.held.push(p); p.latched = true; it.settled = false; it.ext = false; it.vx = it.vy = it.vz = it.w = 0; rehold(it);
+            setOwner(it, 'player'); G.energy = Math.min(100, G.energy + 3); soundTone(it.d.x, it.y, it.d.z, 500, 900, 0.1, 1);
+            return;
+          }
+        }
+        // hit the player
+        var hx = it.d.x - hp.x, hz = it.d.z - hp.z, hy = it.y - (hp.y - 0.3);
+        if (hx * hx + hz * hz < 0.08 && hy > -0.75 && hy < 0.35) {
+          G.energy -= 12; damage(); soundTone(hp.x, hp.y - 0.3, hp.z, 140, 60, 0.3, 1.2, 'sawtooth'); removeLocal(it);
+          if (G.energy <= 0) { G.energy = 0; G.running = false; G.over = true; }
+          return;
+        }
+      } else if (it.owner === 'player' && sp > 1.5) {
+        for (var k = 0; k < G.enemies.length; k++) {
+          var e = G.enemies[k], ex = it.d.x - e.x, ez = it.d.z - e.z;
+          if (ex * ex + ez * ez < 0.19 && it.y < 1.9) {
+            e.hp -= sp > 6 ? 2 : 1; e.flash = 1; soundTone(e.x, 1, e.z, 220, 110, 0.15, 1, 'square');
+            if (e.hp <= 0) defeat(e);
+            removeLocal(it); return;
+          }
+        }
+      }
+    });
+  }
+  function gameCmd(m) {
+    if (!m || typeof m.c !== 'string') return;
+    if (m.c === 'start') { gameStart(); return; }
+    var x = +m.x, z = +m.z; if (!isFinite(x) || !isFinite(z) || !G.running) return;
+    if (m.c === 'ping') {
+      if (G.pingT > 0) return;
+      var dx = x - hp.x, dz = z - hp.z, d = Math.hypot(dx, dz) || 1; G.pingT = 1.5;
+      soundPing(hp.x + dx / d * 3, 1.2, hp.z + dz / d * 3); return;
+    }
+    var cost = COST[m.c]; if (!cost || G.budget < cost) return;
+    if (m.c === 'ball') { newBall('ball', Math.max(-2.5, Math.min(2.5, x)), 0, Math.max(-2.5, Math.min(2.5, z)), true, 'neutral'); }
+    else if (m.c === 'barrier') {
+      x = Math.max(-3.6, Math.min(3.6, x)); z = Math.max(-3.6, Math.min(3.6, z));
+      if (G.barriers.length >= 8 || G.barriers.some(function (b) { return Math.hypot(b.x - x, b.z - z) < 0.6; }) || Math.hypot(x - hp.x, z - hp.z) < 0.9) return;
+      G.barriers.push({ id: G.nid++, x: x, z: z, a: Math.atan2(x - hp.x, z - hp.z), hp: 3 });
+    } else if (m.c === 'turret') {
+      x = Math.max(-3.6, Math.min(3.6, x)); z = Math.max(-3.6, Math.min(3.6, z));
+      if (G.turrets.length >= 4 || Math.hypot(x - hp.x, z - hp.z) < 0.7) return;
+      G.turrets.push({ id: G.nid++, x: x, z: z, cd: 1, life: 40 });
+    } else return;
+    G.budget -= cost;
+  }
+  var lastGs = 0;
+  function publishGame(t) {
+    if (role !== 'headset' || !link.conns.length || t - lastGs < 0.1) return;
+    lastGs = t;
+    linkSend({ t: 'gs', run: G.running, over: G.over, w: G.wave, k: G.kills, b: Math.round(G.budget * 10) / 10,
+      en: G.enemies.map(function (e) { return [e.id, r3(e.x), r3(e.z), e.hp, r3(e.face)]; }),
+      br: G.barriers.map(function (b) { return [b.id, r3(b.x), r3(b.z), r3(b.a), Math.round(b.hp * 10) / 10]; }),
+      tu: G.turrets.map(function (u) { return [u.id, r3(u.x), r3(u.z)]; }) });
+  }
+  function onGs(d) {
+    function nums(a, n) { return Array.isArray(a) && a.length >= n && a.every(function (v) { return typeof v === 'number' && isFinite(v); }); }
+    G.running = !!d.run; G.over = !!d.over; G.wave = +d.w || 0; G.kills = +d.k || 0; G.budget = +d.b || 0;
+    G.enemies = (Array.isArray(d.en) ? d.en : []).filter(function (a) { return nums(a, 5); }).slice(0, 60).map(function (a) { return { id: a[0], x: a[1], z: a[2], hp: a[3], face: a[4] }; });
+    G.barriers = (Array.isArray(d.br) ? d.br : []).filter(function (a) { return nums(a, 5); }).slice(0, 20).map(function (a) { return { id: a[0], x: a[1], z: a[2], a: a[3], hp: a[4] }; });
+    G.turrets = (Array.isArray(d.tu) ? d.tu : []).filter(function (a) { return nums(a, 3); }).slice(0, 20).map(function (a) { return { id: a[0], x: a[1], z: a[2] }; });
+    refreshGame();
+  }
+  // control-page UI
+  var tool = 'shape';
+  var gStart = $('gStart'), gStats = $('gStats'), gTools = Array.prototype.slice.call(document.querySelectorAll('.gtool'));
+  function refreshGame() {
+    if (role !== 'control') return;
+    gStart.textContent = G.over ? 'Play again' : (G.running ? 'Restart' : 'Start game');
+    gStats.textContent = G.running ? 'Wave ' + G.wave + ' · Build ' + Math.floor(G.budget) + ' / ' + BUDGET_MAX + ' · Energy ' + Math.round(remote.e)
+      : (G.over ? 'Run over: you survived ' + Math.max(0, G.wave - 1) + ' waves' : 'Game not started');
+    gTools.forEach(function (b) { var c = COST[b.getAttribute('data-tool')]; b.classList.toggle('poor', !!c && G.running && G.budget < c); });
+  }
+  gStart.addEventListener('click', function () {
+    if (link.state !== 'linked') { link.msg = 'Link to the headset first, then start the game.'; refreshNote(); return; }
+    linkSend({ t: 'cmd', c: 'start' });
+  });
+  gTools.forEach(function (b) {
+    b.addEventListener('click', function () {
+      tool = b.getAttribute('data-tool');
+      gTools.forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+      Array.prototype.forEach.call(document.querySelectorAll('.shape'), function (o) { o.setAttribute('aria-pressed', 'false'); });
+      refreshNote();
+    });
+  });
 
   // ---------- link: the headset shows a code, the control page types it, then they talk peer to peer ----------
   var lastSent = { t: -1, p: new THREE.Vector3(1e9, 0, 0), q: new THREE.Quaternion(), e: -1, m: '' };
@@ -863,12 +1099,20 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function onLinkData(d) {
     if (!d || typeof d !== 'object') return;
     if (d.t === 'pose' && role === 'control') applyPose(d);
+    else if (d.t === 'cmd' && role === 'headset') gameCmd(d);
+    else if (d.t === 'gs' && role === 'control') onGs(d);
+    else if (d.t === 'inew' && role === 'control' && d.d && (d.d.k === 'ball' || d.d.k === 'eball') && typeof d.d.id === 'string' && !items[d.d.id]) {
+      var q = d.d, ok = ['s', 'x', 'z', 'y'].every(function (k) { return typeof q[k] === 'number' && isFinite(q[k]); });
+      if (ok) { addItem({ id: q.id.slice(0, 40), k: q.k, s: 0.2, x: q.x, z: q.z }, !!q.drop); var ni = items[q.id.slice(0, 40)]; ni.local = true; ni.ball = true; if (!q.drop) { ni.y = q.y; ni.settled = true; ni.ext = true; } ni.owner = ''; setOwner(ni, CODE_OWNER[q.o | 0] || 'neutral'); }
+    }
+    else if (d.t === 'idel' && role === 'control' && typeof d.id === 'string' && items[d.id] && items[d.id].local) removeItem(d.id);
     else if (d.t === 'xf' && role === 'control' && Array.isArray(d.i)) {
       d.i.forEach(function (a) {
         var it = Array.isArray(a) && items[a[0]]; if (!it || a.length < 9) return;
         for (var j = 1; j < 9; j++) if (typeof a[j] !== 'number' || !isFinite(a[j])) return;
         it.ext = true; it.settled = true; it.d.x = a[1]; it.y = a[2]; it.d.z = a[3]; it.f = Math.max(0.2, Math.min(5, a[4]));
         it.q.set(a[5], a[6], a[7], a[8]).normalize();
+        if (it.local && typeof a[9] === 'number') setOwner(it, CODE_OWNER[a[9] | 0] || 'neutral');
       });
     }
     else if (d.t === 'world' && role === 'headset' && Array.isArray(d.items)) {
@@ -994,7 +1238,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     }
   }
   function refreshNote() {
-    var base = 'Click the map to drop a ' + sel.shape + ', ' + sel.size.toFixed(2) + ' m wide.';
+    var base = tool === 'shape' ? 'Click the map to drop a ' + sel.shape + ', ' + sel.size.toFixed(2) + ' m wide.'
+      : tool === 'ping' ? 'Click the map to ping that direction; the headset player hears it from there.' : 'Click the map to place a ' + tool + '.';
     var tail;
     if (link.msg) tail = ' ' + link.msg;
     else if (link.state === 'linked') tail = ' Linked to the headset.';
@@ -1040,7 +1285,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 
   Array.prototype.forEach.call(document.querySelectorAll('.shape'), function (b) {
     b.addEventListener('click', function () {
-      sel.shape = b.getAttribute('data-shape');
+      sel.shape = b.getAttribute('data-shape'); tool = 'shape';
+      Array.prototype.forEach.call(document.querySelectorAll('.gtool'), function (o) { o.setAttribute('aria-pressed', 'false'); });
       Array.prototype.forEach.call(document.querySelectorAll('.shape'), function (o) { o.setAttribute('aria-pressed', String(o === b)); });
       ghostMat.color.setHex(SHAPE_HEX[sel.shape]); ghostFill.color.setHex(SHAPE_HEX[sel.shape]);
       refreshNote();
@@ -1063,6 +1309,12 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function showGhost(x, z) { ghost.position.set(x, 0.03, z); ghost.visible = true; }
   function spawn(x, z) {
+    if (tool !== 'shape') {
+      if (link.state !== 'linked') { link.msg = 'Link to the headset first.'; refreshNote(); return; }
+      if (!G.running) { link.msg = 'Start the game first.'; refreshNote(); return; }
+      if (COST[tool] && G.budget < COST[tool]) { link.msg = 'Not enough build points yet.'; refreshNote(); return; }
+      link.msg = ''; linkSend({ t: 'cmd', c: tool, x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 }); refreshNote(); return;
+    }
     var d = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), k: sel.shape, s: Math.round(sel.size * 100) / 100,
       x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 };
     var next = worldList.concat([d]);
@@ -1160,7 +1412,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       }
       var headCam = inXR ? renderer.xr.getCamera(camera) : camera;
       headCam.matrixWorld.decompose(hp, hq, hs);
-      stepEnergy(dt);
+      if (G.running || G.over) { if (energy > G.energy) energy = Math.max(G.energy, energy - 60 * dt); else energy = Math.min(G.energy, energy + 14 * dt); } else stepEnergy(dt);
       updateListener();
       if (inXR) readInputs(frame, t); else ptrs.forEach(function (p) { p.vis = false; });
       grabLogic(dt, t);
@@ -1175,7 +1427,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       o.position.set(Math.cos(a) * u.r * orbitScale, u.y + Math.sin(t + u.a) * 0.08, Math.sin(a) * u.r * orbitScale); o.rotation.y = t;
     });
     stepItems(dt);
-    publishItems(t);
+    if (role === 'headset') gameStep(dt, t);
+    gSync();
+    publishItems(t); publishGame(t);
 
     visor.position.copy(hp); visor.quaternion.copy(hq);
     if (!lagInit) { lagQ.copy(hq); lagInit = true; }
@@ -1249,7 +1503,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { ptrs: ptrs, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
+    t: { G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
