@@ -2438,6 +2438,32 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var compass = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.0473), new THREE.MeshBasicMaterial({ map: compTex, transparent: true, depthTest: false, depthWrite: false, fog: false }));
   compass.position.set(0, 0.17, -0.62); compass.renderOrder = 1000; compass.frustumCulled = false; hudGroup.add(compass);
   var cFwd = new THREE.Vector3(), SPAN = 80;
+  // ---- danger arrows on the visor: red = enemy close, orange = bomber hunting towers; 8 sectors around you ----
+  var DIRN = 8, dirRed = [], dirOrg = [], dirShape = new THREE.Shape();
+  dirShape.moveTo(0, 0.022); dirShape.lineTo(-0.017, -0.012); dirShape.lineTo(0, -0.003); dirShape.lineTo(0.017, -0.012); dirShape.lineTo(0, 0.022);
+  var dirGeo = new THREE.ShapeGeometry(dirShape);
+  for (var di0 = 0; di0 < DIRN; di0++) [[dirRed, 0xff3a3a], [dirOrg, 0xffa21a]].forEach(function (pr) {
+    var m = new THREE.Mesh(dirGeo, new THREE.MeshBasicMaterial({ color: pr[1], transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    m.renderOrder = 1003; m.frustumCulled = false; m.visible = false; visor.add(m); pr[0].push(m);
+  });
+  function dirStep(t) {
+    var on = role === 'headset' && G.running && !G.over, h = headingNow(), best = [], bestB = [], i;
+    for (i = 0; i < DIRN; i++) { best.push(99); bestB.push(99); }
+    if (on) G.enemies.forEach(function (e) {
+      if (!visibleEnemy(e)) return; var d = Math.hypot(e.x - hp.x, e.z - hp.z), rel = wrapPi(bearingTo(e.x, e.z) - h), sec = ((Math.round(rel / (2 * Math.PI / DIRN)) % DIRN) + DIRN) % DIRN;
+      if (e.type === 'bomber') { if (d < 12 && d < bestB[sec]) bestB[sec] = d; } else if (d < 5 && d < best[sec]) best[sec] = d;
+    });
+    for (i = 0; i < DIRN; i++) {
+      var rel2 = i * 2 * Math.PI / DIRN, front = Math.abs(wrapPi(rel2)) < 0.6;
+      [[dirRed, best, 5, 0.3], [dirOrg, bestB, 12, 0.37]].forEach(function (pr) {
+        var m = pr[0][i], d = pr[1][i], show = d < 90 && !(front && pr[0] === dirRed);
+        m.visible = show; if (!show) return;
+        var near = Math.max(0, 1 - d / pr[2]), pulse = 0.55 + 0.45 * Math.sin(t * (5 + 12 * near) + i);
+        m.material.opacity = Math.min(1, (0.25 + 0.75 * near) * (0.6 + 0.4 * pulse)); m.scale.setScalar(0.8 + 0.8 * near);
+        var ax = Math.sin(rel2), ay = Math.cos(rel2); m.position.set(ax * pr[3], ay * pr[3] * 0.55, -0.6); m.rotation.z = -rel2;
+      });
+    }
+  }
   function wrapPi(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
   function headingNow() { cFwd.set(0, 0, -1).applyQuaternion(hq); return Math.atan2(cFwd.x, -cFwd.z); }
   function bearingTo(x, z) { return Math.atan2(x - hp.x, -(z - hp.z)); }
@@ -2946,7 +2972,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     orbStep(dt); spookyStep(dt, t); gSync(); fxStep(dt); eventStep(dt);
     publishItems(t); publishGame(t);
 
-    visor.position.copy(hp); visor.quaternion.copy(hq);
+    visor.position.copy(hp); visor.quaternion.copy(hq); dirStep(t);
     if (!lagInit) { lagQ.copy(hq); lagInit = true; }
     lagQ.slerp(hq, 1 - Math.exp(-dt * 5.5));
     hudGroup.position.copy(hp); hudGroup.quaternion.copy(lagQ);
