@@ -1520,6 +1520,17 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   var flDir = new THREE.Vector3();
   function flashStep(dt, t) {
+    G.rumbleT = (G.rumbleT || 0) - dt;
+    if (G.rumbleT <= 0) {
+      G.rumbleT = 0.1;
+      var rd = 99; if (G.running) G.enemies.forEach(function (e) { if (e.frz) return; var d = Math.hypot(e.x - hp.x, e.z - hp.z); if (d < rd) rd = d; });
+      if (rd < 5) {
+        var rv = Math.min(1, 0.12 + 0.88 * Math.pow(1 - rd / 5, 1.5));
+        ptrs.forEach(function (p) {
+          try { var h = p.vis && !p.hand && p.src && p.src.gamepad && ((p.src.gamepad.hapticActuators && p.src.gamepad.hapticActuators[0]) || p.src.gamepad.vibrationActuator); if (h && h.pulse) h.pulse(rv, 130); } catch (err) {}
+        });
+      }
+    }
     ptrs.forEach(function (p) {
       p.fireCd = Math.max(0, (p.fireCd || 0) - dt);
       if (!p.vis || p.hand || !p.trig || !G.running || p.fireCd > 0) return;
