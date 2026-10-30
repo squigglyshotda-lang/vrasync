@@ -1222,7 +1222,10 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     frost: { n: 'Frost', cost: 20, c: '#7fd4ff', range: [2, 2.3, 2.6], slow: [0.55, 0.4, 0.28] },
     tesla: { n: 'Tesla', cost: 30, c: '#c08bff', range: [2.6, 3, 3.4], gap: [1.6, 1.3, 1.0], dmg: [2, 2, 3], chain: [2, 3, 4] }
   }, TW_KINDS = ['lantern', 'frost', 'tesla'], TW_HP = [10, 14, 18];
-  function upCost(t) { var b = TW[t.kind].cost; return t.lv === 0 ? Math.round(b * 0.75) : Math.round(b * 1.25); }
+  var TW_STEP = 0.4;   // each tower on the field, and each upgrade level, makes the next tower and upgrade 40% dearer
+  function tmult() { var n = G.towers.length; G.towers.forEach(function (t) { n += t.lv; }); return 1 + TW_STEP * n; }
+  function twPrice(k) { return Math.round(TW[k].cost * tmult()); }
+  function upCost(t) { var b = TW[t.kind].cost; return Math.round((t.lv === 0 ? b * 0.75 : b * 1.25) * tmult()); }
   function worth(t) { var b = TW[t.kind].cost, w = b; if (t.lv >= 1) w += Math.round(b * 0.75); if (t.lv >= 2) w += Math.round(b * 1.25); return Math.floor(w / 2); }
   var UP_COST = [8, 14, 20, 28, 40], UP_MAX = 5, SCORE_VAL = { ghost: 100, runner: 60, wisp: 150, brute: 400, splitter: 200, mini: 40, teleporter: 250, shielded: 250, bat: 40, phantom: 300 }, COIN_VAL = { ghost: 4, runner: 2, wisp: 6, brute: 16, splitter: 8, mini: 2, teleporter: 10, shielded: 10, bat: 2, phantom: 12 }, ORB_RANGE = 9, BATT_REGEN = 12, BATT_ADD = 45, ORB_SPEED = 22, FREEZE_R = 2.2, PUSH_R = 3.5, BOMB_R = 2.6, BLAST_R = 4.5;
   var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
@@ -2084,7 +2087,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var free = G.fx.free > 0;
     if (m.c === 'build') {
       var bk = m.k, isW = bk === 'wall'; if (!isW && !TW[bk]) return;
-      var price = free ? 0 : (isW ? WALL_COST : TW[bk].cost); if (G.coins < price) return;
+      var price = free ? 0 : (isW ? WALL_COST : twPrice(bk)); if (G.coins < price) return;
       if (isW ? G.walls.length >= WALL_MAX : G.towers.length >= TOWER_MAX) return;
       x = Math.max(-11, Math.min(11, x)); z = Math.max(-11, Math.min(11, z)); if (!structFree(x, z, isW ? 0.85 : 1.1)) return;
       G.coins -= price;
@@ -2200,7 +2203,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   $('selX').addEventListener('click', function () { selId = null; refreshSel(); });
   var BUILD = { lantern: 1, frost: 1, tesla: 1, wall: 1 };
   function toolRange(tl) { return tl === 'lantern' ? TW.lantern.range[0] : tl === 'frost' ? TW.frost.range[0] : tl === 'tesla' ? TW.tesla.range[0] : tl === 'wall' ? WALL_R : tl === 'freeze' ? FREEZE_R : tl === 'bomb' ? BOMB_R : tl === 'push' ? PUSH_R : tl === 'blast' ? BLAST_R : 0; }
-  function toolPrice(tl) { return tl === 'wall' ? WALL_COST : TW[tl] ? TW[tl].cost : TRAP[tl] || 0; }
+  function toolPrice(tl) { return tl === 'wall' ? WALL_COST : TW[tl] ? twPrice(tl) : TRAP[tl] || 0; }
   function updateGhostRange() { var r = toolRange(tool); gRange.visible = r > 0; if (r > 0) gRange.scale.setScalar(r); }
   var stScore = $('stScore'), scoreModal = $('scoreModal'), smMsg = $('smMsg'), smForm = $('smForm'), smList = $('smList'), smTitle = $('smTitle'), shownEnd = false, endSaved = false;
   document.body.appendChild(scoreModal);
@@ -2375,7 +2378,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var nd = near ? Math.hypot(near.x - hp.x, near.z - hp.z) : 99;
     function has(k) { return G.zones.some(function (z) { return z.kind === k; }); }
     var spF = new THREE.Vector3(0, 0, -1).applyQuaternion(hq), ba = Math.atan2(spF.x, spF.z) + (Math.random() - 0.5) * 2.2;
-    if (G.towers.length < [2, 4, 5, 6][sk] && G.coins >= 20) { var kd = ['lantern', 'frost', 'tesla'][G.towers.length % 3]; if (G.coins >= TW[kd].cost) gameCmd({ c: 'build', k: kd, x: hp.x + Math.sin(ba) * (3 + Math.random() * 3), z: hp.z + Math.cos(ba) * (3 + Math.random() * 3) }); }
+    if (G.towers.length < [2, 4, 5, 6][sk] && G.coins >= 20) { var kd = ['lantern', 'frost', 'tesla'][G.towers.length % 3]; if (G.coins >= twPrice(kd)) gameCmd({ c: 'build', k: kd, x: hp.x + Math.sin(ba) * (3 + Math.random() * 3), z: hp.z + Math.cos(ba) * (3 + Math.random() * 3) }); }
     else if (sk >= 2 && G.walls.length < (sk === 3 ? 10 : 5) && G.coins >= 4 && G.towers.length >= 2) gameCmd({ c: 'build', k: 'wall', x: hp.x + Math.sin(ba) * 5, z: hp.z + Math.cos(ba) * 5 });
     var low = G.towers.slice().sort(function (a, b) { return a.lv - b.lv; })[0]; if (sk >= 1 && low && low.lv < 2 && G.coins >= upCost(low) + 5) gameCmd({ c: 'tup', id: low.id });
     var upk = ['dmg', 'bat', 'rng'].sort(function (a, b) { return G.up[a] - G.up[b]; })[0];
