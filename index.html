@@ -178,7 +178,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     <div class="dock">
       <button id="enter" type="button" disabled>Checking VR…</button>
       <button id="enterMR" type="button" disabled>Checking MR…</button>
-      <p id="hint">Open this page on a tablet, phone or computer, choose Control and type the code above. Then enter VR or MR; the link stays up. In the preview, drag to look around.</p>
+      <p id="hint">Open this page on a tablet, phone or computer, choose Control and type the code above. Then enter VR or MR. In the headset, pinch (hands) or squeeze the grip or trigger (controllers) next to a shape to pick it up, turn your wrist to rotate it, hold it with both hands and pull apart to resize, and let go while moving to throw. In the preview, drag to look around.</p>
     </div>
   </section>
 </div>
@@ -498,11 +498,10 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return ((h >>> 0) % 10000) / 10000;
   }
   function place(it) {
-    it.g.position.set(it.d.x, it.y, it.d.z); it.g.rotation.y = it.yaw;
-    it.sh.position.y = 0.006 - it.y;
-    it.sm.opacity = 0.6 * Math.max(0, 1 - (it.y - it.rest) / 3);
+    it.g.position.set(it.d.x, it.y, it.d.z); it.g.quaternion.copy(it.q); it.g.scale.setScalar(it.f);
+    it.sh.position.set(it.d.x, 0.006, it.d.z); it.sh.scale.set(it.d.s * it.f * 1.7, it.d.s * it.f * 1.7, 1);
+    it.sm.opacity = 0.6 * Math.max(0, 1 - Math.max(0, it.y - it.rest * it.f) / 3);
   }
-
   // ---------- spatial audio (headset only): sounds come from where shapes appear and land ----------
   var actx = null, master = null, noiseBuf = null;
   function audioOn() {
@@ -565,38 +564,50 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var g = new THREE.Group();
     var mesh = new THREE.Mesh(geoFor(d.k, d.s), itemMats[d.k]);
     if (d.k === 'torus') mesh.rotation.x = Math.PI / 2;
-    g.add(mesh);
+    g.add(mesh); itemsGroup.add(g);
     var sm = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.6 });
     var sh = new THREE.Mesh(shadowGeo, sm);
-    sh.rotation.x = -Math.PI / 2; sh.scale.set(d.s * 1.7, d.s * 1.7, 1); sh.renderOrder = 1;
-    g.add(sh); itemsGroup.add(g);
+    sh.rotation.x = -Math.PI / 2; sh.renderOrder = 1; itemsGroup.add(sh);
     var rest = restFor(d.k, d.s);
-    var it = { d: d, g: g, sh: sh, sm: sm, rest: rest, y: drop ? DROP_Y : rest, vy: 0,
-      w: drop ? (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 4) : 0, yaw: hash01(d.id) * Math.PI * 2, settled: !drop };
+    var it = { d: d, g: g, sh: sh, sm: sm, rest: rest, f: 1, y: drop ? DROP_Y : rest, vx: 0, vy: 0, vz: 0,
+      w: drop ? (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 4) : 0,
+      q: new THREE.Quaternion().setFromAxisAngle(AY, hash01(d.id) * Math.PI * 2), settled: !drop, held: [], ext: false, dirty: true };
     items[d.id] = it; place(it);
     if (drop && role === 'headset') soundSpawn(d.k, d.x, DROP_Y, d.z);
   }
   function removeItem(id) {
     var it = items[id]; if (!it) return;
-    itemsGroup.remove(it.g); it.g.children[0].geometry.dispose(); it.sm.dispose(); delete items[id];
+    it.held.slice().forEach(function (p) { p.item = null; }); it.held = [];
+    itemsGroup.remove(it.g); itemsGroup.remove(it.sh); it.g.children[0].geometry.dispose(); it.sm.dispose(); delete items[id];
   }
   function applyItems(list, initial) {
     var seen = {};
     list.forEach(function (d) { seen[d.id] = true; if (!items[d.id]) addItem(d, !initial); });
     Object.keys(items).forEach(function (id) { if (!seen[id]) removeItem(id); });
   }
+  var AY = new THREE.Vector3(0, 1, 0), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), uprQ = new THREE.Quaternion();
   function stepItems(dt) {
     for (var id in items) {
       var it = items[id];
-      if (!it.settled) {
-        it.vy -= 9.8 * dt; it.y += it.vy * dt;
-        if (it.y <= it.rest) {
-          it.y = it.rest;
-          if (role === 'headset') soundThud(it.d.x, it.rest, it.d.z, it.d.s, Math.abs(it.vy) / 6);
-          if (Math.abs(it.vy) > 0.9) { it.vy = -it.vy * 0.42; it.w *= 0.55; }
-          else { it.vy = 0; it.w = 0; it.settled = true; }
+      if (!it.held.length && !it.settled && !it.ext) {
+        var d = it.d, rest = it.rest * it.f, k;
+        it.vy -= 9.8 * dt; it.y += it.vy * dt; d.x += it.vx * dt; d.z += it.vz * dt;
+        if (Math.abs(d.x) > CLAMP) { d.x = d.x > 0 ? CLAMP : -CLAMP; it.vx *= -0.5; }
+        if (Math.abs(d.z) > CLAMP) { d.z = d.z > 0 ? CLAMP : -CLAMP; it.vz *= -0.5; }
+        if (it.y > 3.6) { it.y = 3.6; it.vy = -Math.abs(it.vy) * 0.3; }
+        if (it.y <= rest) {
+          it.y = rest;
+          if (role === 'headset' && Math.abs(it.vy) > 0.6) soundThud(d.x, rest, d.z, d.s * it.f, Math.abs(it.vy) / 6);
+          if (Math.abs(it.vy) > 0.9) { it.vy = -it.vy * 0.42; it.w *= 0.55; } else it.vy = 0;
         }
-        it.yaw += it.w * dt;
+        if (it.y <= rest + 1e-4 && it.vy === 0) {
+          k = Math.exp(-5 * dt); it.vx *= k; it.vz *= k; it.w *= k;
+          if (Math.hypot(it.vx, it.vz) < 0.05 && Math.abs(it.w) < 0.2) { it.vx = it.vz = it.w = 0; it.settled = true; }
+        }
+        if (it.w) { tmpQ.setFromAxisAngle(AY, it.w * dt); it.q.premultiply(tmpQ); }
+        tmpE.setFromQuaternion(it.q, 'YXZ'); uprQ.setFromEuler(tmpE.set(0, tmpE.y, 0, 'YXZ'));
+        it.q.slerp(uprQ, 1 - Math.exp(-dt * 8));
+        it.dirty = true;
       }
       place(it);
     }
@@ -673,6 +684,147 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     }
   }
 
+
+  // ---------- hands and controllers (headset only): pick up, move, rotate, resize with two hands, throw ----------
+  var HAND_NAMES = null;
+  var PINCH_ON = 0.03, PINCH_OFF = 0.055, REACH = 0.10, F_MIN = 0.3, F_MAX = 4;
+  var ptrs = [0, 1].map(function (i) {
+    return { i: i, vis: false, hand: false, want: false, down: false, pos: new THREE.Vector3(), q: new THREE.Quaternion(),
+             item: null, off: new THREE.Vector3(), qrel: new THREE.Quaternion(), hist: [], hov: null };
+  });
+  var dotGeo = new THREE.SphereGeometry(0.008, 6, 4), dotMat = new THREE.MeshBasicMaterial({ color: 0x62f0d4, transparent: true, opacity: 0.75, depthWrite: false });
+  var markGeo = new THREE.SphereGeometry(0.014, 12, 8);
+  var haloMat = new THREE.MeshBasicMaterial({ color: 0x62f0d4, transparent: true, opacity: 0.22, depthWrite: false });
+  var haloGeo = new THREE.SphereGeometry(1, 16, 12);
+  ptrs.forEach(function (p) {
+    p.marker = new THREE.Mesh(markGeo, new THREE.MeshBasicMaterial({ color: 0x62f0d4, transparent: true, opacity: 0.9, depthTest: false }));
+    p.marker.renderOrder = 5; p.marker.visible = false; scene.add(p.marker);
+    p.halo = new THREE.Mesh(haloGeo, haloMat); p.halo.visible = false; scene.add(p.halo);
+    p.dots = []; p.dotGroup = new THREE.Group(); p.dotGroup.visible = false; scene.add(p.dotGroup);
+  });
+  var gA = new THREE.Vector3(), gB = new THREE.Vector3(), gQ = new THREE.Quaternion(), gQ2 = new THREE.Quaternion();
+  function nearestItem(pos) {
+    var best = null, bd = 1e9;
+    for (var id in items) {
+      var it = items[id], dx = pos.x - it.d.x, dy = pos.y - it.y, dz = pos.z - it.d.z;
+      var dist = Math.sqrt(dx * dx + dy * dy + dz * dz), lim = it.d.s * it.f * 0.6 + REACH;
+      if (dist < lim && dist < bd) { bd = dist; best = it; }
+    }
+    return best;
+  }
+  function rehold(it) {
+    var h = it.held;
+    if (h.length === 1) {
+      var p = h[0];
+      p.off.set(it.d.x - p.pos.x, it.y - p.pos.y, it.d.z - p.pos.z).applyQuaternion(gQ.copy(p.q).invert());
+      p.qrel.copy(gQ).multiply(it.q);
+    } else if (h.length === 2) {
+      var a = h[0], b = h[1];
+      it.mid0 = new THREE.Vector3().addVectors(a.pos, b.pos).multiplyScalar(0.5);
+      it.offMid = new THREE.Vector3(it.d.x - it.mid0.x, it.y - it.mid0.y, it.d.z - it.mid0.z);
+      it.dist0 = Math.max(0.05, a.pos.distanceTo(b.pos)); it.f0 = it.f;
+      a.qrel.copy(gQ.copy(a.q).invert()).multiply(it.q);
+    }
+  }
+  function tryGrab(p) {
+    var it = nearestItem(p.pos);
+    if (!it || it.held.length >= 2 || it.held.indexOf(p) >= 0) return;
+    it.settled = false; it.ext = false; it.vx = it.vy = it.vz = it.w = 0;
+    p.item = it; it.held.push(p); rehold(it);
+  }
+  function release(p) {
+    var it = p.item; if (!it) return;
+    p.item = null; it.held.splice(it.held.indexOf(p), 1);
+    if (it.held.length) { rehold(it); return; }
+    var h = p.hist, n = h.length, v = new THREE.Vector3();
+    if (n > 1) {
+      var o = h[0]; for (var i = 0; i < n; i++) { if (h[n - 1].t - h[i].t <= 0.12) { o = h[i]; break; } }
+      var dt = h[n - 1].t - o.t;
+      if (dt > 0.03) v.subVectors(h[n - 1].pos, o.pos).divideScalar(dt);
+    }
+    if (v.length() > 6) v.setLength(6);
+    if (v.length() < 0.4) v.set(0, 0, 0);
+    it.vx = v.x; it.vy = v.y; it.vz = v.z; it.w = 0; it.settled = false; it.dirty = true;
+  }
+  function grabLogic(dt, t) {
+    ptrs.forEach(function (p) {
+      p.marker.visible = p.vis;
+      if (!p.vis) { if (p.item) release(p); p.down = false; p.halo.visible = false; p.dotGroup.visible = false; return; }
+      p.hist.push({ t: t, pos: p.pos.clone() }); while (p.hist.length > 2 && t - p.hist[0].t > 0.25) p.hist.shift();
+      if (p.want && !p.down) tryGrab(p);
+      if (!p.want && p.down) release(p);
+      p.down = p.want;
+      p.marker.position.copy(p.pos); p.marker.scale.setScalar(p.item ? 1.5 : 1);
+      p.hov = p.item ? null : nearestItem(p.pos);
+      var tgt = p.item || p.hov;
+      if (tgt) { p.halo.visible = true; p.halo.position.set(tgt.d.x, tgt.y, tgt.d.z); p.halo.scale.setScalar(tgt.d.s * tgt.f * 0.75); p.halo.material.opacity = p.item ? 0.35 : 0.18; }
+      else p.halo.visible = false;
+    });
+    for (var id in items) {
+      var it = items[id], h = it.held; if (!h.length) continue;
+      if (h.length === 1) {
+        var p = h[0];
+        gA.copy(p.off).applyQuaternion(p.q).add(p.pos); it.q.copy(p.q).multiply(p.qrel);
+        it.d.x = gA.x; it.y = gA.y; it.d.z = gA.z;
+      } else {
+        gA.addVectors(h[0].pos, h[1].pos).multiplyScalar(0.5).add(it.offMid);
+        it.d.x = gA.x; it.y = gA.y; it.d.z = gA.z;
+        it.f = Math.max(F_MIN, Math.min(F_MAX, it.f0 * h[0].pos.distanceTo(h[1].pos) / it.dist0));
+        it.q.copy(h[0].q).multiply(h[0].qrel);
+      }
+      it.d.x = Math.max(-CLAMP, Math.min(CLAMP, it.d.x)); it.d.z = Math.max(-CLAMP, Math.min(CLAMP, it.d.z));
+      it.y = Math.max(0.05, Math.min(3.6, it.y)); it.dirty = true;
+    }
+  }
+  function readInputs(frame, t) {
+    var ref = renderer.xr.getReferenceSpace();
+    ptrs.forEach(function (p) { p.vis = false; });
+    if (!frame || !ref || !session) return;
+    var n = 0;
+    Array.prototype.forEach.call(session.inputSources, function (src) {
+      var idx = src.handedness === 'left' ? 0 : src.handedness === 'right' ? 1 : Math.min(1, n); n++;
+      var p = ptrs[idx];
+      if (src.hand) {
+        var ti = frame.getJointPose(src.hand.get('thumb-tip'), ref), ii = frame.getJointPose(src.hand.get('index-finger-tip'), ref), wr = frame.getJointPose(src.hand.get('wrist'), ref);
+        if (!ti || !ii) return;
+        gA.set(ti.transform.position.x, ti.transform.position.y, ti.transform.position.z);
+        gB.set(ii.transform.position.x, ii.transform.position.y, ii.transform.position.z);
+        p.pos.addVectors(gA, gB).multiplyScalar(0.5);
+        if (wr) p.q.set(wr.transform.orientation.x, wr.transform.orientation.y, wr.transform.orientation.z, wr.transform.orientation.w);
+        p.want = gA.distanceTo(gB) < (p.down ? PINCH_OFF : PINCH_ON); p.hand = true; p.vis = true;
+        // joint dots (VR only; in MR the real hands are visible)
+        p.dotGroup.visible = !mrMode;
+        if (!mrMode) {
+          var k = 0;
+          for (var pair of src.hand) {
+            var jp = frame.getJointPose(pair[1], ref); if (!jp) continue;
+            var d = p.dots[k]; if (!d) { d = p.dots[k] = new THREE.Mesh(dotGeo, dotMat); p.dotGroup.add(d); }
+            d.visible = true; d.position.set(jp.transform.position.x, jp.transform.position.y, jp.transform.position.z); k++;
+          }
+          for (; k < p.dots.length; k++) p.dots[k].visible = false;
+        }
+      } else if (src.gripSpace) {
+        var gp = frame.getPose(src.gripSpace, ref); if (!gp) return;
+        p.q.set(gp.transform.orientation.x, gp.transform.orientation.y, gp.transform.orientation.z, gp.transform.orientation.w);
+        p.pos.set(0, 0, -0.05).applyQuaternion(p.q).add(gA.set(gp.transform.position.x, gp.transform.position.y, gp.transform.position.z));
+        var b = src.gamepad && src.gamepad.buttons;
+        p.want = !!(b && ((b[0] && b[0].pressed) || (b[1] && b[1].pressed))); p.hand = false; p.vis = true; p.dotGroup.visible = false;
+      }
+    });
+  }
+  var lastXf = 0;
+  function publishItems(t) {
+    if (role !== 'headset' || !link.conns.length || t - lastXf < 0.1) return;
+    var out = [];
+    for (var id in items) {
+      var it = items[id]; if (!it.dirty) continue;
+      if (!it.held.length && it.settled) it.dirty = false;
+      out.push([id, r3(it.d.x), r3(it.y), r3(it.d.z), r3(it.f), r4(it.q.x), r4(it.q.y), r4(it.q.z), r4(it.q.w)]);
+    }
+    lastXf = t;
+    if (out.length) linkSend({ t: 'xf', i: out });
+  }
+
   // ---------- link: the headset shows a code, the control page types it, then they talk peer to peer ----------
   var lastSent = { t: -1, p: new THREE.Vector3(1e9, 0, 0), q: new THREE.Quaternion(), e: -1, m: '' };
   var session = null, mrMode = false;
@@ -711,6 +863,14 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function onLinkData(d) {
     if (!d || typeof d !== 'object') return;
     if (d.t === 'pose' && role === 'control') applyPose(d);
+    else if (d.t === 'xf' && role === 'control' && Array.isArray(d.i)) {
+      d.i.forEach(function (a) {
+        var it = Array.isArray(a) && items[a[0]]; if (!it || a.length < 9) return;
+        for (var j = 1; j < 9; j++) if (typeof a[j] !== 'number' || !isFinite(a[j])) return;
+        it.ext = true; it.settled = true; it.d.x = a[1]; it.y = a[2]; it.d.z = a[3]; it.f = Math.max(0.2, Math.min(5, a[4]));
+        it.q.set(a[5], a[6], a[7], a[8]).normalize();
+      });
+    }
     else if (d.t === 'world' && role === 'headset' && Array.isArray(d.items)) {
       var list = [];
       d.items.forEach(function (x) { var c = cleanItem(x); if (c) list.push(c); });
@@ -986,7 +1146,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 
   // ---------- main loop ----------
   var last = performance.now() / 1000, hudClock = 0;
-  renderer.setAnimationLoop(function (now) {
+  renderer.setAnimationLoop(function (now, frame) {
     var t = now / 1000, dt = Math.min(0.05, Math.max(0, t - last)); last = t;
     if (!role) return;
     var inXR = renderer.xr.isPresenting;
@@ -1002,6 +1162,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       headCam.matrixWorld.decompose(hp, hq, hs);
       stepEnergy(dt);
       updateListener();
+      if (inXR) readInputs(frame, t); else ptrs.forEach(function (p) { p.vis = false; });
+      grabLogic(dt, t);
       publishPose(t);
     } else {
       updateRemote(dt, t);
@@ -1013,6 +1175,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       o.position.set(Math.cos(a) * u.r * orbitScale, u.y + Math.sin(t + u.a) * 0.08, Math.sin(a) * u.r * orbitScale); o.rotation.y = t;
     });
     stepItems(dt);
+    publishItems(t);
 
     visor.position.copy(hp); visor.quaternion.copy(hq);
     if (!lagInit) { lagQ.copy(hq); lagInit = true; }
@@ -1066,7 +1229,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     try {
       renderer.xr.setReferenceSpaceType('local-floor');
       setMR(ar);
-      session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'bounded-floor'] });
+      session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
       session.addEventListener('end', onEnd);
       await renderer.xr.setSession(session);
       lagInit = false; refreshMode(); refresh();
@@ -1085,7 +1248,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (/OculusBrowser|Quest/i.test(navigator.userAgent || '')) return 'headset';
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
-  window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; } };
+  window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
+    t: { ptrs: ptrs, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
