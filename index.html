@@ -602,13 +602,14 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     it.sm.opacity = 0.6 * Math.max(0, 1 - Math.max(0, it.y - it.rest * it.f) / 3);
   }
   // ---------- spatial audio (headset only): sounds come from where shapes appear and land ----------
-  var actx = null, master = null, noiseBuf = null;
+  var actx = null, master = null, noiseBuf = null, ambBus = null;
   function audioOn() {
     try {
       if (!actx) {
         var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
         actx = new AC(); master = actx.createGain(); master.gain.value = 0.7;
         var comp = actx.createDynamicsCompressor(); master.connect(comp); comp.connect(actx.destination);
+        ambBus = actx.createGain(); ambBus.gain.value = 0.3; ambBus.connect(master);
         noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.3, actx.sampleRate);
         var nd = noiseBuf.getChannelData(0); for (var i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
       }
@@ -627,11 +628,11 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       L.upX.value = AU.x; L.upY.value = AU.y; L.upZ.value = AU.z;
     } else { L.setPosition(hp.x, hp.y, hp.z); L.setOrientation(AF.x, AF.y, AF.z, AU.x, AU.y, AU.z); }
   }
-  function voiceAt(x, y, z, vol) {
+  function voiceAt(x, y, z, vol, dst) {
     var pn = actx.createPanner(), g = actx.createGain();
     pn.panningModel = 'HRTF'; pn.distanceModel = 'inverse'; pn.refDistance = 1; pn.rolloffFactor = 1.1; pn.maxDistance = 20;
     if (pn.positionX) { pn.positionX.value = x; pn.positionY.value = y; pn.positionZ.value = z; } else pn.setPosition(x, y, z);
-    g.gain.value = vol; g.connect(pn); pn.connect(master); return g;
+    g.gain.value = vol; g.connect(pn); pn.connect(dst || master); return g;
   }
   function tone(dst, type, f0, f1, t0, dur, peak) {
     var o = actx.createOscillator(), e = actx.createGain();
@@ -1205,7 +1206,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.enemies.push(e); return e;
   }
   function spawnEnemy(forceType) {
-    var type = forceType || pickType(), a = Math.random() * Math.PI * 2, r = (opts.practice && solo.head ? 8 : 11) + Math.random() * 1.5;
+    var type = forceType || pickType(), spF = new THREE.Vector3(0, 0, -1).applyQuaternion(hq), a = Math.atan2(spF.x, spF.z) + (Math.random() - 0.5) * Math.PI, r = (opts.practice && solo.head ? 8 : 11) + Math.random() * 1.5;
     var x = hp.x + Math.sin(a) * r, z = hp.z + Math.cos(a) * r;
     if (type === 'runner') {
       for (var i = -1; i <= 1; i++) addEnemy('runner', hp.x + Math.sin(a + i * 0.1) * (r + Math.abs(i) * 0.5), hp.z + Math.cos(a + i * 0.1) * (r + Math.abs(i) * 0.5));
@@ -1215,7 +1216,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function soundEnemySpawn(type, x, z) {
     if (!actx || actx.state !== 'running') return;
-    var t = actx.currentTime + 0.01, g = voiceAt(x, type === 'wisp' ? 1.6 : 1.1, z, 7);
+    var t = actx.currentTime + 0.01, g = voiceAt(x, type === 'wisp' ? 1.6 : 1.1, z, 16);
+    if (ambBus) { ambBus.gain.cancelScheduledValues(t); ambBus.gain.setTargetAtTime(0.06, t, 0.05); ambBus.gain.setTargetAtTime(0.3, t + 1.6, 0.5); }
     if (type === 'runner') { [0, 0.12, 0.24].forEach(function (o) { tone(g, 'square', 900, 1500, t + o, 0.09, 0.3); }); }
     else if (type === 'wisp') { [1200, 1600, 2000].forEach(function (f, i) { tone(g, 'sine', f, f * 1.01, t + i * 0.12, 0.5, 0.35); }); }
     else if (type === 'brute') { tone(g, 'sawtooth', 75, 45, t, 1.0, 0.7); tone(g, 'sine', 120, 60, t, 0.9, 0.6); }
@@ -1308,29 +1310,29 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     src.buffer = buf; src.loop = true; bp.type = 'bandpass'; bp.frequency.value = 380; bp.Q.value = 0.7; g.gain.value = 0;
     lfo.frequency.value = 0.11; lg.gain.value = 0.35; lfo.connect(lg); lg.connect(g.gain);
     lf2.frequency.value = 0.07; lg2.gain.value = 220; lf2.connect(lg2); lg2.connect(bp.frequency);
-    src.connect(bp); bp.connect(g); g.connect(master); src.start(); lfo.start(); lf2.start(); amb.windG = g;
+    src.connect(bp); bp.connect(g); g.connect(ambBus); src.start(); lfo.start(); lf2.start(); amb.windG = g;
   }
   function ambStep(dt) {
     if (!actx || actx.state !== 'running') return;
     if (!amb.windG) startWind();
-    amb.windG.gain.setTargetAtTime(G.running ? 0.55 : 0, actx.currentTime, 1.2);
+    amb.windG.gain.setTargetAtTime(G.running ? 0.45 : 0, actx.currentTime, 1.2);
     if (!G.running) return;
     var t = actx.currentTime + 0.02, p, g;
     amb.cric -= dt; if (amb.cric <= 0) {
-      amb.cric = 0.35 + Math.random() * 0.8; p = ambAt(5, 9, 0.1); g = voiceAt(p[0], p[1], p[2], 1.6);
+      amb.cric = 0.35 + Math.random() * 0.8; p = ambAt(5, 9, 0.1); g = voiceAt(p[0], p[1], p[2], 1.0, ambBus);
       for (var i = 0; i < 3; i++) tone(g, 'sine', 4400, 4300, t + i * 0.07, 0.04, 0.3);
     }
     amb.owl -= dt; if (amb.owl <= 0) {
       amb.owl = 9 + Math.random() * 13; p = ambAt(10, 14, 5.5);
-      if (Math.random() < 0.7) { g = voiceAt(p[0], p[1], p[2], 5); tone(g, 'sine', 420, 380, t, 0.35, 0.5); tone(g, 'sine', 400, 340, t + 0.5, 0.55, 0.5); }
-      else { g = voiceAt(p[0], 7, p[2], 4); [0, 0.28, 0.56].forEach(function (o) { tone(g, 'sawtooth', 700, 420, t + o, 0.18, 0.3); }); }
+      if (Math.random() < 0.7) { g = voiceAt(p[0], p[1], p[2], 3, ambBus); tone(g, 'sine', 420, 380, t, 0.35, 0.5); tone(g, 'sine', 400, 340, t + 0.5, 0.55, 0.5); }
+      else { g = voiceAt(p[0], 7, p[2], 2.5, ambBus); [0, 0.28, 0.56].forEach(function (o) { tone(g, 'sawtooth', 700, 420, t + o, 0.18, 0.3); }); }
     }
     amb.bell -= dt; if (amb.bell <= 0) {
-      amb.bell = 28 + Math.random() * 22; p = ambAt(13, 16, 8); g = voiceAt(p[0], p[1], p[2], 8);
+      amb.bell = 28 + Math.random() * 22; p = ambAt(13, 16, 8); g = voiceAt(p[0], p[1], p[2], 4, ambBus);
       [1, 2.4, 3.9, 5.6].forEach(function (m, i) { tone(g, 'sine', 196 * m, 196 * m * 0.995, t, 4.5 - i * 0.7, 0.35 / (i + 1)); });
     }
     amb.creak -= dt; if (amb.creak <= 0) {
-      amb.creak = 14 + Math.random() * 16; p = ambAt(4, 7, 1); g = voiceAt(p[0], p[1], p[2], 3);
+      amb.creak = 14 + Math.random() * 16; p = ambAt(4, 7, 1); g = voiceAt(p[0], p[1], p[2], 2, ambBus);
       tone(g, 'sawtooth', 70, 110, t, 0.5, 0.22); tone(g, 'sawtooth', 95, 60, t + 0.45, 0.4, 0.18);
     }
   }
@@ -2129,7 +2131,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
+    t: { spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, hqSet: function (x, y, z, w) { hq.set(x, y, z, w); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
