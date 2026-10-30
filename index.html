@@ -92,7 +92,22 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .sizebox output { color: var(--text); min-width: 6ch; font-variant-numeric: tabular-nums; }
 #note { margin: 0; flex: 1 1 100%; font-size: 13px; line-height: 1.5; color: var(--muted); max-width: 90ch; }
 .panels { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-@media (min-width: 820px) { .panels { flex-direction: row; } #viewPanel { flex: 1.35 1 0; } }
+@media (min-width: 820px) {
+  #controlUI { display: grid; grid-template-columns: 228px minmax(0, 1fr) minmax(0, 33%); grid-template-rows: minmax(0, 1fr); gap: 12px; }
+  .panels { display: contents; }
+  .tools { grid-column: 1; grid-row: 1; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 12px; overflow-y: auto; }
+  #mapPanel { grid-column: 2; grid-row: 1; }
+  #viewPanel { grid-column: 3; grid-row: 1; }
+  .gamebar { flex-direction: column; align-items: stretch; order: 1; gap: 8px; }
+  .gamebar .gstart, .gamebar .gtool { width: 100%; justify-content: center; padding: 13px 10px; font-size: 13px; }
+  .gamebar .gstart { order: -2; } .gamebar .gstats { order: -1; margin: 0 0 4px; line-height: 1.5; }
+  #note { order: 2; flex: none; max-width: none; }
+  .shapes { order: 3; } .sizebox { order: 4; }
+  .tools .sizebox input { width: 100%; }
+  .pairbox { order: 5; }
+  #controlUI[data-linked="1"] .pairbox label, #controlUI[data-linked="1"] .pairbox input { display: none; }
+  .testmenu { margin-top: 4px; }
+}
 .panel { position: relative; flex: 1 1 0; min-height: 0; min-width: 0; border: 1px solid var(--line); pointer-events: auto; }
 #mapPanel { cursor: crosshair; touch-action: manipulation; }
 .cap {
@@ -167,7 +182,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         <button class="gtool" type="button" data-tool="decoy" aria-pressed="false" title="A lantern that enemies walk to instead of the player">Decoy · 4</button>
         <button class="gtool" type="button" data-tool="bomb" aria-pressed="false" title="Explodes after a short fuse">Bomb · 5</button>
         <button class="gtool" type="button" data-tool="ping" aria-pressed="false">Ping</button>
-        <button class="gsolo" id="soloBtn" type="button" aria-pressed="false" title="Plays the game on this page with a bot as the VR player, no headset needed">Solo test: off</button>
+        <details class="rkset testmenu"><summary>Test tools</summary><button class="gsolo" id="soloBtn" type="button" aria-pressed="false" title="Plays the game on this page with a bot as the VR player, no headset needed">Solo test: off</button></details>
         <output class="gstats" id="gStats">Game not started</output>
       </div>
       <div class="shapes" role="group" aria-label="Shape to drop">
@@ -1789,6 +1804,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function setChip(el, state, text) { el.setAttribute('data-state', state); el.querySelector('b').textContent = text; }
   function refreshChips() {
     var st = link.state;
+    $('controlUI').setAttribute('data-linked', st === 'linked' ? '1' : '0');
     if (st === 'linked') setChip(chipLive, 'on', 'Linked');
     else if (st === 'error') setChip(chipLive, 'warn', 'Pairing unavailable');
     else if (st === 'linking' || st === 'starting') setChip(chipLive, 'warn', 'Linking…');
