@@ -1218,9 +1218,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var COST = { push: 3 }, BUDGET_MAX = 12;
   var TRAP = { freeze: 8, decoy: 10, bomb: 12 }, WALL_COST = 4, WALL_MAX = 12, TOWER_MAX = 6, WALL_R = 0.5, TOWER_R = 0.5, WALL_HP = 8, AGGRO = 3.6;
   var TW = {
-    lantern: { n: 'Lantern', cost: 20, c: '#ffd25a', range: [7, 7.5, 8], gap: [1.1, 0.8, 0.55], dmg: [1, 1, 2] },
-    frost: { n: 'Frost', cost: 20, c: '#7fd4ff', range: [3.5, 4, 4.6], slow: [0.55, 0.4, 0.28] },
-    tesla: { n: 'Tesla', cost: 30, c: '#c08bff', range: [4.5, 5, 5.5], gap: [1.6, 1.3, 1.0], dmg: [2, 2, 3], chain: [2, 3, 4] }
+    lantern: { n: 'Lantern', cost: 20, c: '#ffd25a', range: [3.8, 4.2, 4.6], gap: [1.1, 0.8, 0.55], dmg: [1, 1, 2] },
+    frost: { n: 'Frost', cost: 20, c: '#7fd4ff', range: [2, 2.3, 2.6], slow: [0.55, 0.4, 0.28] },
+    tesla: { n: 'Tesla', cost: 30, c: '#c08bff', range: [2.6, 3, 3.4], gap: [1.6, 1.3, 1.0], dmg: [2, 2, 3], chain: [2, 3, 4] }
   }, TW_KINDS = ['lantern', 'frost', 'tesla'], TW_HP = [10, 14, 18];
   function upCost(t) { var b = TW[t.kind].cost; return t.lv === 0 ? Math.round(b * 0.75) : Math.round(b * 1.25); }
   function worth(t) { var b = TW[t.kind].cost, w = b; if (t.lv >= 1) w += Math.round(b * 0.75); if (t.lv >= 2) w += Math.round(b * 1.25); return Math.floor(w / 2); }
