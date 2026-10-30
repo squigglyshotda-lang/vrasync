@@ -11,14 +11,14 @@ Pairing is peer to peer (PeerJS); nothing is stored.
 ## Game: flashlight defence
 
 The headset player holds a flashlight in each controller and squeezes the trigger to shoot light orbs at the pumpkin ghosts walking in from all sides (head shots do double damage). Ghosts do not throw anything. They drain suit energy while touching the player.
-Every shot uses battery. The control player spends build points on **Recharge**, and on crowd control: **Freeze** zone, **Push** wave, **Decoy** lantern and **Bomb**. **Ping** shows the player where enemies are coming from.
+Every shot uses battery. The control player spends build points on **Recharge**, and on crowd control: **Slow trap** zone (half speed for 8 s, enemies in it still take shatter damage), **Push** wave, **Decoy** lantern and **Bomb**. **Ping** shows the player where enemies are coming from.
 Flashlight direction can be tuned in "Flashlight setup" on the headset page.
 
 Enemy types unlock by wave: Runner (wave 2, packs of three, fast, one hit), Wisp (wave 3, floats at head height and weaves), Brute (wave 4, big, slow, lots of health, drains energy fast, hard to push) and Splitter (wave 5, breaks into two minis). Each type has its own 3D spawn sound, and the headset has ambient wind, crickets, owls, crows, bells and creaks while a game runs.
 
 Update: one touch from an enemy ends the run. The flashlight has a small battery (10 shots) that refills by itself when you stop shooting, and the visor HUD is now a big flashlight meter, one segment per shot. Bombs only go off when the VR player shoots them. Enemies sometimes drop battery pickups that the control player taps on the map to send an instant boost. The flashlight model is a yellow low-poly torch and the scene is now a night scene.
 
-Control page hot keys: 1 Freeze, 2 Push, 3 Decoy, 4 Bomb, 5 Ping, 6 Damage, 7 Battery, 8 Range upgrades, 9 Big blast (when you have one). The key number shows on each button.
+Control page hot keys: 1 Slow trap, 2 Push, 3 Decoy, 4 Bomb, 5 Ping, 6 Damage, 7 Battery, 8 Range upgrades, 9 Big blast (when you have one). The key number shows on each button.
 
 Atmosphere: drifting ground fog, fences, crooked crosses, lit mausoleums, flickering lantern posts, fireflies, marsh lights, bats and distant lightning with thunder. Whispers and moans come from the edge of the arena, enemies make footsteps as they walk in, and a heartbeat speeds up when one gets close.
 
@@ -32,15 +32,15 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 
 ## Tower defence for the control player
 - Coins are the one currency: flashlight upgrades, towers, walls and traps all cost coins. Enemies pay out double what they used to.
-- Builds snap to a 1 m grid: towers, walls and freeze/decoy/bomb traps all land in the centre of the cell you tap. While placing, the target cell is outlined on the map, in red when something is already there or it is too close to another build.
+- Builds snap to a 1 m grid: towers, walls and slow/decoy/bomb traps all land in the centre of the cell you tap. While placing, the target cell is outlined on the map, in red when something is already there or it is too close to another build.
 - Tower prices rise by 40% of the base price for every tower on the field and every upgrade level (so the first tower is full price, the second +40%, and so on). This applies to new towers and to upgrades. Selling a tower brings the prices back down; sell refunds are still based on the base price.
 - Towers (max 6): Lantern (shoots), Frost (slows enemies in range), Tesla (chain lightning). Tap a built tower to upgrade it (3 levels) or sell it for half back.
 - Walls (max 12): ground enemies walk around them, so lines of walls steer the crowd. Flyers (wisps, bats) and teleporters ignore the maze. Ground enemies within about 3.5 m of a tower or wall go for it and chew it until it breaks (walls have 8 HP, towers 10/14/18 by level), so walls also work as bait and towers need protecting. Sell and rebuild, or upgrade a tower to refill its health.
 - Bot skill: Test tools (control page) and the headset test options both have a Bot skill button cycling Beginner, Average, Good and Expert. It changes how well the practice bots shoot and how smartly they build.
 - The control player's headset-view panel shows only the game footage, without the VR player's HUD.
-- Traps: Freeze, Decoy and Bomb now cost coins. Push and Ping stay as quick abilities (Push uses build points).
+- Traps: Slow trap, Decoy and Bomb now cost coins. Push and Ping stay as quick abilities (Push uses build points).
 - Between waves you get 8 seconds of build time, with a preview of the next wave. The red zone on the map shows where enemies will appear (the 180 degrees in front of the VR player).
-- Keys: 1-4 towers, 5 wall, 6 Freeze, 7 Decoy, 8 Bomb, 9 Push, 0 Ping, Q/W/E flashlight upgrades, B Big blast, U upgrade and X sell the selected tower.
+- Keys: 1-4 towers, 5 wall, 6 Slow trap, 7 Decoy, 8 Bomb, 9 Push, 0 Ping, Q/W/E flashlight upgrades, B Big blast, U upgrade and X sell the selected tower.
 
 ## VR player extras
 - Melee swat: swing a controller fast (over about 2 m/s) at an enemy that is within about 1.3 m of you. It is knocked back around 2 m, stunned for 1 s and takes 1 damage (0.5 s cooldown per hand). Swatting a Bomber bats it away and it explodes harmlessly. Stunned enemies cannot move or hurt you, but they are not frozen.

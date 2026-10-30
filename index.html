@@ -238,7 +238,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         <button class="gtool" type="button" data-tool="tesla" aria-pressed="false" title="Chain lightning that jumps between enemies"><span class="nm">Tesla</span><small class="cs">30</small><small class="ds">Lightning hops between enemies</small></button>
         <span class="grp">Walls and traps</span>
         <button class="gtool" type="button" data-tool="wall" aria-pressed="false" title="Enemies walk around it. Build lines to steer them."><span class="nm">Wall</span><small class="cs">4</small><small class="ds">Blocks and steers enemies</small></button>
-        <button class="gtool" type="button" data-tool="freeze" aria-pressed="false" title="Enemies inside stand frozen for a few seconds"><span class="nm">Freeze</span><small class="cs">8</small><small class="ds">Freezes enemies in place</small></button>
+        <button class="gtool" type="button" data-tool="freeze" aria-pressed="false" title="Enemies inside move at half speed"><span class="nm">Slow trap</span><small class="cs">8</small><small class="ds">Halves enemy speed inside</small></button>
         <button class="gtool" type="button" data-tool="decoy" aria-pressed="false" title="A lantern that enemies walk to instead of the player"><span class="nm">Decoy</span><small class="cs">10</small><small class="ds">Lures enemies away from VR</small></button>
         <button class="gtool" type="button" data-tool="bomb" aria-pressed="false" title="The VR player has to shoot it to set it off"><span class="nm">Bomb</span><small class="cs">12</small><small class="ds">VR shoots it to blow it up</small></button>
         <span class="grp">Quick abilities</span>
@@ -1859,7 +1859,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       var ET = ETYPES[e.type || 'ghost'], dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, stopD = (dec ? 0.5 : tgt ? (tgt.kind ? TOWER_R : WALL_R) + 0.3 * ET.sc + 0.05 : 0.75) + 0.2 * (ET.sc - 1);
       e.ph = (e.ph || 0) + dt * 2; if (e.type === 'wisp') e.y = 1.35 + 0.3 * Math.sin(e.ph * 0.8); else if (e.type === 'bat') e.y = 1.5 + 0.55 * Math.sin(e.ph * 1.7 + e.id);
       e.face = Math.atan2(dx, dz);
-      e.frz = G.zones.some(function (z) { return z.kind === 'freeze' && Math.hypot(z.x - e.x, z.z - e.z) < FREEZE_R; });
+      e.frz = false;
       e.alpha = 1;
       if (e.type === 'phantom') e.alpha = Math.max(0.08, Math.min(1, 0.55 + 0.9 * Math.sin(e.ph * 0.55)));
       if (e.type === 'shielded') e.sh = Math.sin(e.ph * 0.7) * 1.45;
@@ -1873,6 +1873,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         }
       }
       var chill = 1; e.chilled = false; frosts.forEach(function (t) { if (Math.hypot(t.x - e.x, t.z - e.z) < TW.frost.range[t.lv]) { chill = Math.min(chill, TW.frost.slow[t.lv]); e.chilled = true; } });
+      G.zones.forEach(function (z) { if (z.kind === 'freeze' && Math.hypot(z.x - e.x, z.z - e.z) < FREEZE_R) { chill = Math.min(chill, 0.5); e.chilled = true; } });
       e.stun = Math.max(0, (e.stun || 0) - dt);
       if (!e.frz && !e.stun && e.type === 'bomber' && tgt && dist <= stopD + 0.15) { var bi = G.enemies.indexOf(e); if (bi >= 0) G.enemies.splice(bi, 1); bomberBlast(e.x, e.z, tgt); return; }
       if (!e.frz && !e.stun) {
@@ -2170,7 +2171,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (G.budget < cost || G.coins < tcost || G.zones.length >= 10) return;
     x = Math.max(-11, Math.min(11, x)); z = Math.max(-11, Math.min(11, z));
     var zone = { id: G.nid++, kind: m.c, x: x, z: z };
-    if (m.c === 'freeze') { zone.life = zone.max = 6; soundTone(x, 0.5, z, 1200, 500, 0.4, 1.2, 'triangle'); }
+    if (m.c === 'freeze') { zone.life = zone.max = 8; soundTone(x, 0.5, z, 1200, 500, 0.4, 1.2, 'triangle'); }
     else if (m.c === 'push') {
       zone.life = zone.max = 0.6;
       G.enemies.forEach(function (e) {
@@ -2208,7 +2209,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function onGs(d) {
     function nums(a, n) { return Array.isArray(a) && a.length >= n && a.every(function (v) { return typeof v === 'number' && isFinite(v); }); }
-    var ZN = ['freeze', 'push', 'decoy', 'bomb', 'blast'], ZM = { freeze: 6, push: 0.6, decoy: 9, bomb: 15, blast: 0.9 };
+    var ZN = ['freeze', 'push', 'decoy', 'bomb', 'blast'], ZM = { freeze: 8, push: 0.6, decoy: 9, bomb: 15, blast: 0.9 };
     G.running = !!d.run; G.over = !!d.over; G.wave = +d.w || 0; G.kills = +d.k || 0; G.coins = +d.c || 0; G.budget = +d.b || 0; G.battery = Math.max(0, Math.min(100, +d.bt || 0));
     if (Array.isArray(d.up) && d.up.length >= 3) G.up = { dmg: Math.max(0, Math.min(UP_MAX, d.up[0] | 0)), bat: Math.max(0, Math.min(UP_MAX, d.up[1] | 0)), rng: Math.max(0, Math.min(UP_MAX, d.up[2] | 0)) };
     G.enemies = (Array.isArray(d.en) ? d.en : []).filter(function (a) { return nums(a, 5); }).slice(0, 60).map(function (a) { var ty = ETYPE_NAMES[a[6]] || 'ghost'; return { id: a[0], x: a[1], z: a[2], hp: a[3], face: a[4], frz: a[5] === 1, type: ty, sc: ETYPES[ty].sc, y: a[7] || 0, alpha: typeof a[8] === 'number' ? a[8] / 100 : 1, sh: a[9] || 0 }; });
