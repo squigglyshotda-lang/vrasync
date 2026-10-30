@@ -931,6 +931,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var b = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, depthTest: false, side: THREE.DoubleSide }));
     a.rotation.x = b.rotation.x = -Math.PI / 2; a.renderOrder = b.renderOrder = 6; gRange.add(a); gRange.add(b);
   })();
+  var cellMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthTest: false });
+  var cellFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 0, -0.5), new THREE.Vector3(0.5, 0, 0.5), new THREE.Vector3(-0.5, 0, 0.5)]), cellMat); cellFrame.renderOrder = 7; cellFrame.visible = false; ghost.add(cellFrame);
+  var cellFill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, depthTest: false, side: THREE.DoubleSide })); cellFill.rotation.x = -Math.PI / 2; cellFill.renderOrder = 6; cellFill.visible = false; ghost.add(cellFill);
   var ghostMat = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide });
   var ghostFill = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.2, depthTest: false, side: THREE.DoubleSide });
   (function () {
@@ -2099,6 +2102,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       if (hit || o.life <= 0 || o.y < 0) { G.orbs.splice(i, 1); if (auth) linkSend({ t: 'od', id: o.id }); }
     }
   }
+  var SNAP_TOOLS = { lantern: 1, frost: 1, tesla: 1, wall: 1, freeze: 1, decoy: 1, bomb: 1 };
+  function snapC(v) { return Math.max(-10.5, Math.min(10.5, Math.floor(v) + 0.5)); }   // centre of the 1 m grid cell
   function gameCmd(m) {
     if (!m || typeof m.c !== 'string') return;
     if (m.c === 'start') { gameStart(); return; }
@@ -2118,6 +2123,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       return;
     }
     var x = +m.x, z = +m.z; if ((!isFinite(x) || !isFinite(z)) && m.c !== 'tup' && m.c !== 'tsell') return;
+    if (isFinite(x) && isFinite(z) && (m.c === 'freeze' || m.c === 'decoy' || m.c === 'bomb' || (m.c === 'build' && SNAP_TOOLS[m.k]))) { x = snapC(x); z = snapC(z); }
     if (m.c === 'ping') {
       if (G.pingT > 0) return;
       var dx = x - hp.x, dz = z - hp.z, d = Math.hypot(dx, dz) || 1; G.pingT = 1.5;
@@ -2871,12 +2877,17 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var x = (u * 2 - 1) * mapView.hw, z = (v * 2 - 1) * mapView.hh;
     return { x: Math.max(-12, Math.min(12, x)), z: Math.max(-12, Math.min(12, z)) };
   }
-  function showGhost(x, z) { ghost.position.set(x, 0.03, z); ghost.visible = true; }
+  function showGhost(x, z) {
+    var sn = !!SNAP_TOOLS[tool]; if (sn) { x = snapC(x); z = snapC(z); }
+    ghost.position.set(x, 0.03, z); ghost.visible = true; cellFrame.visible = cellFill.visible = sn;
+    if (sn) { var bad = (BUILD[tool] && !structFree(x, z, tool === 'wall' ? 0.85 : 1.1) && !(G.towers.concat(G.walls).some(function (o) { return Math.hypot(o.x - x, o.z - z) < 0.3; }))); cellMat.color.setHex(bad ? 0xff5a5a : 0xffffff); cellFill.material.color.setHex(bad ? 0xff5a5a : 0xffffff); }
+  }
   function spawn(x, z) {
     if (G.running && G.drops.length && (link.state === 'linked' || solo.control)) {
       var nd = null, nb = 1.3; G.drops.forEach(function (d) { var dd = Math.hypot(d.x - x, d.z - z); if (dd < nb) { nb = dd; nd = d; } });
       if (nd) { link.msg = ''; if (solo.control) gameCmd({ c: 'collect', id: nd.id }); else linkSend({ t: 'cmd', c: 'collect', id: nd.id }); G.drops.splice(G.drops.indexOf(nd), 1); refreshNote(); return; }
     }
+    if (SNAP_TOOLS[tool]) { x = snapC(x); z = snapC(z); }
     if (link.state !== 'linked' && !solo.control) { link.msg = 'Link to the headset first, or turn on Solo test.'; refreshNote(); return; }
     if (!G.running) { link.msg = 'Start the game first.'; refreshNote(); return; }
     if (tool === 'blast' && !(G.blasts > 0)) { link.msg = 'No big blast left.'; refreshNote(); return; }
@@ -3078,7 +3089,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { strike: strike, soundThunder: soundThunder, soundMoan: soundMoan, soundWhisper: soundWhisper, soundStep: soundStep, spookyStep: spookyStep, spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, hqSet: function (x, y, z, w) { hq.set(x, y, z, w); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; }, mapView: mapView, rallyCry: rallyCry, swatTry: swatTry, swatStep: swatStep, loadBoard: loadBoard, saveScore: saveScore, qualifies: qualifies, spawn: spawn, refreshGame: refreshGame } };
+    t: { strike: strike, soundThunder: soundThunder, soundMoan: soundMoan, soundWhisper: soundWhisper, soundStep: soundStep, spookyStep: spookyStep, spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, hqSet: function (x, y, z, w) { hq.set(x, y, z, w); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; }, mapView: mapView, rallyCry: rallyCry, snapC: snapC, swatTry: swatTry, swatStep: swatStep, loadBoard: loadBoard, saveScore: saveScore, qualifies: qualifies, spawn: spawn, refreshGame: refreshGame } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
