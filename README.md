@@ -42,6 +42,7 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 - Keys: 1-4 towers, 5 wall, 6 Freeze, 7 Decoy, 8 Bomb, 9 Push, 0 Ping, Q/W/E flashlight upgrades, B Big blast, U upgrade and X sell the selected tower.
 
 ## VR player extras
+- Melee swat: swing a controller fast (over about 2 m/s) at an enemy that is within about 1.3 m of you. It is knocked back around 2 m, stunned for 1 s and takes 1 damage (0.5 s cooldown per hand). Swatting a Bomber bats it away and it explodes harmlessly. Stunned enemies cannot move or hurt you, but they are not frozen.
 - Danger arrows: when an enemy is within 5 m, a red arrow appears on your visor pointing toward it (brighter and faster-pulsing the closer it gets; hidden for enemies straight ahead). Orange arrows point to Bombers within 12 m that are hunting towers.
 - Rally cry: squeeze both grips, or squeeze a grip with a hand raised above your head, to boost every tower's fire rate by 50% for 6 s (recharges after about 20 s more; the VR HUD shows READY or the countdown).
 - Shatter: your shots do double damage to frozen or chilled enemies.

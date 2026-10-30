@@ -1807,7 +1807,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (G.drops.length < 20 && !G.drops.some(function (d) { return !d.pk; }) && Math.random() < dc) { G.drops.push({ id: G.nid++, x: e.x, z: e.z, val: e.type === 'brute' ? 100 : 50, life: 12, max: 12 }); soundTone(e.x, 0.6, e.z, 800, 1400, 0.15, 2, 'sine'); }
     var pr = e.type === 'brute' ? 0.18 : (e.type === 'runner' || e.type === 'mini' || e.type === 'bat') ? 0.01 : (e.type === 'teleporter' || e.type === 'shielded' || e.type === 'phantom') ? 0.06 : 0.035;
     if (G.drops.length < 20 && !G.drops.some(function (d) { return d.pk; }) && Math.random() < pr) { G.drops.push({ id: G.nid++, x: e.x + 0.6, z: e.z, val: 0, pk: PU[Math.floor(Math.random() * PU.length)], life: 14, max: 14 }); soundTone(e.x, 0.6, e.z, 600, 1800, 0.2, 2.5, 'triangle'); }
-    if (e.type === 'bomber') bomberBlast(e.x, e.z, null);
+    if (e.type === 'bomber' && !e.noBlast) bomberBlast(e.x, e.z, null);
     if (e.type === 'splitter') { [-1, 1].forEach(function (k) { var m = addEnemy('mini', e.x + k * 0.4, e.z); m.kx = k * 3; }); soundEnemySpawn('splitter', e.x, e.z); }
   }
   function explodeBomb(z) {
@@ -1870,8 +1870,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         }
       }
       var chill = 1; e.chilled = false; frosts.forEach(function (t) { if (Math.hypot(t.x - e.x, t.z - e.z) < TW.frost.range[t.lv]) { chill = Math.min(chill, TW.frost.slow[t.lv]); e.chilled = true; } });
-      if (!e.frz && e.type === 'bomber' && tgt && dist <= stopD + 0.15) { var bi = G.enemies.indexOf(e); if (bi >= 0) G.enemies.splice(bi, 1); bomberBlast(e.x, e.z, tgt); return; }
-      if (!e.frz) {
+      e.stun = Math.max(0, (e.stun || 0) - dt);
+      if (!e.frz && !e.stun && e.type === 'bomber' && tgt && dist <= stopD + 0.15) { var bi = G.enemies.indexOf(e); if (bi >= 0) G.enemies.splice(bi, 1); bomberBlast(e.x, e.z, tgt); return; }
+      if (!e.frz && !e.stun) {
         if (dist > stopD) { var sp = (0.9 + 0.08 * G.wave) * ET.spd * slowMul * chill, st = Math.min(sp * dt, dist - stopD); e.x += dx / dist * st; e.z += dz / dist * st;
           if (FLY[e.type] && dist > 2) { var wv = (e.type === 'bat' ? Math.cos(e.ph * 2.4) * 3.2 : Math.cos(e.ph) * 0.9) * dt; e.x += -dz / dist * wv; e.z += dx / dist * wv; } }
         else if (dec) dec.life -= dt;
@@ -2005,6 +2006,37 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     }
   }
   var flDir = new THREE.Vector3();
+  // ---- melee swat: swing a controller fast at an enemy that is about to reach you ----
+  var SWAT_SPEED = 2.2, SWAT_NEAR = 1.3, SWAT_REACH = 0.85;
+  function swatTry(px, py, pz, vx, vz) {
+    var n = 0, l = Math.hypot(vx, vz) || 1;
+    G.enemies.slice().forEach(function (e) {
+      if (G.enemies.indexOf(e) < 0) return;
+      var dh = Math.hypot(e.x - hp.x, e.z - hp.z); if (dh > SWAT_NEAR) return;
+      var ey = FLY[e.type] ? e.y : 0.9 * (e.sc || 1); if (Math.hypot(e.x - px, e.z - pz, (ey - py) * 0.6) > SWAT_REACH) return;
+      var ux = e.x - hp.x, uz = e.z - hp.z, ul = Math.hypot(ux, uz) || 1; ux = ux / ul * 0.6 + vx / l * 0.4; uz = uz / ul * 0.6 + vz / l * 0.4; var ml = Math.hypot(ux, uz) || 1; ux /= ml; uz /= ml;
+      n++; fxEmit('hit', e.x, ey, e.z); soundTone(e.x, ey, e.z, 260, 90, 0.18, 2, 'square');
+      if (e.type === 'bomber') { e.x += ux * 3; e.z += uz * 3; e.noBlast = true; fxEmit('pop', e.x, 0.8, e.z); soundTone(e.x, 0.5, e.z, 220, 40, 0.5, 1.5, 'sawtooth'); defeat(e, true); toastOnce('swatb', 'BOMBER BATTED AWAY', '#ffa21a', 1); return; }
+      var ms = ETYPES[e.type || 'ghost'].mass; e.kx += ux * 8 * Math.max(0.5, ms); e.kz += uz * 8 * Math.max(0.5, ms); e.stun = 1; e.hp -= 1; e.flash = 1;
+      if (e.hp <= 0) defeat(e, true);
+    });
+    if (n) toastOnce('swat', 'SWAT!', '#ffd25a', 0.4);
+    return n;
+  }
+  function swatStep(dt) {
+    ptrs.forEach(function (p) {
+      if (!p.vis || p.hand || !G.running) { p.pp = null; return; }
+      p.swatCd = Math.max(0, (p.swatCd || 0) - dt);
+      if (p.pp && dt > 0) {
+        var vx = (p.palm.x - p.pp.x) / dt, vy = (p.palm.y - p.pp.y) / dt, vz = (p.palm.z - p.pp.z) / dt;
+        if (!p.swatCd && Math.hypot(vx, vy, vz) > SWAT_SPEED && swatTry(p.palm.x, p.palm.y, p.palm.z, vx, vz)) {
+          p.swatCd = 0.5;
+          try { var h = p.src && p.src.gamepad && p.src.gamepad.hapticActuators && p.src.gamepad.hapticActuators[0]; if (h && h.pulse) h.pulse(1, 90); } catch (err) {}
+        }
+      } else p.pp = new THREE.Vector3();
+      p.pp.copy(p.palm);
+    });
+  }
   function flashStep(dt, t) {
     if (G.over && !G.running) { G.deadT += dt; if (G.pending && performance.now() - G.pendingAt > 45000) G.pending = false; if (G.deadT > 3 && !G.pending && ptrs.some(function (p) { return p.vis && !p.hand && p.trig; })) { gameStart(); return; } }
     if (G.running && !G.rally.cd) { var gr = ptrs.filter(function (p) { return p.vis && !p.hand && p.want; }); if (gr.length >= 2 || gr.some(function (p) { return p.grip.y > hp.y + 0.05; })) rallyCry(); }
@@ -2019,6 +2051,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         });
       }
     }
+    swatStep(dt);
     ptrs.forEach(function (p) {
       p.fireCd = Math.max(0, (p.fireCd || 0) - dt);
       if (!p.vis || p.hand || !p.trig || !G.running || p.fireCd > 0) return;
@@ -3045,7 +3078,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { strike: strike, soundThunder: soundThunder, soundMoan: soundMoan, soundWhisper: soundWhisper, soundStep: soundStep, spookyStep: spookyStep, spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, hqSet: function (x, y, z, w) { hq.set(x, y, z, w); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; }, mapView: mapView, rallyCry: rallyCry, loadBoard: loadBoard, saveScore: saveScore, qualifies: qualifies, spawn: spawn, refreshGame: refreshGame } };
+    t: { strike: strike, soundThunder: soundThunder, soundMoan: soundMoan, soundWhisper: soundWhisper, soundStep: soundStep, spookyStep: spookyStep, spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, hqSet: function (x, y, z, w) { hq.set(x, y, z, w); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; }, mapView: mapView, rallyCry: rallyCry, swatTry: swatTry, swatStep: swatStep, loadBoard: loadBoard, saveScore: saveScore, qualifies: qualifies, spawn: spawn, refreshGame: refreshGame } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
