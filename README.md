@@ -32,6 +32,7 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 
 ## Tower defence for the control player
 - Coins are the one currency: flashlight upgrades, towers, walls and traps all cost coins. Enemies pay out double what they used to.
+- Wall shapes: Post (1 cell, 4 coins), Long wall (2 cells, 8) and L wall (3 cells, 12), 14 wall cells in total. Tap a wall button again, or press R, to rotate the shape before placing. Select a wall to give it armour (2 levels: +75% health each, steel then gold). Most ground enemies walk around walls but chew through if stuck for about 2.5 s, Brutes smash straight through, Bombers blow up on a wall in their way, and flyers ignore them.
 - Builds snap to a 1 m grid: towers, walls and slow/decoy/bomb traps all land in the centre of the cell you tap. While placing, the target cell is outlined on the map, in red when something is already there or it is too close to another build.
 - Tower prices rise by 40% of the base price for every tower on the field and every upgrade level (so the first tower is full price, the second +40%, and so on). This applies to new towers and to upgrades. Selling a tower brings the prices back down; sell refunds are still based on the base price.
 - Towers (max 6): Lantern (shoots), Frost (slows enemies in range), Tesla (chain lightning). Tap a built tower to upgrade it (3 levels) or sell it for half back.
