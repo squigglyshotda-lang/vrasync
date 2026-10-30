@@ -1095,7 +1095,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         fn(m, e);
       });
     }
-    put(G.enemies, 'e', mkEnemy, function (m, e) { m.position.set(e.x, 0, e.z); m.rotation.y = e.face || 0; m.userData.mats[0].color.setHex(e.frz ? 0x9fd8ff : 0xf3ecff); var fl = e.flash || 0; m.userData.mats[0].emissiveIntensity = 0.35 + fl * 1.2; m.userData.mats[1].emissiveIntensity = 0.5 + fl * 1.2; m.userData.inner.position.y = 0.12 + 0.07 * Math.sin(performance.now() / 330 + (+e.id || 0)); });
+    put(G.enemies, 'e', mkEnemy, function (m, e) { var ec = ECOL[e.type || 'ghost'], ms = m.userData.mats; m.scale.setScalar(e.sc || 1); m.position.set(e.x, e.type === 'wisp' ? (e.y || 1.35) - 0.9 * (e.sc || 1) : 0, e.z); m.rotation.y = e.face || 0; ms[0].color.setHex(e.frz ? 0x9fd8ff : ec[0]); ms[1].color.setHex(ec[1]); ms[1].emissive.setHex(ec[1]); ms[0].transparent = ms[1].transparent = e.type === 'wisp'; ms[0].opacity = ms[1].opacity = e.type === 'wisp' ? 0.7 : 1; var fl = e.flash || 0; m.userData.mats[0].emissiveIntensity = 0.35 + fl * 1.2; m.userData.mats[1].emissiveIntensity = 0.5 + fl * 1.2; m.userData.inner.position.y = 0.12 + 0.07 * Math.sin(performance.now() / 330 + (+e.id || 0)); });
     /*barriers removed*/ put([], 'b', mkBarrier, function (m, e) { var f = 0.5 + 0.5 * Math.max(0, e.hp) / 3; m.scale.y = f; m.position.set(e.x, 0.85 * f, e.z); m.rotation.y = e.a; e.flash = Math.max(0, (e.flash || 0) - 0.05); m.userData.mat.opacity = 0.5 + 0.5 * (e.flash || 0); });
     G.zones.forEach(function (z) {
       var key = 'z' + z.id; seen[key] = 1;
@@ -1145,19 +1145,55 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function startWave(n) {
     G.wave = n; G.toSpawn = 3 + n; G.spawnT = 1.5; G.budget = Math.min(BUDGET_MAX, G.budget + (n > 1 ? 4 : 0)); if (n > 1) G.battery = Math.min(100, G.battery + 15);
   }
-  function spawnEnemy() {
-    var a = Math.random() * Math.PI * 2, r = (opts.practice && solo.head ? 8 : 11) + Math.random() * 1.5, hpMax = 3 + Math.floor(G.wave / 4);
-    G.enemies.push({ id: G.nid++, x: hp.x + Math.sin(a) * r, z: hp.z + Math.cos(a) * r, hp: hpMax, face: 0, cd: 1.5 + Math.random() * 2, flash: 0, ang: a, dir: 1, kx: 0, kz: 0, frz: false });
+  var ETYPES = {
+    ghost: { sc: 1, spd: 1, drain: 1, mass: 1 },
+    runner: { sc: 0.62, spd: 2.4, drain: 0.5, mass: 1.2, hp: 1, minW: 2 },
+    wisp: { sc: 0.75, spd: 1.0, drain: 1, mass: 0.8, hp: 2, minW: 3 },
+    brute: { sc: 1.6, spd: 0.55, drain: 2.5, mass: 0.3, hp: 8, minW: 4 },
+    splitter: { sc: 1.15, spd: 0.9, drain: 1, mass: 1, hp: 3, minW: 5 },
+    mini: { sc: 0.5, spd: 1.8, drain: 0.5, mass: 1, hp: 1 }
+  }, ETYPE_NAMES = ['ghost', 'runner', 'wisp', 'brute', 'splitter', 'mini'];
+  var ECOL = { ghost: [0xf3ecff, 0xff8a1e], runner: [0xffd0d0, 0xff4d4d], wisp: [0xa8f6ff, 0x4dd8ff], brute: [0x9a86d8, 0xff6a00], splitter: [0xc4ffc4, 0x6be36b], mini: [0xc4ffc4, 0x6be36b] };
+  function pickType() {
+    var pool = ['ghost', 'ghost'];
+    ['runner', 'wisp', 'brute', 'splitter'].forEach(function (k) { if (G.wave >= ETYPES[k].minW) pool.push(k); });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  function addEnemy(type, x, z) {
+    var T = ETYPES[type], hpMax = type === 'ghost' ? 3 + Math.floor(G.wave / 4) : type === 'brute' ? T.hp + Math.floor(G.wave / 2) : T.hp;
+    var e = { id: G.nid++, x: x, z: z, hp: hpMax, face: 0, cd: 0, flash: 0, ang: 0, dir: 1, kx: 0, kz: 0, frz: false, type: type, sc: T.sc, y: 0, ph: Math.random() * 6.28 };
+    if (type === 'wisp') e.y = 1.35;
+    G.enemies.push(e); return e;
+  }
+  function spawnEnemy(forceType) {
+    var type = forceType || pickType(), a = Math.random() * Math.PI * 2, r = (opts.practice && solo.head ? 8 : 11) + Math.random() * 1.5;
+    var x = hp.x + Math.sin(a) * r, z = hp.z + Math.cos(a) * r;
+    if (type === 'runner') {
+      for (var i = -1; i <= 1; i++) addEnemy('runner', hp.x + Math.sin(a + i * 0.1) * (r + Math.abs(i) * 0.5), hp.z + Math.cos(a + i * 0.1) * (r + Math.abs(i) * 0.5));
+      G.toSpawn = Math.max(0, G.toSpawn - 2);
+    } else addEnemy(type, x, z);
+    soundEnemySpawn(type, x, z);
+  }
+  function soundEnemySpawn(type, x, z) {
+    if (!actx || actx.state !== 'running') return;
+    var t = actx.currentTime + 0.01, g = voiceAt(x, type === 'wisp' ? 1.6 : 1.1, z, 7);
+    if (type === 'runner') { [0, 0.12, 0.24].forEach(function (o) { tone(g, 'square', 900, 1500, t + o, 0.09, 0.3); }); }
+    else if (type === 'wisp') { [1200, 1600, 2000].forEach(function (f, i) { tone(g, 'sine', f, f * 1.01, t + i * 0.12, 0.5, 0.35); }); }
+    else if (type === 'brute') { tone(g, 'sawtooth', 75, 45, t, 1.0, 0.7); tone(g, 'sine', 120, 60, t, 0.9, 0.6); }
+    else if (type === 'splitter') { tone(g, 'sine', 180, 520, t, 0.18, 0.5); tone(g, 'sine', 520, 140, t + 0.18, 0.3, 0.5); }
+    else if (type === 'mini') { tone(g, 'sine', 600, 900, t, 0.1, 0.4); }
+    else { tone(g, 'sine', 330, 170, t, 0.9, 0.5); tone(g, 'triangle', 495, 250, t + 0.05, 0.8, 0.25); }
   }
   function defeat(e, crit) {
     G.enemies.splice(G.enemies.indexOf(e), 1); G.kills++; soundTone(e.x, 0.8, e.z, 500, 120, 0.3, 1, 'square');
-    fxEmit(crit ? 'crit' : 'pop', e.x, 1.2, e.z);
+    fxEmit(crit ? 'crit' : 'pop', e.x, e.type === 'wisp' ? e.y : 1.2 * (e.sc || 1), e.z);
+    if (e.type === 'splitter') { [-1, 1].forEach(function (k) { var m = addEnemy('mini', e.x + k * 0.4, e.z); m.kx = k * 3; }); soundEnemySpawn('splitter', e.x, e.z); }
   }
   function explodeBomb(z) {
     soundTone(z.x, 0.3, z.z, 180, 40, 0.5, 1.8, 'sawtooth'); fxEmit('hit', z.x, 0.5, z.z); fxEmit('hit', z.x, 1.0, z.z);
     G.enemies.slice().forEach(function (e) {
       var d = Math.hypot(e.x - z.x, e.z - z.z); if (d > BOMB_R) return;
-      e.hp -= 3; e.flash = 1; var a = d > 0.05 ? 1 / d : 0; e.kx += (e.x - z.x) * a * 5; e.kz += (e.z - z.z) * a * 5;
+      e.hp -= 3; e.flash = 1; var a = d > 0.05 ? 1 / d : 0, ms = ETYPES[e.type || 'ghost'].mass; e.kx += (e.x - z.x) * a * 5 * ms; e.kz += (e.z - z.z) * a * 5 * ms;
       if (e.hp <= 0) defeat(e, true);
     });
   }
@@ -1183,18 +1219,20 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       var tx = hp.x, tz = hp.z, dec = null, bd = 7;
       G.zones.forEach(function (z) { if (z.kind === 'decoy') { var dd = Math.hypot(z.x - e.x, z.z - e.z); if (dd < bd) { bd = dd; dec = z; } } });
       if (dec) { tx = dec.x; tz = dec.z; }
-      var dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, stopD = dec ? 0.5 : 0.75;
+      var ET = ETYPES[e.type || 'ghost'], dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, stopD = (dec ? 0.5 : 0.75) + 0.2 * (ET.sc - 1);
+      e.ph = (e.ph || 0) + dt * 2; if (e.type === 'wisp') e.y = 1.35 + 0.3 * Math.sin(e.ph * 0.8);
       e.face = Math.atan2(dx, dz);
       e.frz = G.zones.some(function (z) { return z.kind === 'freeze' && Math.hypot(z.x - e.x, z.z - e.z) < FREEZE_R; });
       if (!e.frz) {
-        if (dist > stopD) { var sp = (0.9 + 0.04 * G.wave) * (opts.slow ? 0.5 : 1), st = Math.min(sp * dt, dist - stopD); e.x += dx / dist * st; e.z += dz / dist * st; }
-        else if (dec) dec.life -= dt; else touching++;
+        if (dist > stopD) { var sp = (0.9 + 0.04 * G.wave) * ET.spd * (opts.slow ? 0.5 : 1), st = Math.min(sp * dt, dist - stopD); e.x += dx / dist * st; e.z += dz / dist * st;
+          if (e.type === 'wisp' && dist > 2) { var wv = Math.cos(e.ph) * 0.9 * dt; e.x += -dz / dist * wv; e.z += dx / dist * wv; } }
+        else if (dec) dec.life -= dt; else touching += ET.drain;
       }
     });
     // keep the crowd from stacking on one spot
     for (var i = 0; i < G.enemies.length; i++) for (var j = i + 1; j < G.enemies.length; j++) {
       var a = G.enemies[i], b = G.enemies[j], ddx = b.x - a.x, ddz = b.z - a.z, dd = Math.hypot(ddx, ddz);
-      if (dd < 0.5) { var push = (0.5 - dd) / 2, ux = dd > 0.01 ? ddx / dd : 1, uz = dd > 0.01 ? ddz / dd : 0; a.x -= ux * push; a.z -= uz * push; b.x += ux * push; b.z += uz * push; }
+      var md = 0.25 * (a.sc + b.sc) + 0.25; if (dd < md) { var push = (md - dd) / 2, ux = dd > 0.01 ? ddx / dd : 1, uz = dd > 0.01 ? ddz / dd : 0; a.x -= ux * push; a.z -= uz * push; b.x += ux * push; b.z += uz * push; }
     }
     if (touching && !opts.invincible) {
       G.energy -= touching * (5 + 0.3 * G.wave) * dt; G.hitT -= dt;
@@ -1216,6 +1254,42 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (!opts.inf) G.battery = Math.max(0, G.battery - BATT_COST);
     fireOrb(x, y, z, dx, dy, dz); return true;
   }
+  // ---- ambience: wind bed, crickets, owls and crows, bells, creaks (headset side, while a game runs) ----
+  var amb = { wind: null, windG: null, owl: 6, bell: 18, creak: 10, cric: 0.5 };
+  function ambAt(minR, maxR, y) { var a = Math.random() * Math.PI * 2, r = minR + Math.random() * (maxR - minR); return [hp.x + Math.sin(a) * r, y, hp.z + Math.cos(a) * r]; }
+  function startWind() {
+    var n = actx.sampleRate * 3, buf = actx.createBuffer(1, n, actx.sampleRate), d = buf.getChannelData(0), last = 0;
+    for (var i = 0; i < n; i++) { last = last * 0.96 + (Math.random() * 2 - 1) * 0.2; d[i] = last; }
+    var src = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain(), lfo = actx.createOscillator(), lg = actx.createGain(), lf2 = actx.createOscillator(), lg2 = actx.createGain();
+    src.buffer = buf; src.loop = true; bp.type = 'bandpass'; bp.frequency.value = 380; bp.Q.value = 0.7; g.gain.value = 0;
+    lfo.frequency.value = 0.11; lg.gain.value = 0.35; lfo.connect(lg); lg.connect(g.gain);
+    lf2.frequency.value = 0.07; lg2.gain.value = 220; lf2.connect(lg2); lg2.connect(bp.frequency);
+    src.connect(bp); bp.connect(g); g.connect(master); src.start(); lfo.start(); lf2.start(); amb.windG = g;
+  }
+  function ambStep(dt) {
+    if (!actx || actx.state !== 'running') return;
+    if (!amb.windG) startWind();
+    amb.windG.gain.setTargetAtTime(G.running ? 0.55 : 0, actx.currentTime, 1.2);
+    if (!G.running) return;
+    var t = actx.currentTime + 0.02, p, g;
+    amb.cric -= dt; if (amb.cric <= 0) {
+      amb.cric = 0.35 + Math.random() * 0.8; p = ambAt(5, 9, 0.1); g = voiceAt(p[0], p[1], p[2], 1.6);
+      for (var i = 0; i < 3; i++) tone(g, 'sine', 4400, 4300, t + i * 0.07, 0.04, 0.3);
+    }
+    amb.owl -= dt; if (amb.owl <= 0) {
+      amb.owl = 9 + Math.random() * 13; p = ambAt(10, 14, 5.5);
+      if (Math.random() < 0.7) { g = voiceAt(p[0], p[1], p[2], 5); tone(g, 'sine', 420, 380, t, 0.35, 0.5); tone(g, 'sine', 400, 340, t + 0.5, 0.55, 0.5); }
+      else { g = voiceAt(p[0], 7, p[2], 4); [0, 0.28, 0.56].forEach(function (o) { tone(g, 'sawtooth', 700, 420, t + o, 0.18, 0.3); }); }
+    }
+    amb.bell -= dt; if (amb.bell <= 0) {
+      amb.bell = 28 + Math.random() * 22; p = ambAt(13, 16, 8); g = voiceAt(p[0], p[1], p[2], 8);
+      [1, 2.4, 3.9, 5.6].forEach(function (m, i) { tone(g, 'sine', 196 * m, 196 * m * 0.995, t, 4.5 - i * 0.7, 0.35 / (i + 1)); });
+    }
+    amb.creak -= dt; if (amb.creak <= 0) {
+      amb.creak = 14 + Math.random() * 16; p = ambAt(4, 7, 1); g = voiceAt(p[0], p[1], p[2], 3);
+      tone(g, 'sawtooth', 70, 110, t, 0.5, 0.22); tone(g, 'sawtooth', 95, 60, t + 0.45, 0.4, 0.18);
+    }
+  }
   var flDir = new THREE.Vector3();
   function flashStep(dt, t) {
     if (G.running && solo.head && !opts.bot && !opts.inf) G.battery = Math.min(100, G.battery + dt * 2);
@@ -1231,13 +1305,13 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function orbHit(o) {
     for (var k = 0; k < G.enemies.length; k++) {
-      var e = G.enemies[k], ex = o.x - e.x, ez = o.z - e.z;
-      if (ex * ex + ez * ez < 0.2 && o.y > 0.05 && o.y < 1.75) {
-        var head = o.y > 1.0; e.hp -= head ? 2 : 1; e.flash = 1;
-        soundTone(e.x, o.y, e.z, head ? 700 : 260, head ? 1100 : 120, 0.16, 1, 'square');
-        if (e.hp <= 0) defeat(e, head); else fxEmit('hit', o.x, o.y, o.z);
-        return true;
-      }
+      var e = G.enemies[k], sc = e.sc || 1, ex = o.x - e.x, ez = o.z - e.z, fly = e.type === 'wisp', r = 0.447 * Math.max(sc, 0.8);
+      if (ex * ex + ez * ez >= r * r) continue;
+      if (fly ? Math.abs(o.y - e.y) > 0.45 : (o.y < 0.05 || o.y > 1.75 * sc)) continue;
+      var head = fly ? o.y > e.y : o.y > 1.0 * sc; e.hp -= head ? 2 : 1; e.flash = 1;
+      soundTone(e.x, o.y, e.z, head ? 700 : 260, head ? 1100 : 120, 0.16, 1, 'square');
+      if (e.hp <= 0) defeat(e, head); else fxEmit('hit', o.x, o.y, o.z);
+      return true;
     }
     return false;
   }
@@ -1275,7 +1349,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       G.enemies.forEach(function (e) {
         var ex = e.x - x, ez = e.z - z, d = Math.hypot(ex, ez); if (d > PUSH_R) return;
         if (d < 0.05) { ex = e.x - hp.x; ez = e.z - hp.z; d = Math.hypot(ex, ez) || 1; }
-        var f = 12 * (1 - 0.6 * d / PUSH_R); e.kx += ex / d * f; e.kz += ez / d * f; e.flash = 1;
+        var f = 12 * (1 - 0.6 * d / PUSH_R) * ETYPES[e.type || 'ghost'].mass; e.kx += ex / d * f; e.kz += ez / d * f; e.flash = 1;
       });
       soundTone(x, 0.5, z, 120, 400, 0.35, 1.6, 'sawtooth');
     }
@@ -1293,14 +1367,14 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     lastGs = t;
     var ZC = { freeze: 0, push: 1, decoy: 2, bomb: 3 };
     linkSend({ t: 'gs', run: G.running, over: G.over, w: G.wave, k: G.kills, c: G.coins, b: Math.round(G.budget * 10) / 10, bt: Math.round(G.battery),
-      en: G.enemies.map(function (e) { return [e.id, r3(e.x), r3(e.z), e.hp, r3(e.face), e.frz ? 1 : 0]; }),
+      en: G.enemies.map(function (e) { return [e.id, r3(e.x), r3(e.z), e.hp, r3(e.face), e.frz ? 1 : 0, Math.max(0, ETYPE_NAMES.indexOf(e.type)), r3(e.y || 0)]; }),
       zn: G.zones.map(function (z) { return [z.id, ZC[z.kind], r3(z.x), r3(z.z), Math.round(1000 * z.life / z.max) / 1000]; }) });
   }
   function onGs(d) {
     function nums(a, n) { return Array.isArray(a) && a.length >= n && a.every(function (v) { return typeof v === 'number' && isFinite(v); }); }
     var ZN = ['freeze', 'push', 'decoy', 'bomb'], ZM = { freeze: 6, push: 0.6, decoy: 9, bomb: 1.6 };
     G.running = !!d.run; G.over = !!d.over; G.wave = +d.w || 0; G.kills = +d.k || 0; G.coins = +d.c || 0; G.budget = +d.b || 0; G.battery = Math.max(0, Math.min(100, +d.bt || 0));
-    G.enemies = (Array.isArray(d.en) ? d.en : []).filter(function (a) { return nums(a, 5); }).slice(0, 60).map(function (a) { return { id: a[0], x: a[1], z: a[2], hp: a[3], face: a[4], frz: a[5] === 1 }; });
+    G.enemies = (Array.isArray(d.en) ? d.en : []).filter(function (a) { return nums(a, 5); }).slice(0, 60).map(function (a) { var ty = ETYPE_NAMES[a[6]] || 'ghost'; return { id: a[0], x: a[1], z: a[2], hp: a[3], face: a[4], frz: a[5] === 1, type: ty, sc: ETYPES[ty].sc, y: a[7] || 0 }; });
     G.zones = (Array.isArray(d.zn) ? d.zn : []).filter(function (a) { return nums(a, 5) && ZN[a[1]]; }).slice(0, 20).map(function (a) { var k = ZN[a[1]]; return { id: a[0], kind: k, x: a[2], z: a[3], life: a[4] * ZM[k], max: ZM[k] }; });
     G.barriers = []; G.turrets = [];
     refreshGame();
@@ -1395,7 +1469,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var e = nearestEnemy(); if (!e) return;
     if (Math.hypot(e.x - hp.x, e.z - hp.z) > 14) return;
     botCd = 0.35;
-    var ty = Math.random() < 0.4 ? 1.25 : 0.8;
+    var es = e.sc || 1, ty = e.type === 'wisp' ? e.y : (Math.random() < 0.4 ? 1.25 : 0.8) * es;
     tryShoot(hp.x + 0.2, hp.y - 0.35, hp.z - 0.2, e.x + (Math.random() - 0.5) * 0.3 - hp.x - 0.2, ty - (hp.y - 0.35), e.z + (Math.random() - 0.5) * 0.3 - hp.z + 0.2);
   }
   function soloControlStep(dt, t) {
@@ -1920,7 +1994,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       o.position.set(Math.cos(a) * u.r * orbitScale, u.y + Math.sin(t + u.a) * 0.08, Math.sin(a) * u.r * orbitScale); o.rotation.y = t;
     });
     stepItems(dt);
-    if (role === 'headset') { if (solo.head) soloHeadStep(dt); flashStep(dt, t); gameStep(dt, t); }
+    if (role === 'headset') { if (solo.head) soloHeadStep(dt); flashStep(dt, t); gameStep(dt, t); ambStep(dt); }
     else if (solo.control) soloControlStep(dt, t);
     orbStep(dt); gSync(); fxStep(dt);
     publishItems(t); publishGame(t);
@@ -1998,7 +2072,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
+    t: { spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; } } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });
