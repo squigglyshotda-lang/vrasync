@@ -44,6 +44,7 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 
 ## VR player extras
 - Melee swat: swing a controller fast (over about 2 m/s) at an enemy that is within about 1.3 m of you. It is knocked back around 2 m, stunned for 1 s and takes 1 damage (0.5 s cooldown per hand). Swatting a Bomber bats it away and it explodes harmlessly. Stunned enemies cannot move or hurt you, but they are not frozen.
+- Off-hand mark: the hand that fires first in a round is your main hand; the other hand's trigger marks a target instead of shooting. Point at an enemy and pull the trigger: all towers focus it, it takes +50% damage and glows with a red ring (also visible on the control map) for 8 s. You hold 2 marks and each recharges in 6 s (the VR HUD shows MARK 0-2).
 - Danger arrows: when an enemy is within 5 m, a red arrow appears on your visor pointing toward it (brighter and faster-pulsing the closer it gets; hidden for enemies straight ahead). Orange arrows point to Bombers within 12 m that are hunting towers.
 - Rally cry: squeeze both grips, or squeeze a grip with a hand raised above your head, to boost every tower's fire rate by 50% for 6 s (recharges after about 20 s more; the VR HUD shows READY or the countdown).
 - Shatter: your shots do double damage to frozen or chilled enemies.
