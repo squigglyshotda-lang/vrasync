@@ -72,6 +72,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .gamebar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .gstart { font: 600 12px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--hud); border: 0; padding: 9px 14px; cursor: pointer; }
 .gtool.poor { opacity: .5; }
+.rose { position: absolute; left: 10px; bottom: 10px; width: 68px; height: 68px; pointer-events: none; }
 .pair .gsolo { justify-self: start; margin-top: 4px; }
 .gstats { font: 500 12px var(--font-data); color: var(--muted); margin-left: 6px; }
 .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -178,7 +179,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     </div>
     <div class="panels">
       <section class="panel" id="mapPanel" tabindex="0" aria-label="Map of the headset's world. Click to drop the chosen shape. With the keyboard, use the arrow keys to move the marker and Enter to drop.">
-        <span class="cap">Map · play area 8 × 8 m</span><span class="cap r">top = straight ahead</span>
+        <span class="cap">Map · play area 8 × 8 m</span><span class="cap r">top = north</span><canvas class="rose" id="rose" width="136" height="136" aria-hidden="true"></canvas>
       </section>
       <section class="panel" id="viewPanel" aria-label="Live view from the headset">
         <span class="cap">Headset view</span><span class="cap r" id="viewMeta"></span>
@@ -382,7 +383,6 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var hg = g.createRadialGradient(0, 0, FXW * 0.25, 0, 0, FXW * 0.6);
     hg.addColorStop(0, 'rgba(190,225,230,0)'); hg.addColorStop(1, 'rgba(190,225,230,' + (0.05 + 0.1 * breath).toFixed(3) + ')');
     g.fillStyle = hg; g.fillRect(-FXW / 2, -FXW / 2, FXW, FXW); g.restore();
-    if (drops.length < 28 && Math.random() < dt * 5) spawnDrop();
     for (var i = drops.length - 1; i >= 0; i--) {
       var d = drops[i]; d.age += dt; d.y += d.vy * dt * 3;
       if (d.age > d.life || d.y > 1) { drops.splice(i, 1); continue; }
@@ -851,10 +851,29 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
             toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0 };
   var gameGroup = new THREE.Group(); scene.add(gameGroup);
   var gm = {}, enemyGeo = new THREE.CylinderGeometry(0.2, 0.25, 1.0, 12), headGeo = new THREE.SphereGeometry(0.16, 12, 8),
-      noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), barGeo = new THREE.BoxGeometry(1.3, 1.7, 0.1),
+      noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), 
       turBase = new THREE.CylinderGeometry(0.16, 0.24, 1.45, 14), turHead = new THREE.SphereGeometry(0.22, 14, 10);
-  var barMat = new THREE.MeshStandardMaterial({ color: 0x4aa8ff, emissive: 0x4aa8ff, emissiveIntensity: 0.5, roughness: 0.3, transparent: true, opacity: 0.32, depthWrite: false });
-  var barEdge = new THREE.LineBasicMaterial({ color: 0x9bd4ff, transparent: true, opacity: 0.9 }), barEdgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.3, 1.7, 0.1));
+  var SH_R = 1.1, SH_TH = 1.18, SH_H = 1.7;
+  var hexCv = document.createElement('canvas'); hexCv.width = 256; hexCv.height = 512;
+  (function () {
+    var g = hexCv.getContext('2d'), r = 26, w = Math.sqrt(3) * r, hh = 1.5 * r;
+    var bg = g.createLinearGradient(0, 0, 0, 512); bg.addColorStop(0, 'rgba(90,170,255,0.30)'); bg.addColorStop(1, 'rgba(90,170,255,0.12)');
+    g.fillStyle = bg; g.fillRect(0, 0, 256, 512);
+    g.strokeStyle = 'rgba(190,225,255,0.75)'; g.lineWidth = 2;
+    for (var row = -1; row < 512 / hh + 1; row++) for (var col = -1; col < 256 / w + 1; col++) {
+      var cx = col * w + (row % 2 ? w / 2 : 0), cy = row * hh;
+      g.beginPath(); for (var k = 0; k < 6; k++) { var an = Math.PI / 6 + k * Math.PI / 3; g.lineTo(cx + r * 0.94 * Math.cos(an), cy + r * 0.94 * Math.sin(an)); } g.closePath(); g.stroke();
+    }
+  })();
+  var hexTex = new THREE.CanvasTexture(hexCv);
+  var shGeo = new THREE.CylinderGeometry(SH_R, SH_R, SH_H, 28, 1, true, -SH_TH / 2, SH_TH);
+  var shRim = (function () {
+    var pts = [], n = 28, i, a;
+    for (i = 0; i <= n; i++) { a = -SH_TH / 2 + SH_TH * i / n; pts.push(new THREE.Vector3(SH_R * Math.sin(a), SH_H / 2, SH_R * Math.cos(a))); }
+    for (i = n; i >= 0; i--) { a = -SH_TH / 2 + SH_TH * i / n; pts.push(new THREE.Vector3(SH_R * Math.sin(a), -SH_H / 2, SH_R * Math.cos(a))); }
+    return new THREE.BufferGeometry().setFromPoints(pts);
+  })();
+  var shRimMat = new THREE.LineBasicMaterial({ color: 0xbfe3ff, transparent: true, opacity: 0.95 });
   var turMat = new THREE.MeshStandardMaterial({ color: 0xffd34a, emissive: 0xffd34a, emissiveIntensity: 0.3, roughness: 0.5 });
   function mkEnemy() {
     var g = new THREE.Group(), bm = new THREE.MeshStandardMaterial({ color: 0xff4d5e, emissive: 0xff4d5e, emissiveIntensity: 0.3, roughness: 0.5 });
@@ -863,7 +882,12 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     var n = new THREE.Mesh(noseGeo, turMat); n.rotation.x = Math.PI / 2; n.position.set(0, 1.12, 0.22); g.add(n);
     g.userData.mat = bm; return g;
   }
-  function mkBarrier() { var m = new THREE.Mesh(barGeo, barMat); m.add(new THREE.LineSegments(barEdgeGeo, barEdge)); return m; }
+  function mkBarrier() {
+    var g = new THREE.Group(), inner = new THREE.Group(); inner.position.set(0, 0, -SH_R); g.add(inner);
+    var mat = new THREE.MeshBasicMaterial({ map: hexTex, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false, color: 0xffffff });
+    inner.add(new THREE.Mesh(shGeo, mat)); inner.add(new THREE.Line(shRim, shRimMat));
+    g.userData.mat = mat; return g;
+  }
   function mkTurret() { var g = new THREE.Group(), b = new THREE.Mesh(turBase, turMat); b.position.y = 0.725; g.add(b); var h = new THREE.Mesh(turHead, turMat); h.position.y = 1.62; g.add(h); return g; }
   function gSync() {
     var seen = {};
@@ -875,7 +899,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       });
     }
     put(G.enemies, 'e', mkEnemy, function (m, e) { m.position.set(e.x, 0, e.z); m.rotation.y = e.face || 0; m.userData.mat.emissiveIntensity = 0.3 + (e.flash || 0) * 1.2; });
-    put(G.barriers, 'b', mkBarrier, function (m, e) { var f = 0.5 + 0.5 * Math.max(0, e.hp) / 3; m.scale.y = f; m.position.set(e.x, 0.85 * f, e.z); m.rotation.y = e.a; });
+    put(G.barriers, 'b', mkBarrier, function (m, e) { var f = 0.5 + 0.5 * Math.max(0, e.hp) / 3; m.scale.y = f; m.position.set(e.x, 0.85 * f, e.z); m.rotation.y = e.a; e.flash = Math.max(0, (e.flash || 0) - 0.05); m.userData.mat.opacity = 0.5 + 0.5 * (e.flash || 0); });
     put(G.turrets, 't', mkTurret, function (m, e) { m.position.set(e.x, 0, e.z); });
     Object.keys(gm).forEach(function (k) { if (!seen[k]) { gameGroup.remove(gm[k]); delete gm[k]; } });
   }
@@ -981,7 +1005,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         for (var i = 0; i < G.barriers.length; i++) {
           var b = G.barriers[i], rx = it.d.x - b.x, rz = it.d.z - b.z, c = Math.cos(b.a), s2 = Math.sin(b.a);
           var lx = rx * c - rz * s2, lz = rx * s2 + rz * c;
-          if (Math.abs(lx) < 0.7 && Math.abs(lz) < 0.2 && it.y < 1.8) { b.hp -= 0.5; soundTone(b.x, 0.6, b.z, 200, 100, 0.12, 1, 'square'); removeLocal(it); return; }
+          if (Math.abs(lx) < 0.7 && Math.abs(lz) < 0.2 && it.y < 1.8) { b.hp -= 0.5; b.flash = 1; soundTone(b.x, 0.6, b.z, 200, 100, 0.12, 1, 'square'); removeLocal(it); return; }
         }
         // catch with an empty hand
         for (var j = 0; j < ptrs.length; j++) {
@@ -1018,6 +1042,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (m.c === 'ping') {
       if (G.pingT > 0) return;
       var dx = x - hp.x, dz = z - hp.z, d = Math.hypot(dx, dz) || 1; G.pingT = 1.5;
+      G.ping = { b: bearingTo(x, z), t: performance.now() / 1000 };
       soundPing(hp.x + dx / d * 3, 1.2, hp.z + dz / d * 3); return;
     }
     var cost = COST[m.c]; if (!cost || G.budget < cost) return;
@@ -1149,6 +1174,64 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     botVr(dt); gameStep(dt, t);
     bc.overT = 0;
     if (t - (soloControlStep.last || 0) > 0.2) { soloControlStep.last = t; refreshGame(); }
+  }
+
+  // ---------- compass: strip on the visor (headset) and a rose on the map (control) ----------
+  var CW = 640, CH = 84, compCv = document.createElement('canvas'); compCv.width = CW; compCv.height = CH;
+  var compCtx = compCv.getContext('2d'), compTex = makeTex(compCv);
+  var compass = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.0473), new THREE.MeshBasicMaterial({ map: compTex, transparent: true, depthTest: false, depthWrite: false, fog: false }));
+  compass.position.set(0, 0.17, -0.62); compass.renderOrder = 1000; compass.frustumCulled = false; hudGroup.add(compass);
+  var cFwd = new THREE.Vector3(), SPAN = 80;
+  function wrapPi(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+  function headingNow() { cFwd.set(0, 0, -1).applyQuaternion(hq); return Math.atan2(cFwd.x, -cFwd.z); }
+  function bearingTo(x, z) { return Math.atan2(x - hp.x, -(z - hp.z)); }
+  function drawCompass(t) {
+    var g = compCtx, h = headingNow(), half = SPAN * Math.PI / 180, cx = CW / 2;
+    g.clearRect(0, 0, CW, CH);
+    g.beginPath(); rr(g, 4, 4, CW - 8, CH - 8, 14); g.fillStyle = 'rgba(5,18,24,0.55)'; g.fill();
+    g.lineWidth = 2; g.strokeStyle = 'rgba(98,240,212,0.45)'; g.stroke();
+    g.save(); g.beginPath(); rr(g, 4, 4, CW - 8, CH - 8, 14); g.clip();
+    function xAt(b) { return cx + wrapPi(b - h) / half * (CW / 2 - 20); }
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (var d = 0; d < 360; d += 15) {
+      var b = d * Math.PI / 180, rel = wrapPi(b - h); if (Math.abs(rel) > half) continue;
+      var x = xAt(b), card = d % 90 === 0;
+      g.strokeStyle = card ? 'rgba(98,240,212,0.95)' : 'rgba(122,160,168,0.7)'; g.lineWidth = card ? 3 : 2;
+      g.beginPath(); g.moveTo(x, CH - 12); g.lineTo(x, CH - (card ? 30 : 22)); g.stroke();
+      if (card) { g.font = '600 30px "Chakra Petch", sans-serif'; g.fillStyle = d === 0 ? '#ffd34a' : '#62f0d4'; g.fillText(['N', 'E', 'S', 'W'][d / 90], x, 30); }
+    }
+    G.enemies.forEach(function (e) {
+      var rel = wrapPi(bearingTo(e.x, e.z) - h); if (Math.abs(rel) > half) return;
+      var x = cx + rel / half * (CW / 2 - 20);
+      g.fillStyle = '#ff5a4d'; g.beginPath(); g.moveTo(x, CH - 12); g.lineTo(x - 8, CH - 30); g.lineTo(x + 8, CH - 30); g.closePath(); g.fill();
+    });
+    if (G.ping && (performance.now() / 1000 - G.ping.t) < 3) {
+      var age = performance.now() / 1000 - G.ping.t, rel2 = wrapPi(G.ping.b - h), blink = 0.5 + 0.5 * Math.sin(age * 14);
+      var px = cx + Math.max(-half, Math.min(half, rel2)) / half * (CW / 2 - 20);
+      g.globalAlpha = Math.max(0, 1 - age / 3) * (0.5 + 0.5 * blink); g.fillStyle = '#62f0d4';
+      g.beginPath(); g.arc(px, 28, 13, 0, Math.PI * 2); g.fill();
+      g.font = '600 18px "Chakra Petch", sans-serif'; g.fillStyle = '#04141a'; g.fillText('!', px, 29); g.globalAlpha = 1;
+    }
+    g.restore();
+    g.fillStyle = '#e6fff9'; g.beginPath(); g.moveTo(cx, 8); g.lineTo(cx - 7, 0); g.lineTo(cx + 7, 0); g.closePath(); g.fill();
+    compTex.needsUpdate = true;
+  }
+  var roseEl = $('rose'), roseCtx = roseEl.getContext('2d');
+  function drawRose() {
+    var g = roseCtx, S = 136, c = S / 2, R = 52, h = remote.has ? headingNow() : null;
+    g.clearRect(0, 0, S, S);
+    g.beginPath(); g.arc(c, c, R + 8, 0, Math.PI * 2); g.fillStyle = 'rgba(5,18,24,0.7)'; g.fill();
+    g.lineWidth = 2; g.strokeStyle = 'rgba(98,240,212,0.5)'; g.stroke();
+    g.font = '600 20px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    [['N', 0, '#ffd34a'], ['E', 90, '#62f0d4'], ['S', 180, '#62f0d4'], ['W', 270, '#62f0d4']].forEach(function (l) {
+      var a = l[1] * Math.PI / 180; g.fillStyle = l[2]; g.fillText(l[0], c + Math.sin(a) * (R - 8), c - Math.cos(a) * (R - 8));
+    });
+    if (h !== null) {
+      g.save(); g.translate(c, c); g.rotate(h);
+      g.fillStyle = 'rgba(98,240,212,0.35)'; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, R - 20, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); g.closePath(); g.fill();
+      g.fillStyle = '#62f0d4'; g.beginPath(); g.moveTo(0, -(R - 18)); g.lineTo(-6, -8); g.lineTo(6, -8); g.closePath(); g.fill();
+      g.restore();
+    }
   }
 
   // ---------- link: the headset shows a code, the control page types it, then they talk peer to peer ----------
@@ -1406,6 +1489,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       if (link.state !== 'linked' && !solo.control) { link.msg = 'Link to the headset first, or turn on Solo test.'; refreshNote(); return; }
       if (!G.running) { link.msg = 'Start the game first.'; refreshNote(); return; }
       if (COST[tool] && G.budget < COST[tool]) { link.msg = 'Not enough build points yet.'; refreshNote(); return; }
+      if (tool === 'ping') G.ping = { b: bearingTo(x, z), t: performance.now() / 1000 };
       link.msg = ''; if (solo.control) { gameCmd({ c: tool, x: x, z: z }); refreshNote(); return; }
       linkSend({ t: 'cmd', c: tool, x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 }); refreshNote(); return;
     }
@@ -1537,7 +1621,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     euler.setFromQuaternion(hq, 'YXZ');
     drawFx(dt, t, euler.y, euler.x);
     hudClock += dt;
-    if (hudClock > 0.05) { hudClock = 0; drawHud(energy, t); if (role === 'control') refreshChips(); }
+    if (hudClock > 0.05) { hudClock = 0; drawHud(energy, t); drawCompass(t); if (role === 'control') { drawRose(); refreshChips(); } }
 
     if (role === 'headset') renderHeadset(inXR); else renderControl();
   });
