@@ -1337,7 +1337,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.enemies.push(e); return e;
   }
   function spawnEnemy(forceType) {
-    var type = forceType || pickType(), spF = new THREE.Vector3(0, 0, -1).applyQuaternion(hq), a = Math.atan2(spF.x, spF.z) + (Math.random() - 0.5) * Math.PI, r = (opts.practice && solo.head ? 8 : 11) + Math.random() * 1.5;
+    var type = forceType || pickType(), spF = new THREE.Vector3(0, 0, -1).applyQuaternion(hq), a = Math.atan2(spF.x, spF.z) + (Math.random() - 0.5) * Math.PI, r = opts.practice && solo.head ? 8 : 5 + Math.random() * 11;
     var x = hp.x + Math.sin(a) * r, z = hp.z + Math.cos(a) * r;
     if (type === 'runner') {
       for (var i = -1; i <= 1; i++) addEnemy('runner', hp.x + Math.sin(a + i * 0.1) * (r + Math.abs(i) * 0.5), hp.z + Math.cos(a + i * 0.1) * (r + Math.abs(i) * 0.5));
