@@ -671,7 +671,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     g.fillStyle = MUTED; g.fillText('FLASHLIGHT', 40, 74);
     if ('letterSpacing' in g) g.letterSpacing = '0px';
     if (G.running || G.over) { g.textAlign = 'right'; g.font = '600 26px "Chakra Petch", sans-serif'; g.fillStyle = G.over ? WARN : HUD; g.fillText(G.over ? 'RUN OVER  WAVE ' + G.wave : 'WAVE ' + G.wave + '  COINS ' + G.coins, HW - 44, HH - 26); g.textAlign = 'left'; }
-    var fl = G.running ? fxLine() : ''; if (fl) { g.textAlign = 'left'; g.font = '600 22px "Chakra Petch", sans-serif'; g.fillStyle = '#ffe14a'; g.fillText(fl, 40, HH - 26, 330); }
+    var fl = G.running ? (fxLine() + (G.towers.length && G.rally.act <= 0 ? '  ' + (G.rally.cd > 0 ? 'RALLY ' + Math.ceil(G.rally.cd) : 'RALLY READY') : '')) : ''; if (fl) { g.textAlign = 'left'; g.font = '600 22px "Chakra Petch", sans-serif'; g.fillStyle = '#ffe14a'; g.fillText(fl, 40, HH - 26, 330); }
     var lt = link.state === 'linked' ? 'LINKED' : (role === 'headset' && link.code ? (link.state === 'error' ? 'NO LINK' : 'CODE ' + link.code) : '');
     if (lt) { g.textAlign = 'right'; g.font = '600 24px "IBM Plex Mono", monospace'; g.fillStyle = link.state === 'linked' ? HUD : (link.state === 'error' ? WARN : MUTED); g.fillText(lt, HW - 44, 40); g.textAlign = 'left'; }
 
@@ -1193,7 +1193,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var UP_COST = [8, 14, 20, 28, 40], UP_MAX = 5, COIN_VAL = { ghost: 4, runner: 2, wisp: 6, brute: 16, splitter: 8, mini: 2, teleporter: 10, shielded: 10, bat: 2, phantom: 12 }, ORB_RANGE = 9, BATT_REGEN = 12, BATT_ADD = 45, ORB_SPEED = 22, FREEZE_R = 2.2, PUSH_R = 3.5, BOMB_R = 2.6, BLAST_R = 4.5;
   var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
             toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0, coins: 0, battery: 100, orbs: [], zones: [], drops: [], up: { dmg: 0, bat: 0, rng: 0 }, hitT: 0, fireCd: 0,
-            towers: [], walls: [], q: [], nextQ: null, fx: { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }, blasts: 0, cd: 0, cdN: 0, dying: 0, deadT: 0, inv: 0, clr: false };
+            rally: { act: 0, cd: 0 }, combo: { n: 0, t: 0, m: 1 }, towers: [], walls: [], q: [], nextQ: null, fx: { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }, blasts: 0, cd: 0, cdN: 0, dying: 0, deadT: 0, inv: 0, clr: false };
   var gameGroup = new THREE.Group(); scene.add(gameGroup);
   var gm = {}, enemyGeo = new THREE.CylinderGeometry(0.2, 0.25, 1.0, 12), headGeo = new THREE.SphereGeometry(0.16, 12, 8),
       noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), 
@@ -1559,12 +1559,13 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function fxLine() {
     var a = []; ['rapid', 'pierce', 'slow', 'free', 'dbl', 'magnet'].forEach(function (k) { if (G.fx[k] > 0) a.push(PU_INFO[k].s + ' ' + Math.ceil(G.fx[k])); });
     if (G.fx.shield > 0) a.unshift('SHIELD'); if (G.blasts > 0) a.push('BLAST x' + G.blasts);
+    if (G.rally.act > 0) a.push('RALLY ' + Math.ceil(G.rally.act)); if (G.combo.m > 1 && G.combo.t > 0) a.push('COMBO x' + G.combo.m);
     return a.join('  ');
   }
   function gameStart() {
     localBalls().forEach(removeLocal);
     G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.up = { dmg: 0, bat: 0, rng: 0 }; G.running = true; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.budget = 6; G.pingT = 0;
-    G.fx = { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }; G.blasts = 0; G.towers = []; G.walls = []; G.q = []; G.nextQ = { n: 1, q: makeQueue(1) }; G.cd = 3; G.cdN = 4; G.dying = 0; G.deadT = 0; G.inv = 0; G.clr = false; G.toSpawn = 0; G.breakT = 0;
+    G.fx = { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }; G.blasts = 0; G.towers = []; G.walls = []; G.q = []; G.nextQ = { n: 1, q: makeQueue(1) }; G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.cd = 3; G.cdN = 4; G.dying = 0; G.deadT = 0; G.inv = 0; G.clr = false; G.toSpawn = 0; G.breakT = 0;
     ev.bn = null; overlay(0xff0000, 0, 0, 4);
   }
   function countdownStep(dt) {
@@ -1598,7 +1599,18 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     toast(I.n + (I.d ? '  ' + I.d + 'S' : ''), I.c); stinger('pu');
     if (pk === 'slow') overlay(0x6ab8ff, 0.3, 0, 2);
   }
+  var toastAt = {};
+  function toastOnce(key, text, col, gap) { var n = performance.now(); if (toastAt[key] && n - toastAt[key] < gap * 1000) return; toastAt[key] = n; toast(text, col); }
+  function rallyCry() {
+    if (!G.running || G.cd > 0 || G.rally.cd > 0 || !G.towers.length) return false;
+    G.rally.act = 6; G.rally.cd = 26; toast('RALLY CRY!  TOWERS FASTER', '#ffd23a'); stinger('go'); overlay(0xffd23a, 0.25, 0, 3);
+    G.towers.forEach(function (t) { t.cd = Math.min(t.cd || 0, 0.1); });
+    ptrs.forEach(function (p) { try { var h = p.vis && !p.hand && p.src && p.src.gamepad && ((p.src.gamepad.hapticActuators && p.src.gamepad.hapticActuators[0]) || p.src.gamepad.vibrationActuator); if (h && h.pulse) h.pulse(0.9, 250); } catch (err) {} });
+    return true;
+  }
   function puStep(dt) {
+    var rl = G.rally; rl.act = Math.max(0, rl.act - dt); if (rl.cd > 0) { rl.cd = Math.max(0, rl.cd - dt); if (rl.cd === 0 && G.towers.length) toast('RALLY CRY READY', '#ffd23a'); }
+    var cb = G.combo; if (cb.t > 0) { cb.t -= dt; if (cb.t <= 0) { cb.n = 0; cb.m = 1; cb.t = 0; } }
     ['rapid', 'pierce', 'slow', 'free', 'dbl', 'magnet'].forEach(function (k) {
       if (G.fx[k] > 0) { G.fx[k] = Math.max(0, G.fx[k] - dt); if (G.fx[k] === 0) soundTone(hp.x, hp.y - 0.3, hp.z - 0.4, 500, 200, 0.2, 1.2, 'sine'); }
     });
@@ -1634,7 +1646,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function towerStep(dt) {
     G.towers.forEach(function (t) {
-      t.hit = Math.max(0, (t.hit || 0) - dt); t.cd = (t.cd || 0) - dt;
+      t.hit = Math.max(0, (t.hit || 0) - dt); t.cd = (t.cd || 0) - dt * (G.rally.act > 0 ? 1.5 : 1);
       if (t.kind === 'gen') G.battery = Math.min(100, G.battery + TW.gen.rate[t.lv] * dt);
       else if (t.kind === 'lantern' && t.cd <= 0) { var e = nearestTo(t.x, t.z, TW.lantern.range[t.lv]); if (e) { towerShot(t, e); t.cd = TW.lantern.gap[t.lv]; } else t.cd = 0.15; }
       else if (t.kind === 'tesla' && t.cd <= 0) { t.cd = teslaZap(t) ? TW.tesla.gap[t.lv] : 0.2; }
@@ -1705,7 +1717,9 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function defeat(e, crit) {
     G.enemies.splice(G.enemies.indexOf(e), 1); G.kills++; soundTone(e.x, 0.8, e.z, 500, 120, 0.3, 1, 'square');
     fxEmit(crit ? 'crit' : 'pop', e.x, FLY[e.type] ? e.y : 1.2 * (e.sc || 1), e.z);
-    G.coins += (COIN_VAL[e.type || 'ghost'] || 1) * (G.fx.dbl > 0 ? 2 : 1);
+    var cb = G.combo; cb.n = cb.t > 0 ? cb.n + 1 : 1; cb.t = 3; var mult = Math.min(5, 1 + Math.floor(cb.n / 3));
+    if (mult > cb.m) toast('COMBO x' + mult, mult >= 4 ? '#ff6b6b' : '#ffa63a'); cb.m = mult;
+    G.coins += (COIN_VAL[e.type || 'ghost'] || 1) * (G.fx.dbl > 0 ? 2 : 1) * mult;
     var dc = e.type === 'brute' ? 1 : (e.type === 'runner' || e.type === 'mini') ? 0.16 : 0.33;
     if (G.drops.length < 20 && Math.random() < dc) { G.drops.push({ id: G.nid++, x: e.x, z: e.z, val: e.type === 'brute' ? 100 : 50, life: 12, max: 12 }); soundTone(e.x, 0.6, e.z, 800, 1400, 0.15, 2, 'sine'); }
     var pr = e.type === 'brute' ? 0.5 : (e.type === 'runner' || e.type === 'mini' || e.type === 'bat') ? 0.04 : (e.type === 'teleporter' || e.type === 'shielded' || e.type === 'phantom') ? 0.2 : 0.12;
@@ -1714,11 +1728,13 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function explodeBomb(z) {
     soundTone(z.x, 0.3, z.z, 180, 40, 0.5, 1.8, 'sawtooth'); fxEmit('hit', z.x, 0.5, z.z); fxEmit('hit', z.x, 1.0, z.z);
+    var bhit = 0;
     G.enemies.slice().forEach(function (e) {
-      var d = Math.hypot(e.x - z.x, e.z - z.z); if (d > BOMB_R) return;
+      var d = Math.hypot(e.x - z.x, e.z - z.z); if (d > BOMB_R) return; bhit++;
       e.hp -= 3; e.flash = 1; var a = d > 0.05 ? 1 / d : 0, ms = ETYPES[e.type || 'ghost'].mass; e.kx += (e.x - z.x) * a * 5 * ms; e.kz += (e.z - z.z) * a * 5 * ms;
       if (e.hp <= 0) defeat(e, true);
     });
+    if (bhit >= 2) { var bb = 3 * (bhit - 1); G.coins += bb; toast('BOMB CHAIN x' + bhit + '  +' + bb, '#ff9a3a'); }
   }
   function gameStep(dt, t) {
     var dead = !G.running;
@@ -1766,8 +1782,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
           e.tp = 2.4 + Math.random() * 1.6;
         }
       }
+      var chill = 1; e.chilled = false; frosts.forEach(function (t) { if (Math.hypot(t.x - e.x, t.z - e.z) < TW.frost.range[t.lv]) { chill = Math.min(chill, TW.frost.slow[t.lv]); e.chilled = true; } });
       if (!e.frz) {
-        var chill = 1; frosts.forEach(function (t) { if (Math.hypot(t.x - e.x, t.z - e.z) < TW.frost.range[t.lv]) chill = Math.min(chill, TW.frost.slow[t.lv]); });
         if (dist > stopD) { var sp = (0.9 + 0.04 * G.wave) * ET.spd * slowMul * chill, st = Math.min(sp * dt, dist - stopD); e.x += dx / dist * st; e.z += dz / dist * st;
           if (FLY[e.type] && dist > 2) { var wv = (e.type === 'bat' ? Math.cos(e.ph * 2.4) * 3.2 : Math.cos(e.ph) * 0.9) * dt; e.x += -dz / dist * wv; e.z += dx / dist * wv; } }
         else if (dec) dec.life -= dt; else touching += ET.drain;
@@ -1900,6 +1916,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var flDir = new THREE.Vector3();
   function flashStep(dt, t) {
     if (G.over && !G.running) { G.deadT += dt; if (G.deadT > 3 && ptrs.some(function (p) { return p.vis && !p.hand && p.trig; })) { gameStart(); return; } }
+    if (G.running && !G.rally.cd) { var gr = ptrs.filter(function (p) { return p.vis && !p.hand && p.want; }); if (gr.length >= 2 || gr.some(function (p) { return p.grip.y > hp.y + 0.05; })) rallyCry(); }
     G.rumbleT = (G.rumbleT || 0) - dt;
     if (G.rumbleT <= 0) {
       G.rumbleT = 0.1;
@@ -1937,9 +1954,13 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
         var da = Math.atan2(o.x - e.x, o.z - e.z) - (e.face + e.sh); da = Math.atan2(Math.sin(da), Math.cos(da));
         if (Math.abs(da) < 0.95) { e.flash = 0.7; soundTone(e.x, o.y, e.z, 2000, 900, 0.12, 1.6, 'square'); fxEmit('hit', o.x, o.y, o.z); return true; }
       }
-      var head = !o.tw && (fly ? o.y > e.y : o.y > 1.0 * sc); e.hp -= o.tw ? o.dmg : (1 + dmgBonus()) * (head ? 2 : 1); e.flash = 1;
+      var head = !o.tw && (fly ? o.y > e.y : o.y > 1.0 * sc), shat = !o.tw && (e.frz || e.chilled); e.hp -= o.tw ? o.dmg : (1 + dmgBonus()) * (head ? 2 : 1) * (shat ? 2 : 1); e.flash = 1;
       soundTone(e.x, o.y, e.z, head ? 700 : 260, head ? 1100 : 120, 0.16, 1, 'square');
-      if (e.hp <= 0) defeat(e, head); else fxEmit('hit', o.x, o.y, o.z);
+      if (e.hp <= 0) {
+        defeat(e, head);
+        if (shat) { soundTone(e.x, 1, e.z, 3000, 900, 0.25, 2.5, 'triangle'); fxEmit('crit', e.x, 1.1, e.z); toastOnce('shat', 'SHATTER!', '#9fe8ff', 0.8); }
+        if (head && !o.tw) { G.coins += 2; G.battery = Math.min(100, G.battery + 5); toastOnce('head', 'HEADSHOT  +2', '#ffe14a', 0.8); }
+      } else { fxEmit('hit', o.x, o.y, o.z); if (shat) soundTone(e.x, o.y, e.z, 2600, 1800, 0.1, 1.5, 'triangle'); }
       if (o.pc && !o.tw) { o.hit = o.hit || {}; o.hit[e.id] = 1; return false; }
       return true;
     }
@@ -2051,6 +2072,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       dr: G.drops.map(function (d) { return [d.id, r3(d.x), r3(d.z), d.val, Math.round(1000 * d.life / d.max) / 1000, d.pk ? PU.indexOf(d.pk) + 1 : 0]; }),
       tw: G.towers.map(function (t) { return [t.id, TW_KINDS.indexOf(t.kind), r3(t.x), r3(t.z), t.lv, Math.round(100 * t.hp / t.hpMax)]; }),
       wl: G.walls.map(function (w) { return [w.id, r3(w.x), r3(w.z)]; }),
+      ry: [Math.round(G.rally.act * 10) / 10, Math.round(G.rally.cd * 10) / 10], cb: [G.combo.m, Math.round(G.combo.t * 10) / 10],
       pl: G.cd > 0 || G.clr ? 1 : 0, pt: Math.round(Math.max(0, 8 - G.breakT) * 10) / 10, nw: G.nextQ ? G.nextQ.n : 0, nx: G.nextQ ? previewCounts(G.nextQ.q) : [] });
   }
   function onGs(d) {
@@ -2064,6 +2086,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (Array.isArray(d.fx) && d.fx.length >= 8) { var fk = ['rapid', 'pierce', 'shield', 'slow', 'free', 'dbl', 'magnet']; fk.forEach(function (k, ii) { G.fx[k] = Math.max(0, +d.fx[ii] || 0); }); G.blasts = Math.max(0, Math.min(3, d.fx[7] | 0)); }
     G.towers = (Array.isArray(d.tw) ? d.tw : []).filter(function (a) { return nums(a, 6) && TW_KINDS[a[1]]; }).slice(0, 12).map(function (a) { return { id: a[0], kind: TW_KINDS[a[1]], x: a[2], z: a[3], lv: Math.max(0, Math.min(2, a[4] | 0)), hp: Math.max(0, Math.min(100, a[5])), hpMax: 100 }; });
     G.walls = (Array.isArray(d.wl) ? d.wl : []).filter(function (a) { return nums(a, 3); }).slice(0, 30).map(function (a) { return { id: a[0], x: a[1], z: a[2] }; });
+    if (Array.isArray(d.ry) && d.ry.length >= 2) G.rally = { act: Math.max(0, +d.ry[0] || 0), cd: Math.max(0, +d.ry[1] || 0) };
+    if (Array.isArray(d.cb) && d.cb.length >= 2) G.combo = { n: 0, m: Math.max(1, Math.min(5, d.cb[0] | 0)), t: Math.max(0, +d.cb[1] || 0) };
     G.plan = !!d.pl; G.planT = +d.pt || 0; G.planW = +d.nw || 0; G.planC = Array.isArray(d.nx) ? d.nx.slice(0, 12).map(function (v) { return v | 0; }) : [];
     G.barriers = []; G.turrets = [];
     refreshGame();
@@ -2178,7 +2202,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var opts = { bot: true, practice: false, slow: false, invincible: false, inf: false };
   var solo = { head: false, control: false }, bc = { t: 0, lastId: 0, overT: 0 }, soloBtn = $('soloBtn'), soloHead = $('soloHead');
   function resetGame() {
-    G.towers = []; G.walls = []; G.q = []; G.nextQ = null; G.cd = 0; G.dying = 0; G.blasts = 0; Object.keys(G.fx).forEach(function (k) { G.fx[k] = 0; }); clearEvents();
+    G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.towers = []; G.walls = []; G.q = []; G.nextQ = null; G.cd = 0; G.dying = 0; G.blasts = 0; Object.keys(G.fx).forEach(function (k) { G.fx[k] = 0; }); clearEvents();
     localBalls().forEach(removeLocal);
     G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.running = false; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.toSpawn = 0;
   }
@@ -2842,7 +2866,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return (await probe('immersive-vr')) ? 'headset' : 'control';
   }
   window.__visorHud = { itemCount: function () { return Object.keys(items).length; }, linkState: function () { return link.state; }, remoteSeen: function () { return remote.has; },
-    t: { strike: strike, soundThunder: soundThunder, soundMoan: soundMoan, soundWhisper: soundWhisper, soundStep: soundStep, spookyStep: spookyStep, spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, hqSet: function (x, y, z, w) { hq.set(x, y, z, w); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; }, mapView: mapView, spawn: spawn, refreshGame: refreshGame } };
+    t: { strike: strike, soundThunder: soundThunder, soundMoan: soundMoan, soundWhisper: soundWhisper, soundStep: soundStep, spookyStep: spookyStep, spawnEnemy: spawnEnemy, defeat: defeat, ETYPES: ETYPES, ambStep: ambStep, fireOrb: fireOrb, tryShoot: tryShoot, orbStep: orbStep, flashStep: flashStep, newBall: function () { return newBall.apply(null, arguments); }, nearestEnemy: nearestEnemy, opts: opts, solo: solo, setSoloHead: setSoloHead, setSoloControl: setSoloControl, botVr: botVr, botController: botController, G: G, cmd: gameCmd, gameStep: gameStep, ptrs: ptrs, hpSet: function (x, y, z) { hp.set(x, y, z); }, hqSet: function (x, y, z, w) { hq.set(x, y, z, w); }, grabLogic: grabLogic, stepItems: stepItems, addItem: addItem, items: items, publishItems: publishItems, setRole: function (r) { role = r; }, mapView: mapView, rallyCry: rallyCry, spawn: spawn, refreshGame: refreshGame } };
   resize();
   Promise.race([decideRole(), new Promise(function (res) { setTimeout(function () { res('control'); }, 800); })])
     .then(function (r) { setRole(r); initXR(); });

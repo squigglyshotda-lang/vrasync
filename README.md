@@ -37,3 +37,10 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 - Traps: Freeze, Decoy and Bomb now cost coins. Push and Ping stay as quick abilities (Push uses build points).
 - Between waves you get 8 seconds of build time, with a preview of the next wave. The red zone on the map shows where enemies will appear (the 180 degrees in front of the VR player).
 - Keys: 1-4 towers, 5 wall, 6 Freeze, 7 Decoy, 8 Bomb, 9 Push, 0 Ping, Q/W/E flashlight upgrades, B Big blast, U upgrade and X sell the selected tower.
+
+## VR player extras
+- Rally cry: squeeze both grips, or squeeze a grip with a hand raised above your head, to boost every tower's fire rate by 50% for 6 s (recharges after about 20 s more; the VR HUD shows READY or the countdown).
+- Shatter: your shots do double damage to frozen or chilled enemies.
+- Combo: kills within 3 s of each other build a coin multiplier up to x5.
+- Bomb chain: shooting a bomb that catches several enemies pays bonus coins.
+- Headshots that kill give +2 coins and a small battery refund.
