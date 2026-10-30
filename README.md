@@ -29,3 +29,11 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 - When the control player buys an upgrade, or anyone picks something up, a floating text appears in front of the VR player.
 - Enemies drop power-ups that the control player taps on the map: Rapid fire, Piercing shots, Shield (survives one touch), Slow time (both players), Free builds, Double coins, Big blast (one giant explosion, tap the map to fire it) and Magnet.
 - New enemies: Teleporter (wave 5, blinks forward, warning sound first), Shielded ghost (wave 6, shoot it when its shield swings aside), Bat swarm (wave 7, six fast zig-zaggers), Phantom (wave 8, only hurt while visible).
+
+## Tower defence for the control player
+- Coins are the one currency: flashlight upgrades, towers, walls and traps all cost coins. Enemies pay out double what they used to.
+- Towers (max 6): Lantern (shoots), Frost (slows enemies in range), Tesla (chain lightning), Battery (recharges the VR flashlight). Tap a built tower to upgrade it (3 levels) or sell it for half back.
+- Walls (max 12): ground enemies walk around them, so lines of walls steer the crowd. Flyers (wisps, bats) and teleporters ignore the maze. Enemies that reach a tower chew on it until it breaks.
+- Traps: Freeze, Decoy and Bomb now cost coins. Push and Ping stay as quick abilities (Push uses build points).
+- Between waves you get 8 seconds of build time, with a preview of the next wave. The red zone on the map shows where enemies will appear (the 180 degrees in front of the VR player).
+- Keys: 1-4 towers, 5 wall, 6 Freeze, 7 Decoy, 8 Bomb, 9 Push, 0 Ping, Q/W/E flashlight upgrades, B Big blast, U upgrade and X sell the selected tower.
