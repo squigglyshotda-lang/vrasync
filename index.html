@@ -1616,7 +1616,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     banner('WAVE CLEARED', 'WAVE ' + G.wave + ' SURVIVED   BONUS +' + wb + '\nBUILD TIME', '#7dff8a', 2.4); stinger('clear'); overlay(0x7dff8a, 0.18, 0, 3);
   }
   // ---------- scoreboard: shared online (Firebase Realtime Database over plain HTTPS), with this device's own copy as a fallback ----------
-  var SCORE_DB_URL = '';   // paste the Firebase Realtime Database URL here, e.g. https://my-game-default-rtdb.europe-west1.firebasedatabase.app
+  var SCORE_DB_URL = 'https://vrscore-default-rtdb.firebaseio.com';   // paste the Firebase Realtime Database URL here, e.g. https://my-game-default-rtdb.europe-west1.firebasedatabase.app
   function scoreDb() { var u = window.VISOR_SCORE_DB || SCORE_DB_URL; return u ? String(u).replace(/\/+$/, '') : ''; }
   function localBoard() { try { var a = JSON.parse(localStorage.getItem('vrasync.scores') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
   function topTen(rows) { return rows.filter(function (r) { return r && typeof r.score === 'number' && isFinite(r.score); }).sort(function (a, b) { return b.score - a.score || (a.t || 0) - (b.t || 0); }).slice(0, 10); }
