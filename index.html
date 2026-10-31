@@ -244,7 +244,6 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
       <div class="tile"><span class="tl">Score</span><b id="stScore">0</b></div>
       <div class="tile wide"><span class="tl">Flashlight battery</span><div class="bar"><i id="stBatBar"></i></div><b id="stBat">–</b></div>
       <div class="tile"><span class="tl">Coins</span><b id="stCoin">0</b></div>
-      <div class="tile wide"><span class="tl">Build points</span><div class="bar build"><i id="stBuildBar"></i></div><b id="stBuild">–</b></div>
       <button class="gsolo" id="scoreBtn" type="button">Scores</button>
       <button class="gsolo" id="castBtn" type="button" title="Show the headset view on a TV, laptop or phone">Cast</button>
       <output class="gstats" id="gStats">Game not started</output>
@@ -268,7 +267,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
         <button class="gtool" type="button" data-tool="decoy" aria-pressed="false" title="A lantern that enemies walk to instead of the player"><span class="nm">Decoy</span><small class="cs">10</small><small class="ds">Lures enemies away from VR</small></button>
         <button class="gtool" type="button" data-tool="bomb" aria-pressed="false" title="The VR player has to shoot it to set it off"><span class="nm">Bomb</span><small class="cs">12</small><small class="ds">VR shoots it to blow it up</small></button>
         <span class="grp">Quick abilities</span>
-        <button class="gtool" type="button" data-tool="push" aria-pressed="false" title="Blasts nearby enemies away. Uses build points."><span class="nm">Push</span><small class="cs">3</small><small class="ds">Shoves nearby enemies back</small></button>
+        <button class="gtool" type="button" data-tool="push" aria-pressed="false" title="Blasts nearby enemies away. Recharges for a few seconds after each use."><span class="nm">Push</span><small class="cs">ready</small><small class="ds">Shoves nearby enemies back</small></button>
         <button class="gtool" type="button" data-tool="ping" aria-pressed="false" title="Point the VR player in a direction"><span class="nm">Ping</span><small class="cs">free</small><small class="ds">Points the VR player</small></button>
         <button class="gtool gblast" id="gBlast" type="button" data-tool="blast" aria-pressed="false" hidden title="Tap the map to set off a giant explosion there"><span class="nm">Big blast</span><small class="cs">1</small><small class="ds">One giant explosion</small></button>
         <span class="grp" id="bankGrp" hidden>Banked powers</span>
@@ -1275,7 +1274,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   Object.keys(THROW_STYLES).forEach(function (k) {
     var c = THROW_STYLES[k]; itemMats['eball_' + k] = new THREE.MeshStandardMaterial({ color: c.col, emissive: c.em, emissiveIntensity: 0.6, roughness: 0.5, flatShading: true });
   });
-  var COST = { push: 3 }, BUDGET_MAX = 12;
+  var PUSH_CD = 8;   // seconds between Push waves
   var TRAP = { freeze: 8, decoy: 10, bomb: 12 }, WALL_COST = 4, WALL_MAX = 14, TOWER_MAX = 6, WALL_R = 0.5, TOWER_R = 0.5, WALL_HP = 8, AGGRO = 3.6;
   var TW = {
     lantern: { n: 'Lantern', cost: 20, c: '#ffd25a', range: [3.8, 4.2, 4.6], gap: [1.1, 0.8, 0.55], dmg: [1, 1, 2] },
@@ -1343,7 +1342,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   function repairCost(t) { return Math.max(1, Math.round(TW[t.kind].cost * 0.5 * (1 - t.hp / t.hpMax) * (1 + 0.5 * t.lv))); }
   function worth(t) { var b = TW[t.kind].cost, w = b; if (t.lv >= 1) w += Math.round(b * 0.75); if (t.lv >= 2) w += Math.round(b * 1.25); return Math.floor(w / 2); }
   var UP_COST = [8, 14, 20, 28, 40], UP_MAX = 5, SCORE_VAL = { ghost: 100, runner: 60, wisp: 150, brute: 400, splitter: 200, mini: 40, teleporter: 250, shielded: 250, bat: 40, phantom: 300, bomber: 200 }, COIN_VAL = { ghost: 4, runner: 2, wisp: 6, brute: 16, splitter: 8, mini: 2, teleporter: 10, shielded: 10, bat: 2, phantom: 12, bomber: 8 }, ORB_RANGE = 9, BATT_REGEN = 12, BATT_ADD = 45, ORB_SPEED = 22, FREEZE_R = 2.2, PUSH_R = 3.5, BOMB_R = 2.6, BLAST_R = 4.5;
-  var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
+  var G = { running: false, over: false, wave: 0, kills: 0, pushCd: 0, energy: 100, enemies: [], turrets: [], barriers: [],
             toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0, coins: 0, battery: 100, orbs: [], zones: [], drops: [], up: { dmg: 0, bat: 0, rng: 0 }, hitT: 0, fireCd: 0,
             score: 0, pending: false, rally: { act: 0, cd: 0 }, combo: { n: 0, t: 0, m: 1 }, acc: { h: 0, m: 0, mc: 0 }, level: 0, bank: [], towers: [], walls: [], q: [], nextQ: null, fx: { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }, blasts: 0, cd: 0, cdN: 0, dying: 0, deadT: 0, inv: 0, clr: false };
   var gameGroup = new THREE.Group(); scene.add(gameGroup);
@@ -1725,7 +1724,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   function gameStart(lv) {
     G.level = (lv === 0 || lv === 1) ? lv : (solo.head ? lvSel : G.level);
     localBalls().forEach(removeLocal);
-    G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.up = { dmg: 0, bat: 0, rng: 0 }; G.running = true; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.budget = 6; G.pingT = 0;
+    G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.up = { dmg: 0, bat: 0, rng: 0 }; G.running = true; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.pushCd = 0; G.pingT = 0;
     G.fx = { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }; G.blasts = 0; G.bank = []; G.towers = []; G.walls = []; G.q = []; G.nextQ = { n: 1, q: makeQueue(1) }; G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.acc = { h: 0, m: 0, mc: 0 }; G.mod = null; G.score = 0; G.pending = false; G.cd = 3; G.cdN = 4; G.dying = 0; G.deadT = 0; G.inv = 0; G.clr = false; G.toSpawn = 0; G.breakT = 0;
     ev.bn = null; overlay(0xff0000, 0, 0, 4);
   }
@@ -1739,7 +1738,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   function modOf(n) { return n >= 3 && n % 3 === 0 ? MODS[(n / 3 - 1) % MODS.length] : null; }
   function windVec(n) { var a = n * 1.9; return { x: Math.sin(a) * 40, z: Math.cos(a) * 40 }; }
   function startWave(n, go) {
-    G.wave = n; G.mod = modOf(n); G.q = G.nextQ && G.nextQ.n === n ? G.nextQ.q.slice() : makeQueue(n); G.nextQ = null; G.toSpawn = G.q.length; G.spawnT = 2.2; G.clr = false; G.budget = Math.min(BUDGET_MAX, G.budget + (n > 1 ? 4 : 0)); if (n > 1) G.battery = Math.min(100, G.battery + 15);
+    G.wave = n; G.mod = modOf(n); G.q = G.nextQ && G.nextQ.n === n ? G.nextQ.q.slice() : makeQueue(n); G.nextQ = null; G.toSpawn = G.q.length; G.spawnT = 2.2; G.clr = false; if (n > 1) G.battery = Math.min(100, G.battery + 15);
     var nu = ETYPE_NAMES.filter(function (k) { return ETYPES[k].minW === n; }).map(function (k) { return ELABEL[k]; });
     banner(go ? 'GO!' : 'WAVE ' + n, (go ? 'WAVE 1' : '') + (nu.length ? (go ? '\n' : '') + 'NEW: ' + nu.join(', ') : '') + (G.mod ? '\n' + G.mod.n + ': ' + G.mod.d : ''), G.mod ? '#ff6b6b' : '#ffb347', 2.6);
     stinger(go ? 'go' : 'wave'); overlay(0xffe9b0, 0.35, 0, 3);
@@ -1984,7 +1983,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
     var dead = !G.running;
     if (dead) { if (!(G.dying > 0)) return; G.dying -= dt; dt *= 0.2; }
     else {
-      G.budget = Math.min(BUDGET_MAX, G.budget + dt * 0.9);
+      G.pushCd = Math.max(0, G.pushCd - dt);
       G.energy = Math.min(100, G.energy + dt * 0.4);
       G.pingT = Math.max(0, G.pingT - dt);
       G.sinceShot = (G.sinceShot || 0) + dt; if (G.sinceShot > 0.5) G.battery = Math.min(100, G.battery + BATT_REGEN * dt);
@@ -2360,10 +2359,11 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
       for (var wi = 0; wi < G.walls.length; wi++) if (G.walls[wi].id === m.id) { var w0 = G.walls.splice(wi, 1)[0]; G.coins += Math.floor(wallPrice(w0.shape) / 2); soundTone(w0.x, 0.6, w0.z, 800, 300, 0.2, 2, 'sine'); return; }
       return;
     }
-    var base = COST[m.c], tprice = TRAP[m.c];
-    if (base === undefined && tprice === undefined) return;
-    var cost = free ? 0 : (base || 0), tcost = free ? 0 : (tprice || 0);
-    if (G.budget < cost || G.coins < tcost || G.zones.length >= 10) return;
+    var tprice = TRAP[m.c];
+    if (m.c !== 'push' && tprice === undefined) return;
+    var tcost = free ? 0 : (tprice || 0);
+    if (m.c === 'push' && G.pushCd > 0) return;
+    if (G.coins < tcost || G.zones.length >= 10) return;
     x = Math.max(-11, Math.min(11, x)); z = Math.max(-11, Math.min(11, z));
     var zone = { id: G.nid++, kind: m.c, x: x, z: z };
     if (m.c === 'freeze') { zone.life = zone.max = 8; soundTone(x, 0.5, z, 1200, 500, 0.4, 1.2, 'triangle'); }
@@ -2385,14 +2385,14 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
       zone.life = zone.max = 15; soundTone(x, 0.3, z, 300, 300, 0.1, 1, 'square');
     }
     else return;
-    G.zones.push(zone); G.budget -= cost; G.coins -= tcost;
+    G.zones.push(zone); G.coins -= tcost; if (m.c === 'push') G.pushCd = PUSH_CD;
   }
   var lastGs = 0;
   function publishGame(t) {
     if (role !== 'headset' || !link.conns.length || t - lastGs < 0.1) return;
     lastGs = t;
     var ZC = { freeze: 0, push: 1, decoy: 2, bomb: 3, blast: 4 };
-    linkSend({ t: 'gs', run: G.running, over: G.over, w: G.wave, k: G.kills, c: G.coins, b: Math.round(G.budget * 10) / 10, bt: Math.round(G.battery), up: [G.up.dmg, G.up.bat, G.up.rng], cd: Math.round(G.cd * 10) / 10,
+    linkSend({ t: 'gs', run: G.running, over: G.over, w: G.wave, k: G.kills, c: G.coins, pc: Math.round(G.pushCd * 10) / 10, bt: Math.round(G.battery), up: [G.up.dmg, G.up.bat, G.up.rng], cd: Math.round(G.cd * 10) / 10,
       bk: G.bank.map(function (k) { return PU.indexOf(k) + 1; }),
       fx: [G.fx.rapid, G.fx.pierce, G.fx.shield, G.fx.slow, G.fx.free, G.fx.dbl, G.fx.magnet, G.blasts].map(function (v) { return Math.round(v * 10) / 10; }),
       en: G.enemies.map(function (e) { return [e.id, r3(e.x), r3(e.z), e.hp, r3(e.face), e.frz ? 1 : 0, Math.max(0, ETYPE_NAMES.indexOf(e.type)), r3(e.y || 0), Math.round((e.alpha == null ? 1 : e.alpha) * 100), r3(e.sh || 0)]; }),
@@ -2406,7 +2406,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   function onGs(d) {
     function nums(a, n) { return Array.isArray(a) && a.length >= n && a.every(function (v) { return typeof v === 'number' && isFinite(v); }); }
     var ZN = ['freeze', 'push', 'decoy', 'bomb', 'blast'], ZM = { freeze: 8, push: 0.6, decoy: 9, bomb: 15, blast: 0.9 };
-    G.running = !!d.run; G.over = !!d.over; G.wave = +d.w || 0; G.kills = +d.k || 0; G.coins = +d.c || 0; G.budget = +d.b || 0; G.battery = Math.max(0, Math.min(100, +d.bt || 0));
+    G.running = !!d.run; G.over = !!d.over; G.wave = +d.w || 0; G.kills = +d.k || 0; G.coins = +d.c || 0; G.pushCd = Math.max(0, Math.min(PUSH_CD, +d.pc || 0)); G.battery = Math.max(0, Math.min(100, +d.bt || 0));
     if (Array.isArray(d.up) && d.up.length >= 3) G.up = { dmg: Math.max(0, Math.min(UP_MAX, d.up[0] | 0)), bat: Math.max(0, Math.min(UP_MAX, d.up[1] | 0)), rng: Math.max(0, Math.min(UP_MAX, d.up[2] | 0)) };
     G.enemies = (Array.isArray(d.en) ? d.en : []).filter(function (a) { return nums(a, 5); }).slice(0, 60).map(function (a) { var ty = ETYPE_NAMES[a[6]] || 'ghost'; return { id: a[0], x: a[1], z: a[2], hp: a[3], face: a[4], frz: a[5] === 1, type: ty, sc: ETYPES[ty].sc, y: a[7] || 0, alpha: typeof a[8] === 'number' ? a[8] / 100 : 1, sh: a[9] || 0 }; });
     G.zones = (Array.isArray(d.zn) ? d.zn : []).filter(function (a) { return nums(a, 5) && ZN[a[1]]; }).slice(0, 20).map(function (a) { var k = ZN[a[1]]; return { id: a[0], kind: k, x: a[2], z: a[3], life: a[4] * ZM[k], max: ZM[k] }; });
@@ -2557,7 +2557,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   lvBtns.forEach(function (b, i) { b.addEventListener('click', function () { setLevelSel(i); }); });
   if (optLevel) optLevel.addEventListener('click', function () { setLevelSel((lvSel + 1) % LEVELS.length); });
   levelLabels();
-  var stWave = $('stWave'), stBat = $('stBat'), stBatBar = $('stBatBar'), stCoin = $('stCoin'), stBuild = $('stBuild'), stBuildBar = $('stBuildBar');
+  var stWave = $('stWave'), stBat = $('stBat'), stBatBar = $('stBatBar'), stCoin = $('stCoin');
   function refreshGame() {
     if (role !== 'control') return;
     var run = G.running, free = G.fx.free > 0;
@@ -2570,14 +2570,14 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
     stBat.textContent = run ? Math.round(G.battery) + '%' : '–'; stBatBar.style.width = (run ? G.battery : 0) + '%'; stBat.parentNode.classList.toggle('low', run && G.battery <= 25);
     stCoin.textContent = String(G.coins); stScore.textContent = fmtScore(G.score);
     if (G.over && !shownEnd) { shownEnd = true; endSaved = false; setTimeout(function () { if (G.over) openBoard({ end: true }); }, 1800); } else if (!G.over && shownEnd) { shownEnd = false; if (!scoreModal.hidden && $('smPlay').hidden === false) scoreModal.hidden = true; }
-    stBuild.textContent = run ? (free ? 'FREE' : Math.floor(G.budget) + '/' + BUDGET_MAX) : '–'; stBuildBar.style.width = (run ? (free ? 100 : G.budget / BUDGET_MAX * 100) : 0) + '%';
     var planning = solo.control ? (G.cd > 0 || G.clr) : G.plan, nq = solo.control ? G.nextQ : null, pc = solo.control ? (nq ? previewCounts(nq.q) : []) : G.planC, pw = solo.control ? (nq ? nq.n : 0) : G.planW, ps = solo.control ? Math.max(0, 8 - G.breakT) : G.planT;
     var prev = run && planning && pw ? 'NEXT · WAVE ' + pw + ': ' + pc.map(function (c, i) { return c ? c + ' ' + ETYPE_NAMES[i] : ''; }).filter(Boolean).join(', ') + (modOf(pw) ? '  ·  MODIFIER: ' + modOf(pw).n + ' (' + modOf(pw).d.toLowerCase() + ')' : '') + (G.cd > 0 ? '' : '  ·  ' + Math.ceil(ps) + 's to build') : '';
     gStats.textContent = run ? ((prev + (prev && fxLine() ? '   ' : '') + fxLine()) || ' ') : (G.over ? 'Run over: you reached wave ' + G.wave : 'Game not started');
     gTools.forEach(function (b) {
-      var tl = b.getAttribute('data-tool'), c = COST[tl], pr = toolPrice(tl), cs = b.querySelector('.cs');
-      b.classList.toggle('poor', run && !free && ((!!c && G.budget < c) || (pr > 0 && G.coins < pr)));
-      if (cs && (c || pr)) cs.textContent = free ? 'free' : String(c || pr);
+      var tl = b.getAttribute('data-tool'), pr = toolPrice(tl), cs = b.querySelector('.cs');
+      b.classList.toggle('poor', run && ((tl === 'push' && G.pushCd > 0) || (!free && pr > 0 && G.coins < pr)));
+      if (tl === 'push' && cs) cs.textContent = G.pushCd > 0 ? Math.ceil(G.pushCd) + 's' : 'ready';
+      else if (cs && pr) cs.textContent = free ? 'free' : String(pr);
     });
     refreshSel();
     gBlast.hidden = !(G.blasts > 0); gBlast.querySelector('.cs').textContent = 'x' + G.blasts;
@@ -2697,7 +2697,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
     if (sk >= 1 && G.towers.length >= Math.min(3, [2, 4, 5, 6][sk]) && G.up[upk] < UP_MAX && G.coins >= UP_COST[G.up[upk]]) gameCmd({ c: 'upgrade', k: upk });
     if (sk >= 3 && G.blasts > 0 && G.enemies.length >= 3) { var cx = 0, cz = 0; G.enemies.forEach(function (q) { cx += q.x; cz += q.z; }); gameCmd({ c: 'blast', x: cx / G.enemies.length, z: cz / G.enemies.length }); }
     if (G.drops.length) { if (sk > 0 || Math.random() < 0.4) gameCmd({ c: 'collect', id: G.drops[0].id }); }
-    else if (sk >= 1 && near && nd < 2.8 && G.budget >= COST.push) gameCmd({ c: 'push', x: hp.x + (near.x - hp.x) * 0.3, z: hp.z + (near.z - hp.z) * 0.3 });
+    else if (sk >= 1 && near && nd < 2.8 && G.pushCd <= 0) gameCmd({ c: 'push', x: hp.x + (near.x - hp.x) * 0.3, z: hp.z + (near.z - hp.z) * 0.3 });
     else if (sk >= 2 && near && nd < 9 && G.coins >= TRAP.bomb && !has('bomb')) gameCmd({ c: 'bomb', x: near.x, z: near.z });
     else if (sk >= 2 && near && nd < 10 && G.coins >= TRAP.freeze && !has('freeze')) gameCmd({ c: 'freeze', x: near.x, z: near.z });
   }
@@ -3166,7 +3166,7 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
     if (WALL_SHAPES[tool] && !wallFree(wallCells(tool, x, z, wrot))) { link.msg = 'No room for that shape there.'; refreshNote(); return; }
     if (lvActive() && ((BUILD[tool] && !lanePlaceOk(tool, WALL_SHAPES[tool] ? wallCells(tool, x, z, wrot) : [{ x: x, z: z }])) || ((tool === 'freeze' || tool === 'decoy' || tool === 'bomb') && lvCell(x, z) === 2))) { link.msg = TW[tool] ? 'Towers go on open ground beside the lanes.' : WALL_SHAPES[tool] ? 'Walls cannot go on the fences or fully block a lane.' : 'You cannot place that on a fence.'; refreshNote(); return; }
     if (toolPrice(tool) && G.coins < toolPrice(tool) && !(G.fx.free > 0)) { link.msg = 'Not enough coins yet.'; refreshNote(); return; }
-    if (COST[tool] && G.budget < COST[tool] && !(G.fx.free > 0)) { link.msg = 'Not enough build points yet.'; refreshNote(); return; }
+    if (tool === 'push' && G.pushCd > 0) { link.msg = 'Push is recharging (' + Math.ceil(G.pushCd) + ' s).'; refreshNote(); return; }
     if (tool === 'ping') G.ping = { b: bearingTo(x, z), t: performance.now() / 1000 };
     link.msg = ''; var cm = BUILD[tool] ? { c: 'build', k: tool, r: wrot, x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 } : { c: tool, x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 };
     if (solo.control) { gameCmd(cm); refreshNote(); refreshGame(); return; }

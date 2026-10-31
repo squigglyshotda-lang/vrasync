@@ -11,7 +11,7 @@ Pairing is peer to peer (PeerJS); nothing is stored.
 ## Game: flashlight defence
 
 The headset player holds a flashlight in each controller and squeezes the trigger to shoot light orbs at the pumpkin ghosts walking in from all sides (head shots do double damage). Ghosts do not throw anything. They drain suit energy while touching the player.
-Every shot uses battery. The control player spends build points on **Recharge**, and on crowd control: **Slow trap** zone (half speed for 8 s, enemies in it still take shatter damage), **Push** wave, **Decoy** lantern and **Bomb**. **Ping** shows the player where enemies are coming from.
+Every shot uses battery. The control player has crowd control on coins and cooldowns: **Slow trap** zone (half speed for 8 s, enemies in it still take shatter damage), **Push** wave, **Decoy** lantern and **Bomb**. **Ping** shows the player where enemies are coming from.
 Flashlight direction can be tuned in "Flashlight setup" on the headset page.
 
 Enemy types unlock by wave: Runner (wave 2, packs of three, fast, one hit), Wisp (wave 3, floats at head height and weaves), Brute (wave 4, big, slow, lots of health, drains energy fast, hard to push) and Splitter (wave 5, breaks into two minis). Each type has its own 3D spawn sound, and the headset has ambient wind, crickets, owls, crows, bells and creaks while a game runs.
@@ -48,7 +48,7 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 - Walls (max 12): ground enemies walk around them, so lines of walls steer the crowd. Flyers (wisps, bats) and teleporters ignore the maze. Ground enemies within about 3.5 m of a tower or wall go for it and chew it until it breaks (walls have 8 HP, towers 10/14/18 by level), so walls also work as bait and towers need protecting. Sell and rebuild, or upgrade a tower to refill its health.
 - Bot skill: Test tools (control page) and the headset test options both have a Bot skill button cycling Beginner, Average, Good and Expert. It changes how well the practice bots shoot and how smartly they build.
 - The control player's headset-view panel shows only the game footage, without the VR player's HUD.
-- Traps: Slow trap, Decoy and Bomb now cost coins. Push and Ping stay as quick abilities (Push uses build points).
+- Traps: Slow trap, Decoy and Bomb now cost coins. Push and Ping are free quick abilities; Push has an 8 s cooldown shown on its button. There are no build points any more.
 - Between waves you get 8 seconds of build time, with a preview of the next wave. The red zone on the map shows where enemies will appear (the 180 degrees in front of the VR player).
 - Keys: 1-4 towers, 5 wall, 6 Slow trap, 7 Decoy, 8 Bomb, 9 Push, 0 Ping, Q/W/E flashlight upgrades, B Big blast, U upgrade and X sell the selected tower.
 
