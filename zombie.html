@@ -1030,9 +1030,9 @@ body.cmdr #cmd { display: block; }
   function switchWeapon(i) { if (i < 0 || i >= WEAPONS.length || i === P.w) return; P.w = i; P.rel = 0; P.fireT = 0.2; showGun(); gunReset(); P.ads = 0; sfx('draw'); }
   function zombieHitDist(e, ox, oy, oz, dx, dy, dz) {   // returns [dist, head, limb]
     var s = ZT[e.type].sc, gy = (e.y || 0), cr = !!e.crawl, sf = Math.sin(e.face), cf = Math.cos(e.face), g = e.gone || {};
-    function cx(y) { return cr ? e.x + sf * y * s * 0.6 : e.x; } function cz(y) { return cr ? e.z + cf * y * s * 0.6 : e.z; } function cy(y) { return (cr ? y * 0.4 : y) * s + gy; }
+    function cx(y) { return cr ? e.x + sf * y * s * 0.93 : e.x; } function cz(y) { return cr ? e.z + cf * y * s * 0.93 : e.z; } function cy(y) { return (cr ? y * 0.36 : y) * s + gy; }
     var h = raySphere(ox, oy, oz, dx, dy, dz, cx(1.68), cy(1.68), cz(1.68), 0.24 * s), best = Infinity, limb = null, limbT = null, limb2 = null;
-    [0.5, 0.95, 1.3].forEach(function (y) { var t = raySphere(ox, oy, oz, dx, dy, dz, cx(y), cy(y), cz(y), 0.36 * s); if (t < best) best = t; });
+    var br = (e.type === 'exploder' ? 0.62 : 0.36) * s; (e.type === 'screamer' && !cr ? [0.5, 0.95, 1.3, 1.9] : [0.5, 0.95, 1.3]).forEach(function (y) { var t = raySphere(ox, oy, oz, dx, dy, dz, cx(y), cy(y), cz(y), (y > 1.8 ? 0.3 * s : br)); if (t < best) best = t; });
     if (!cr) [['al', -0.4, 1.3, 0.1, 0.17], ['al', -0.4, 1.05, 0.4, 0.17], ['ar', 0.4, 1.3, 0.1, 0.17], ['ar', 0.4, 1.05, 0.4, 0.17], ['ll', -0.14, 0.22, 0, 0.2], ['ll', -0.14, 0.6, 0, 0.2], ['lr', 0.14, 0.22, 0, 0.2], ['lr', 0.14, 0.6, 0, 0.2]].forEach(function (q) {
       if (g[q[0]]) return; var t = raySphere(ox, oy, oz, dx, dy, dz, e.x + (q[1] * cf + q[3] * sf) * s, q[2] * s + gy, e.z + (-q[1] * sf + q[3] * cf) * s, q[4] * s); if (t < best) { best = t; limb = q[0]; } else if (t < best + 0.4 * s && (limbT === null || t < limbT)) { limbT = t; limb2 = q[0]; }
     });
