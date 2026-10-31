@@ -55,6 +55,7 @@ body.cmdr #hud, body.cmdr #startOv, body.cmdr #endOv { display: none !important;
 #cmd { display: none; position: fixed; inset: 0; z-index: 8; pointer-events: none; }
 body.cmdr #cmd { display: block; }
 #cmd button { pointer-events: auto; font: 700 14px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(14, 20, 36, .92); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation; }
+#fpv { position: absolute; top: 56px; right: 12px; width: 240px; border: 1px solid var(--line); background: #000; border-radius: 6px; overflow: hidden; pointer-events: auto; touch-action: manipulation; } #fpv.big { width: min(62vw, 720px); } #fpv video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #05070d; } #fpv .fl { position: absolute; top: 4px; left: 6px; font: 700 10px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; } #fpv button { position: absolute; top: 2px; right: 2px; min-width: 32px; min-height: 28px; padding: 0; } #fpvShow { position: absolute; top: 58px; right: 12px; padding: 8px 12px; } #fpv[hidden], #fpvShow[hidden] { display: none; }
 #cTop { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 22px; align-items: baseline; padding: 10px 16px; background: linear-gradient(rgba(10, 14, 26, .92), rgba(10, 14, 26, 0)); font: 700 13px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 #cTop b { color: var(--text); font-size: 24px; margin-left: 6px; font-variant-numeric: tabular-nums; } #cTop b.amb { color: var(--amber); } #cTop .st { margin-left: auto; font: 500 12px var(--font-data); letter-spacing: .04em; text-transform: none; }
 #cTools { position: absolute; left: 10px; top: 60px; display: grid; gap: 5px; width: 158px; }
@@ -78,6 +79,7 @@ body.cmdr #cmd { display: block; }
 <body>
 <div id="stage"></div>
 <div id="cmd">
+  <div id="fpv" hidden><video id="fpvV" autoplay muted playsinline></video><span class="fl">Shooter view</span><button type="button" id="fpvX">&times;</button></div><button type="button" id="fpvShow" hidden>Shooter view</button>
   <div id="cTop"><span>Wave<b id="cWave">-</b></span><span>Safehouse<b id="cBase">-</b></span><span>Coins<b class="amb" id="cCoins">0</b></span><span>Score<b id="cScore">0</b></span><button type="button" id="cRestart" hidden>Restart</button><span class="st" id="cSt">Connecting...</span></div>
   <div id="cTools">
     <button type="button" data-tool="turret" style="--ac:#ffb43a" aria-pressed="false"><span class="nm">Turret</span><span class="pc">0</span><small>Shoots the nearest zombie</small></button>
@@ -732,13 +734,17 @@ body.cmdr #cmd { display: block; }
     try { p = new Peer(ID_PREFIX + myCode, peerOpts()); } catch (e) { return; } peer = p;
     p.on('open', function () { $('codeLine').textContent = 'Commander code: ' + myCode; $('codeBoxV').textContent = myCode; $('codeBox').hidden = false; });
     p.on('connection', function (c) {
-      c.on('open', function () { conns.push(c); linked = true; $('codeBox').hidden = true; toast('Commander linked'); });
+      c.on('open', function () { conns.push(c); linked = true; $('codeBox').hidden = true; toast('Commander linked'); sendView(c); });
       c.on('data', onCmd);
       function gone() { var i = conns.indexOf(c); if (i >= 0) conns.splice(i, 1); if (!conns.length) { linked = false; $('codeBox').hidden = !myCode; } }
       c.on('close', gone); c.on('error', gone);
     });
     p.on('disconnected', function () { setTimeout(function () { try { if (!p.destroyed) p.reconnect(); } catch (e) {} }, 1500); });
     p.on('error', function (err) { if (err && err.type === 'unavailable-id') startHost(); });
+  }
+  var viewStream = null;
+  function sendView(c) {   // live picture of the shooter's screen to the commander, over the same PeerJS link
+    try { if (!viewStream) viewStream = renderer.domElement.captureStream(15); if (peer && viewStream && c.peer) peer.call(c.peer, viewStream); } catch (e) {}
   }
   var TIDX = { walker: 0, runner: 1, brute: 2 };
   function publish(t) {
@@ -821,6 +827,7 @@ body.cmdr #cmd { display: block; }
       if (C.tool) { ghostAt(e); if (hit) { selectSt(hit.id); return; } if (!linked) { toast('Not connected to the shooter'); return; } cmdSend({ c: STK[C.tool] ? 'build' : TRK[C.tool] ? 'trap' : 'drop', k: C.tool, x: C.mx, z: C.mz }); return; }
       selectSt(null);
     });
+    $('fpv').addEventListener('click', function (e) { if (e.target.id !== 'fpvX') $('fpv').classList.toggle('big'); }); $('fpvX').addEventListener('click', function () { $('fpv').hidden = true; $('fpvShow').hidden = false; }); $('fpvShow').addEventListener('click', function () { $('fpv').hidden = false; $('fpvShow').hidden = true; });
     $('soloCmdBtn').addEventListener('click', startSoloCommander); $('cRestart').addEventListener('click', function () { selectSt(null); startGame(); });
     $('cGate').addEventListener('click', function () { if (C.sel != null) cmdSend({ c: 'gate', id: C.sel }); });
     $('cRep').addEventListener('click', function () { if (C.sel != null) cmdSend({ c: 'rep', id: C.sel }); });
@@ -840,11 +847,16 @@ body.cmdr #cmd { display: block; }
     if (!window.Peer) { $('joinMsg').textContent = 'Pairing library did not load.'; return; }
     $('joinMsg').textContent = 'Connecting...'; try { if (peer) peer.destroy(); } catch (e) {}
     var p = new Peer(peerOpts()), timer; peer = p; timer = setTimeout(function () { $('joinMsg').textContent = 'No answer. Check the code and that the shooter page is open.'; }, 15000);
+    p.on('call', function (call) {
+      call.answer();
+      call.on('stream', function (st) { var v = $('fpvV'); v.srcObject = st; $('fpv').hidden = false; $('fpvShow').hidden = true; try { v.play(); } catch (e) {} });
+      call.on('close', function () { $('fpv').hidden = true; $('fpvShow').hidden = true; });
+    });
     p.on('open', function () {
       var c = p.connect(ID_PREFIX + code, { serialization: 'json', reliable: true });
       c.on('open', function () { clearTimeout(timer); conns = [c]; linked = true; $('joinOv').hidden = true; cmdRefresh(); });
       c.on('data', function (d) { if (d && d.t === 'gs') onGs(d); else if (d && d.t === 'tx' && typeof d.s === 'string') toast(d.s.slice(0, 60)); });
-      c.on('close', function () { linked = false; conns = []; $('joinOv').hidden = false; $('joinMsg').textContent = 'Link dropped. Connect again.'; cmdRefresh(); });
+      c.on('close', function () { linked = false; conns = []; $('fpv').hidden = true; $('fpvShow').hidden = true; $('joinOv').hidden = false; $('joinMsg').textContent = 'Link dropped. Connect again.'; cmdRefresh(); });
     });
     p.on('error', function (err) { clearTimeout(timer); $('joinMsg').textContent = err && err.type === 'peer-unavailable' ? 'No shooter has that code.' : 'Could not reach the pairing service.'; });
   }
