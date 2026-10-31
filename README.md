@@ -84,3 +84,11 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 }
 ```
 - Until a URL is set (or if the database can't be reached) scores are kept on that device only, and the board says so.
+
+## Dead Block (zombie-town tower defence)
+A second game in this repo, played at `zombie.html`. One person is the **shooter** on a desktop browser (mouse and keyboard, or a gamepad); the other is the **commander** on a tablet or another browser, running the tower-defence side. Same pairing idea as the VR game: the shooter's page shows a 4-letter code, the commander opens `zombie.html#commander` (or `?code=ABCD#commander`) and types it.
+
+- Goal: hold the safehouse in the middle of the town block. Zombies come in waves down three streets. If the safehouse's health reaches zero the run ends. The shooter cannot die; a zombie reaching them slows and knocks them back.
+- Shooter: WASD move, Shift sprint, mouse look, click shoot, R reload, 1-3 or wheel to change weapon (pistol, shotgun, rifle), Esc releases the mouse. Gamepad: left stick move, right stick look, right trigger shoot, X reload, bumpers change weapon, left stick click sprint, Start begins a game. Headshots do double damage; buildings block shots. Ammo comes from zombie loot and commander drops.
+- Commander (coins are shared with the shooter's kills): Turret (3 levels), Barricade and Gate (tap a gate, then Open or Close; zombies chew a closed gate), Mine (explodes under zombies), Flare (lures zombies for 10 s), Decoy (bait they chew on), Ammo drop and Medkit drop (a beacon shows the shooter where it landed; the medkit repairs the safehouse). Tap a structure to repair, upgrade or sell it. Prices rise as you build more of the same kind.
+- Scores: saved on the same Firebase database as the VR game, with `lv: 2` in each row so the boards stay separate. The shooter's page asks for both players' initials. Without the database the scores stay on that device.
