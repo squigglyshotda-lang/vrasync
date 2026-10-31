@@ -104,13 +104,13 @@ body.cmdr #cmd { display: block; }
   <div id="toast"></div>
   <div class="gun"><b id="ammo">-<span>/-</span></b><div id="gunName">Pistol</div><div class="slots" id="slots"><span>1 Pistol</span><span>2 Shotgun</span><span>3 Rifle</span></div></div>
   <div class="codebox" id="codeBox" hidden>Commander code<b id="codeBoxV"></b></div>
-  <div id="hint">WASD move · Shift sprint · mouse aim · click shoot · R reload · 1-3 or wheel weapons · Esc release mouse</div>
+  <div id="hint">WASD move · Shift sprint · Space jump · C or Ctrl crouch · crouch while sprinting to slide · mouse aim · click shoot · R reload · 1-3 or wheel weapons · Esc release mouse</div>
 </div>
 <div class="overlay" id="startOv">
   <div class="card">
     <h1>Dead Block</h1>
     <p>Hold the safehouse. Zombies march down the three streets. You fight them on foot; the commander builds the defences.</p>
-    <div class="keys"><b>Move</b><span>WASD / left stick</span><b>Aim</b><span>Mouse / right stick</span><b>Shoot</b><span>Click / right trigger</span><b>Reload</b><span>R / X</span><b>Weapons</b><span>1 2 3, wheel / bumpers</span><b>Sprint</b><span>Shift / left stick click</span></div>
+    <div class="keys"><b>Move</b><span>WASD / left stick</span><b>Aim</b><span>Mouse / right stick</span><b>Shoot</b><span>Click / right trigger</span><b>Reload</b><span>R / X</span><b>Weapons</b><span>1 2 3, wheel / bumpers</span><b>Sprint</b><span>Shift / left stick click</span><b>Jump</b><span>Space / A</span><b>Crouch</b><span>C or Ctrl / B</span><b>Slide</b><span>Sprint, then crouch</span></div>
     <p id="codeLine" style="color:var(--amber)">Commander code: ...</p>
     <button id="startBtn" type="button">Click to play</button>
     <button id="soloBtn" type="button" class="alt">Solo test: bot commander</button>
@@ -198,9 +198,10 @@ body.cmdr #cmd { display: block; }
   };
   var bot = { cmd: false, shoot: false, solo: false, t: 0, ct: 0 };
   var G = { running: false, over: false, wave: 0, cd: 0, clr: true, toSpawn: 0, spawnT: 0, q: [], zombies: [], base: 100, baseMax: 100, score: 0, coins: 0, kills: 0, nid: 1, t: 0, st: [], tr: [] };
-  var allSolids = solids.slice();
-  var P = { x: 0, z: 14, yaw: 0, pitch: 0, vx: 0, vz: 0, slow: 0, w: 0, ammo: [], fireT: 0, rel: 0, relFor: -1, bob: 0, hold: false, sprint: false, kick: 0 };
-  function resetPlayer() { P.x = 0; P.z = 14; P.yaw = 0; P.pitch = 0; P.slow = 0; P.w = 0; P.fireT = 0; P.rel = 0; P.relFor = -1; P.ammo = WEAPONS.map(function (w) { return { mag: w.mag, res: w.res }; }); }
+  var allSolids = solids.slice(), hopSolids = allSolids;   // hopSolids: what blocks you while you are over a barricade
+  var P = { x: 0, z: 14, yaw: 0, pitch: 0, vx: 0, vz: 0, slow: 0, w: 0, ammo: [], fireT: 0, rel: 0, relFor: -1, bob: 0, hold: false, sprint: false, kick: 0, y: 0, vy: 0, cr: 0, slide: 0, slideCd: 0, sdx: 0, sdz: 0, cPrev: false, jPrev: false };
+  function eyeY() { return 1.7 + P.y - 0.65 * P.cr; }
+  function resetPlayer() { P.x = 0; P.z = 14; P.yaw = 0; P.pitch = 0; P.slow = 0; P.y = 0; P.vy = 0; P.cr = 0; P.slide = 0; P.slideCd = 0; P.w = 0; P.fireT = 0; P.rel = 0; P.relFor = -1; P.ammo = WEAPONS.map(function (w) { return { mag: w.mag, res: w.res }; }); }
   resetPlayer();
 
   // ---------- helpers ----------
@@ -346,10 +347,10 @@ body.cmdr #cmd { display: block; }
     var w = WEAPONS[P.w], a = P.ammo[P.w];
     if (P.fireT > 0 || P.rel > 0) return;
     if (a.mag <= 0) { sfx('empty'); P.fireT = 0.25; if (a.res > 0) reload(); return; }
-    a.mag--; P.fireT = w.gap; P.kick = w.kick; sfx(w.id); flash.visible = true; setTimeout(function () { flash.visible = false; }, 45);
-    var cp = Math.cos(P.pitch), ox = P.x, oy = 1.7, oz = P.z, headHit = false, anyHit = false;
+    a.mag--; P.fireT = w.gap; P.kick = w.kick * (P.cr > 0.5 ? 0.6 : 1); sfx(w.id); flash.visible = true; setTimeout(function () { flash.visible = false; }, 45);
+    var cp = Math.cos(P.pitch), ox = P.x, oy = eyeY(), oz = P.z, headHit = false, anyHit = false;
     for (var p = 0; p < w.pellets; p++) {
-      var yaw = P.yaw + (rnd() - 0.5) * 2 * w.spread, pit = P.pitch + (rnd() - 0.5) * 2 * w.spread;
+      var sp = w.spread * (P.cr > 0.5 ? 0.5 : 1), yaw = P.yaw + (rnd() - 0.5) * 2 * sp, pit = P.pitch + (rnd() - 0.5) * 2 * sp;
       var dx = -Math.sin(yaw) * Math.cos(pit), dy = Math.sin(pit), dz = -Math.cos(yaw) * Math.cos(pit);
       var wall = Infinity; for (var i = 0; i < solids.length; i++) { var t = rayBox(ox, oy, oz, dx, dy, dz, solids[i], i < BUILDINGS.length ? BUILDINGS[i][4] : 3.6); if (t < wall) wall = t; }
       var best = null, bt = Math.min(wall, 60), bh = false;
@@ -440,7 +441,7 @@ body.cmdr #cmd { display: block; }
     var K = STK[kind], q = { id: id || G.nid++, kind: kind, x: x, z: z, lv: 0, hp: K.hp[0], hpMax: K.hp[0], cd: 0.5, paid: 0, aim: 0, open: false }; q.mesh = buildStMesh(kind, 0, false); q.mesh.position.set(x, 0, z); if (role === 'commander') q.mesh.scale.setScalar(1.5); G.st.push(q); dirtySolids(); return q;
   }
   function removeStruct(q) { scene.remove(q.mesh); var i = G.st.indexOf(q); if (i >= 0) G.st.splice(i, 1); dirtySolids(); }
-  function dirtySolids() { allSolids = solids.concat(G.st.map(stBox)); }
+  function dirtySolids() { allSolids = solids.concat(G.st.map(stBox)); hopSolids = solids.concat(G.st.filter(function (q) { return q.kind !== 'barricade'; }).map(stBox)); }
   function setStLevel(q, lv) { scene.remove(q.mesh); q.lv = lv; q.mesh = buildStMesh(q.kind, lv, q.open); q.mesh.position.set(q.x, 0, q.z); if (role === 'commander') q.mesh.scale.setScalar(1.5); }
   function setGate(q, open) { q.open = open; scene.remove(q.mesh); q.mesh = buildStMesh('gate', 0, open); q.mesh.position.set(q.x, 0, q.z); if (role === 'commander') q.mesh.scale.setScalar(1.5); dirtySolids(); }
   function findSt(id) { for (var i = 0; i < G.st.length; i++) if (G.st[i].id === id) return G.st[i]; return null; }
@@ -607,13 +608,25 @@ body.cmdr #cmd { display: block; }
     }
     // player
     if (P.slow > 0) P.slow -= dt;
-    var inp = readInput(dt), spd = (inp.sprint ? 8.2 : 5) * (P.slow > 0 ? 0.5 : 1);
+    var inp = readInput(dt), ground = P.y <= 0.001, moving = Math.hypot(P.vx, P.vz);
+    // crouch / slide / jump
+    P.slideCd = Math.max(0, P.slideCd - dt);
+    if (inp.crouch && !P.cPrev && ground && P.slide <= 0 && P.slideCd <= 0 && inp.sprint && moving > 5.5) { P.slide = 0.9; P.sdx = P.vx / moving; P.sdz = P.vz / moving; P.slideCd = 1.2; sfx('empty'); }
+    P.cPrev = !!inp.crouch;
+    if (inp.jump && !P.jPrev && ground) { P.vy = 6.2; P.slide = 0; }
+    P.jPrev = !!inp.jump;
+    var wantCr = (inp.crouch || P.slide > 0) && ground ? 1 : 0; P.cr += (wantCr - P.cr) * Math.min(1, dt * 14);
+    P.vy -= 16 * dt; P.y += P.vy * dt; if (P.y <= 0) { P.y = 0; P.vy = 0; }
+    var spd = (inp.sprint && P.cr < 0.4 ? 8.2 : P.cr > 0.5 ? 2.6 : 5) * (P.slow > 0 ? 0.5 : 1);
     var fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
     var wx = fx * inp.fwd + rx * inp.side, wz = fz * inp.fwd + rz * inp.side, wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
-    P.vx += (wx * spd - P.vx) * Math.min(1, dt * 12); P.vz += (wz * spd - P.vz) * Math.min(1, dt * 12);
-    P.x += P.vx * dt; P.z += P.vz * dt; pushOut(P, 0.42, allSolids);
+    if (P.slide > 0) {
+      P.slide -= dt; var sp = 4 + 7 * Math.max(0, P.slide / 0.9); P.vx = P.sdx * sp; P.vz = P.sdz * sp;
+      if (P.slide <= 0) { P.slide = 0; P.vx *= 0.4; P.vz *= 0.4; }
+    } else { var ac = ground ? 12 : 3; P.vx += (wx * spd - P.vx) * Math.min(1, dt * ac); P.vz += (wz * spd - P.vz) * Math.min(1, dt * ac); }
+    P.x += P.vx * dt; P.z += P.vz * dt; pushOut(P, 0.42, P.y > 0.6 ? hopSolids : allSolids);
     P.x = Math.max(-HALF, Math.min(HALF, P.x)); P.z = Math.max(-24, Math.min(HALF, P.z));
-    P.bob += Math.hypot(P.vx, P.vz) * dt * 1.8;
+    if (ground && P.slide <= 0) P.bob += Math.hypot(P.vx, P.vz) * dt * 1.8;
     // weapons
     P.fireT = Math.max(0, P.fireT - dt); P.kick = Math.max(0, P.kick - dt * 0.6);
     if (P.rel > 0) { P.rel -= dt; if (P.rel <= 0) { var w = WEAPONS[P.relFor], a = P.ammo[P.relFor], need = w.mag - a.mag, take = Math.min(need, a.res); a.mag += take; a.res -= take; P.rel = 0; } }
@@ -695,12 +708,12 @@ body.cmdr #cmd { display: block; }
   function dz(v) { return Math.abs(v) < 0.16 ? 0 : (v - Math.sign(v) * 0.16) / 0.84; }
   function readInput(dt) {
     if (bot.shoot) return botInput(dt);
-    var o = { fwd: (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0), side: (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0), sprint: !!keys['shift'], shoot: mouseDown && !!document.pointerLockElement || !!test.shoot };
+    var o = { fwd: (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0), side: (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0), sprint: !!keys['shift'], jump: !!keys[' '], crouch: !!(keys['control'] || keys['c']), shoot: mouseDown && !!document.pointerLockElement || !!test.shoot };
     var pads = navigator.getGamepads ? navigator.getGamepads() : [], gp = null; for (var i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
     if (gp) {
       var ax = gp.axes, b = gp.buttons; o.side += dz(ax[0] || 0); o.fwd -= dz(ax[1] || 0);
       P.yaw -= dz(ax[2] || 0) * 2.6 * dt; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - dz(ax[3] || 0) * 2.2 * dt));
-      if (b[7] && b[7].value > 0.3) o.shoot = true; if (b[10] && b[10].pressed) o.sprint = true;
+      if (b[7] && b[7].value > 0.3) o.shoot = true; if (b[10] && b[10].pressed) o.sprint = true; if (b[0] && b[0].pressed) o.jump = true; if (b[1] && b[1].pressed) o.crouch = true;
       var rl = !!(b[2] && b[2].pressed), wp = !!(b[4] && b[4].pressed), wn = !!(b[5] && b[5].pressed), st = !!(b[9] && b[9].pressed);
       if (rl && !padLast.rl) reload(); if (wp && !padLast.wp) switchWeapon((P.w + WEAPONS.length - 1) % WEAPONS.length); if (wn && !padLast.wn) switchWeapon((P.w + 1) % WEAPONS.length);
       if (st && !padLast.start && !G.running) startGame(); padLast = { start: st, rl: rl, wp: wp, wn: wn };
@@ -854,12 +867,12 @@ body.cmdr #cmd { display: block; }
     var t = performance.now() / 1000, dt = Math.min(0.05, Math.max(0, t - last)); last = t;
     if (role === 'commander') { if (bot.solo) soloCommanderFrame(dt); else commanderFrame(dt); renderer.render(scene, mapCam); requestAnimationFrame(frame); return; }
     step(dt); publish(t);
-    camera.position.set(P.x, 1.7 + Math.sin(P.bob) * 0.04, P.z); camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ');
+    camera.position.set(P.x, eyeY() + Math.sin(P.bob) * 0.04, P.z); camera.rotation.z = 0; camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ');
     gunRig.position.set(Math.sin(P.bob * 0.5) * 0.01, Math.abs(Math.sin(P.bob)) * 0.012, P.kick * 1.6); gunRig.rotation.x = P.kick * 1.2 + (P.rel > 0 ? -0.5 * Math.sin(Math.min(1, (WEAPONS[P.w].reload - P.rel) / WEAPONS[P.w].reload) * PI) : 0);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
-  window.__z = { bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, LANES: LANES, solids: solids, switchWeapon: switchWeapon, reload: reload, camera: camera, renderer: renderer, scene: scene };
+  window.__z = { bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, LANES: LANES, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
   if (role === 'commander') initCommander(); else startHost();
   requestAnimationFrame(frame);
 })();
