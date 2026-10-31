@@ -58,6 +58,7 @@ body.cmdr #hud, body.cmdr #startOv, body.cmdr #endOv { display: none !important;
 body.cmdr #cmd { display: block; }
 #cmd button { pointer-events: auto; font: 700 14px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(14, 20, 36, .92); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation; }
 #fpv { position: absolute; top: 56px; right: 12px; width: 240px; border: 1px solid var(--line); background: #000; border-radius: 6px; overflow: hidden; pointer-events: auto; touch-action: manipulation; } #fpv.big { width: min(62vw, 720px); } #fpv.solo, #fpv.solo video { background: transparent; } #fpv video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #05070d; } #fpv .fl { position: absolute; top: 4px; left: 6px; font: 700 10px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; } #fpv button { position: absolute; top: 2px; right: 2px; min-width: 32px; min-height: 28px; padding: 0; } #fpvShow { position: absolute; top: 58px; right: 12px; padding: 8px 12px; } #fpv[hidden], #fpvShow[hidden] { display: none; }
+#cFloors { position: absolute; right: 12px; bottom: 14px; display: flex; gap: 6px; } #cFloors button { min-height: 46px; padding: 0 16px; } #cFloors button[aria-pressed="true"] { background: rgba(255, 180, 58, .16); border-color: var(--amber); }
 #cTop { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 22px; align-items: baseline; padding: 10px 16px; background: linear-gradient(rgba(10, 14, 26, .92), rgba(10, 14, 26, 0)); font: 700 13px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 #cTop b { color: var(--text); font-size: 24px; margin-left: 6px; font-variant-numeric: tabular-nums; } #cTop b.amb { color: var(--amber); } #cTop .st { margin-left: auto; font: 500 12px var(--font-data); letter-spacing: .04em; text-transform: none; }
 #cTools { position: absolute; left: 10px; top: 60px; display: grid; gap: 5px; width: 158px; }
@@ -81,6 +82,7 @@ body.cmdr #cmd { display: block; }
 <body>
 <div id="stage"></div>
 <div id="cmd">
+  <div id="cFloors"><button type="button" data-f="0" aria-pressed="true">Ground</button><button type="button" data-f="1" aria-pressed="false">Roof</button></div>
   <div id="fpv" hidden><video id="fpvV" autoplay muted playsinline></video><span class="fl">Shooter view</span><button type="button" id="fpvX">&times;</button></div><button type="button" id="fpvShow" hidden>Shooter view</button>
   <div id="cTop"><span>Wave<b id="cWave">-</b></span><span>Safehouse<b id="cBase">-</b></span><span>Coins<b class="amb" id="cCoins">0</b></span><span>Score<b id="cScore">0</b></span><button type="button" id="cRestart" hidden>Restart</button><span class="st" id="cSt">Connecting...</span></div>
   <div id="cTools">
@@ -143,11 +145,12 @@ body.cmdr #cmd { display: block; }
   var HALF = 29, SAFE = { x0: -3, x1: 3, z0: -3, z1: 3 }, PLAZA = 10.8, PLAZA_H = 0.45;   // the safehouse (town hall) stands in the middle of a raised square
   function groundH(x, z) { var m = Math.max(Math.abs(x), Math.abs(z)); return PLAZA_H * Math.max(0, Math.min(1, (PLAZA - m) / 1.2)); }
   var SPAWNS = [[0, -27.5, 1, 0], [0, 27.5, 1, 0], [-27.5, 0, 0, 1], [27.5, 0, 0, 1]];   // x, z, spread along x, spread along z: one entry road per side
+  var ROOF_H = 4.5;   // landmark roofs, galleries and bridges
   var BUILDINGS = [];   // x0, x1, z0, z1, height, colour (laid out the same on both screens, no randomness)
   (function () {
     var T = [[7, 17, 12, 20], [7, 17, 22, 28], [19, 28, 12, 18], [19, 28, 20, 28], [13, 22, 7, 10]], PAL = [0x3b3f58, 0x4a3b3b, 0x3a4a45, 0x4a4637, 0x40384f, 0x34475a];
     [[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(function (sg, q) {
-      T.forEach(function (t, k) { var xa = t[0] * sg[0], xb = t[1] * sg[0], za = t[2] * sg[1], zb = t[3] * sg[1], n = q * 5 + k; BUILDINGS.push([Math.min(xa, xb), Math.max(xa, xb), Math.min(za, zb), Math.max(za, zb), 5 + ((n * 7 + 3) % 6), PAL[(n * 5 + q) % PAL.length]]); });
+      T.forEach(function (t, k) { var xa = t[0] * sg[0], xb = t[1] * sg[0], za = t[2] * sg[1], zb = t[3] * sg[1], n = q * 5 + k; BUILDINGS.push([Math.min(xa, xb), Math.max(xa, xb), Math.min(za, zb), Math.max(za, zb), k === 0 ? ROOF_H : 5 + ((n * 7 + 3) % 6), PAL[(n * 5 + q) % PAL.length]]); });
     });
   })();
   var PROPS = [];   // planters, stalls and low walls can be hopped; cars cannot
@@ -160,6 +163,28 @@ body.cmdr #cmd { display: block; }
   var solids = BUILDINGS.map(function (b) { return { x0: b[0], x1: b[1], z0: b[2], z1: b[3], h: b[4] }; });
   solids.push({ x0: SAFE.x0, x1: SAFE.x1, z0: SAFE.z0, z1: SAFE.z1, h: 3.6 });
   PROPS.forEach(function (q) { solids.push({ x0: q.x0, x1: q.x1, z0: q.z0, z1: q.z1, h: q.h, low: q.low }); });
+  // upper level: each quadrant has a landmark with a stair ramp, a gallery, a roof and bridges linking them around the square
+  var DECKS = [], UPPER_DECKS = [], UPPER_RAILS = [], RAMP_STEPS = [];
+  (function () {
+    function R(x0, x1, z0, z1) { return { x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1) }; }
+    function rail(r) { r.y0 = ROOF_H; r.h = ROOF_H + 0.9; r.rail = true; solids.push(r); UPPER_RAILS.push(r); }
+    function slab(r) { DECKS.push(r); solids.push({ x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, y0: ROOF_H - 0.2, h: ROOF_H, slab: true }); UPPER_DECKS.push(r); }
+    [[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(function (sg) {
+      var sx = sg[0], sz = sg[1]; function M(x0, x1, z0, z1) { return R(x0 * sx, x1 * sx, z0 * sz, z1 * sz); }
+      DECKS.push(M(7, 17, 12, 20)); slab(M(5, 7, 12, 18));
+      for (var k = 0; k < 8; k++) { var st = M(5, 7, 25 - k, 26 - k); st.y0 = 0; st.h = (k + 1) * ROOF_H / 8; st.ramp = true; st.k = k; solids.push(st); RAMP_STEPS.push(st); }
+      rail(M(7, 7.3, 18, 20)); rail(M(16.7, 17, 12, 20)); rail(M(7, 17, 19.7, 20)); rail(M(7, 11, 12, 12.3)); rail(M(13, 17, 12, 12.3)); rail(M(4.8, 5, 12, 15)); rail(M(4.8, 5, 17, 18)); rail(M(5, 7, 11.8, 12));
+    });
+    [1, -1].forEach(function (sz) { slab(R(-5, 5, sz * 15, sz * 17)); rail(R(-5, 5, sz * 14.8, sz * 15)); rail(R(-5, 5, sz * 17, sz * 17.2)); });
+    [1, -1].forEach(function (sx) { slab(R(sx * 11, sx * 13, -12, 12)); rail(R(sx * 10.8, sx * 11, -12, 12)); rail(R(sx * 13, sx * 13.2, -12, 12)); });
+  })();
+  function inDeck(x, z) { for (var i = 0; i < DECKS.length; i++) { var d = DECKS[i]; if (x >= d.x0 && x <= d.x1 && z >= d.z0 && z <= d.z1) return true; } return false; }
+  function blockAt(b, y) { var h = b.h === undefined ? 3.6 : b.h; return !(h <= y + 0.7) && !(b.y0 && y + 1.7 <= b.y0); }   // does this solid stop something whose feet are at height y?
+  function surfaceH(x, z, py) {   // the highest thing you can stand on here: the ground, or a top within step height
+    var h = groundH(x, z);
+    for (var i = 0; i < solids.length; i++) { var s = solids[i]; if (s.rail) continue; if (x > s.x0 && x < s.x1 && z > s.z0 && z < s.z1) { var t = s.h === undefined ? 3.6 : s.h; if (t <= py + 0.7 && t > h) h = t; } }
+    return h;
+  }
   var allSolids = solids.slice();
 
   // ---------- renderer / scene ----------
@@ -175,6 +200,7 @@ body.cmdr #cmd { display: block; }
   window.addEventListener('resize', resize); resize();
 
   function box(w, h, d, col, x, y, z, parent) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: col })); m.position.set(x, y, z); (parent || scene).add(m); return m; }
+  var upperG = new THREE.Group(); scene.add(upperG);
   (function buildTown() {
     var ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshLambertMaterial({ color: 0x23262e })); ground.rotation.x = -PI / 2; scene.add(ground);
     function road(x0, x1, z0, z1, col, y) { var m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), new THREE.MeshLambertMaterial({ color: col || 0x2b2e38 })); m.rotation.x = -PI / 2; m.position.set((x0 + x1) / 2, y || 0.02, (z0 + z1) / 2); scene.add(m); }
@@ -214,6 +240,11 @@ body.cmdr #cmd { display: block; }
     });
     // street lamps along the four roads
     [-24, -15, 15, 24].forEach(function (a) { [-1, 1].forEach(function (sd) { box(0.15, 4.2, 0.15, 0x3a3a46, sd * 5.7, 2.1, a); box(0.5, 0.25, 0.5, 0xffe9a8, sd * 5.7, 4.3, a); box(0.15, 4.2, 0.15, 0x3a3a46, a, 2.1, sd * 5.7); box(0.5, 0.25, 0.5, 0xffe9a8, a, 4.3, sd * 5.7); }); });
+    // upper level: stair ramps, galleries, bridges and roofs
+    RAMP_STEPS.forEach(function (st) { box(st.x1 - st.x0, st.h, st.z1 - st.z0, 0x6a6d7a, (st.x0 + st.x1) / 2, st.h / 2, (st.z0 + st.z1) / 2); });
+    UPPER_DECKS.forEach(function (r) { box(r.x1 - r.x0, 0.2, r.z1 - r.z0, 0x5c6076, (r.x0 + r.x1) / 2, ROOF_H - 0.1, (r.z0 + r.z1) / 2, upperG); [[r.x0, r.z0], [r.x1, r.z1], [r.x0, r.z1], [r.x1, r.z0]].forEach(function () {}); });
+    UPPER_RAILS.forEach(function (r) { box(r.x1 - r.x0, 0.9, r.z1 - r.z0, 0x8d92a6, (r.x0 + r.x1) / 2, ROOF_H + 0.45, (r.z0 + r.z1) / 2, upperG); });
+    BUILDINGS.forEach(function (b) { if (b[4] === ROOF_H) box(b[1] - b[0] - 0.7, 0.04, b[3] - b[2] - 0.7, 0x70758f, (b[0] + b[1]) / 2, ROOF_H + 0.31, (b[2] + b[3]) / 2, upperG); });
     // entry arches where the zombies come in
     SPAWNS.forEach(function (sp) { if (sp[2]) { box(0.4, 3, 0.4, 0xff4d4d, -4.6, 1.5, sp[1]); box(0.4, 3, 0.4, 0xff4d4d, 4.6, 1.5, sp[1]); box(9.4, 0.3, 0.4, 0xff4d4d, 0, 3.1, sp[1]); } else { box(0.4, 3, 0.4, 0xff4d4d, sp[0], 1.5, -4.6); box(0.4, 3, 0.4, 0xff4d4d, sp[0], 1.5, 4.6); box(0.4, 0.3, 9.4, 0xff4d4d, sp[0], 3.1, 0); } });
   })();
@@ -230,7 +261,7 @@ body.cmdr #cmd { display: block; }
     brute: { hp: 320, spd: 1.15, dmg: 9, coin: 16, score: 50, sc: 1.45, col: 0x7a4a6a }
   };
   var bot = { cmd: false, shoot: false, solo: false, t: 0, ct: 0 };
-  var G = { running: false, over: false, wave: 0, cd: 0, clr: true, toSpawn: 0, spawnT: 0, q: [], zombies: [], base: 100, baseMax: 100, score: 0, coins: 0, kills: 0, nid: 1, t: 0, st: [], tr: [] };
+  var G = { running: false, over: false, wave: 0, cd: 0, clr: true, toSpawn: 0, spawnT: 0, q: [], zombies: [], base: 100, baseMax: 150, score: 0, coins: 0, kills: 0, nid: 1, t: 0, st: [], tr: [] };
   var P = { x: 0, z: 14, yaw: 0, pitch: 0, vx: 0, vz: 0, slow: 0, w: 0, ammo: [], fireT: 0, rel: 0, relFor: -1, bob: 0, hold: false, sprint: false, kick: 0, rcl: 0, shake: 0, fovK: 0, y: 0, vy: 0, cr: 0, slide: 0, slideCd: 0, sdx: 0, sdz: 0, cPrev: false, jPrev: false };
   var shakeK = 1, SHAKE_LBL = ['Full', 'Reduced', 'Off'], SHAKE_VAL = [1, 0.4, 0], shakeI = 0;
   try { shakeI = Math.max(0, Math.min(2, +localStorage.getItem('db_shake') || 0)); shakeK = SHAKE_VAL[shakeI]; } catch (e) {}
@@ -306,7 +337,7 @@ body.cmdr #cmd { display: block; }
   }
   function addZombie(type, x, z, lane) {
     var T = ZT[type], hpScale = 1 + 0.12 * Math.max(0, G.wave - 1);
-    var e = { id: G.nid++, type: type, x: x, z: z, hp: T.hp * hpScale, hpMax: T.hp * hpScale, lane: lane, pi: 1, ox: (rnd() - 0.5) * 5, oz: (rnd() - 0.5) * 2, face: 0, ph: rnd() * 6, flash: 0, atk: 0, kx: 0, kz: 0, mesh: makeZombieMesh(type) };
+    var e = { id: G.nid++, type: type, x: x, z: z, y: groundH(x, z), hp: T.hp * hpScale, hpMax: T.hp * hpScale, lane: lane, pi: 1, ox: (rnd() - 0.5) * 5, oz: (rnd() - 0.5) * 2, face: 0, ph: rnd() * 6, flash: 0, atk: 0, kx: 0, kz: 0, mesh: makeZombieMesh(type) };
     if (role === 'commander') e.mesh.scale.set(2.2, 1.4, 2.2);
     G.zombies.push(e); return e;
   }
@@ -315,7 +346,7 @@ body.cmdr #cmd { display: block; }
 
   // ---------- waves ----------
   function makeQueue(n) {
-    var q = [], count = 6 + 3 * n + Math.floor(n * n / 6);
+    var q = [], count = 5 + 2 * n + Math.floor(n * n / 5);
     for (var i = 0; i < count; i++) { var r = rnd(), t = 'walker'; if (n >= 2 && r < Math.min(0.4, 0.1 + 0.03 * n)) t = 'runner'; if (n >= 4 && r > 1 - Math.min(0.16, 0.03 * (n - 2))) t = 'brute'; q.push(t); }
     if (n % 5 === 0) { q.push('brute', 'brute'); }
     return q;
@@ -360,7 +391,7 @@ body.cmdr #cmd { display: block; }
   var corpses = [];
   function corpseOf(e, dx, dz) {   // a killed zombie keeps its body and topples over
     var u = e.mesh.userData, M = u.mats; u.all.forEach(function (q) { q.material = (q === u.head || q === u.armL || q === u.armR) ? M.skin : M.cloth; });
-    e.mesh.rotation.order = 'YXZ'; var c = { m: e.mesh, t: 0, gy: groundH(e.x, e.z), life: 5, big: ZT[e.type].sc > 1.3 }; corpses.push(c);
+    e.mesh.rotation.order = 'YXZ'; var c = { m: e.mesh, t: 0, gy: (e.y || 0), life: 5, big: ZT[e.type].sc > 1.3 }; corpses.push(c);
     if (corpses.length > 14) { var o = corpses.shift(); scene.remove(o.m); }
   }
   function stepCorpses(dt) {
@@ -416,7 +447,7 @@ body.cmdr #cmd { display: block; }
   }
   function switchWeapon(i) { if (i < 0 || i >= WEAPONS.length || i === P.w) return; P.w = i; P.rel = 0; P.fireT = 0.2; showGun(); }
   function zombieHitDist(e, ox, oy, oz, dx, dy, dz) {   // returns [dist, head]
-    var s = ZT[e.type].sc, gy = groundH(e.x, e.z), h = raySphere(ox, oy, oz, dx, dy, dz, e.x, 1.68 * s + gy, e.z, 0.24 * s), best = Infinity;
+    var s = ZT[e.type].sc, gy = (e.y || 0), h = raySphere(ox, oy, oz, dx, dy, dz, e.x, 1.68 * s + gy, e.z, 0.24 * s), best = Infinity;
     [0.5, 0.95, 1.3].forEach(function (y) { var t = raySphere(ox, oy, oz, dx, dy, dz, e.x, y * s + gy, e.z, 0.36 * s); if (t < best) best = t; });
     return h < best ? [h, true] : [best, false];
   }
@@ -469,23 +500,23 @@ body.cmdr #cmd { display: block; }
     if (e.hp <= 0) { killZombie(e, dx, dz); return true; } return false;
   }
   function killZombie(e, dx, dz) {
-    var T = ZT[e.type]; G.kills++; G.score += T.score; G.coins += T.coin; spawnCoins(e.x, 1.0 * T.sc + groundH(e.x, e.z), e.z, Math.min(T.coin, 8)); sfx('kill'); spray(e.x, 1.1 * T.sc + groundH(e.x, e.z), e.z, 0x8a1010, 22, dx || 0, dz || 0, 3.5); spark(e.x, 1.1, e.z, 0x6a0c0c, 8);
-    if (rnd() < 0.14) dropPickup(e.x, e.z, rnd() < 0.2 ? 'health' : 'ammo');
+    var T = ZT[e.type]; G.kills++; G.score += T.score; G.coins += T.coin; spawnCoins(e.x, 1.0 * T.sc + (e.y || 0), e.z, Math.min(T.coin, 8)); sfx('kill'); spray(e.x, 1.1 * T.sc + (e.y || 0), e.z, 0x8a1010, 22, dx || 0, dz || 0, 3.5); spark(e.x, 1.1, e.z, 0x6a0c0c, 8);
+    if (rnd() < 0.14) dropPickup(e.x, e.z, rnd() < 0.2 ? 'health' : 'ammo', 0, false, e.y > 2.3 ? 1 : 0);
     var zi = G.zombies.indexOf(e); if (zi >= 0) G.zombies.splice(zi, 1); corpseOf(e, dx, dz);
   }
 
   // ---------- pickups ----------
   var pickups = [];
-  function dropPickup(x, z, kind, life, beacon) {
-    var m = box(0.45, 0.3, 0.3, kind === 'ammo' ? 0xffb43a : 0x6be08a, x, 0.35 + groundH(x, z), z), bm = null;
+  function dropPickup(x, z, kind, life, beacon, fl) {
+    var m = box(0.45, 0.3, 0.3, kind === 'ammo' ? 0xffb43a : 0x6be08a, x, 0.35 + (fl ? ROOF_H : groundH(x, z)), z), bm = null;
     if (beacon) { bm = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 40, 8, 1, true), new THREE.MeshBasicMaterial({ color: kind === 'ammo' ? 0xffd25a : 0x6bff9a, transparent: true, opacity: 0.35, depthWrite: false, fog: false, side: THREE.DoubleSide })); bm.position.set(x, 20, z); scene.add(bm); m.scale.setScalar(1.6); }
     if (role === 'commander') m.scale.setScalar(beacon ? 4 : 2.6);
-    pickups.push({ id: G.nid++, x: x, z: z, kind: kind, m: m, bm: bm, big: !!beacon, life: life || 25 });
+    pickups.push({ id: G.nid++, x: x, z: z, kind: kind, m: m, bm: bm, big: !!beacon, life: life || 25, fl: fl ? 1 : 0, y: fl ? ROOF_H : groundH(x, z) });
   }
   function stepPickups(dt) {
     for (var i = pickups.length - 1; i >= 0; i--) {
-      var p = pickups[i]; p.life -= dt; p.m.rotation.y += dt * 2; p.m.position.y = 0.4 + groundH(p.x, p.z) + Math.sin(G.t * 3 + i) * 0.08;
-      if (Math.hypot(P.x - p.x, P.z - p.z) < 1.3) {
+      var p = pickups[i]; p.life -= dt; p.m.rotation.y += dt * 2; p.m.position.y = 0.4 + p.y + Math.sin(G.t * 3 + i) * 0.08;
+      if (Math.hypot(P.x - p.x, P.z - p.z) < 1.3 && Math.abs(P.y - p.y) < 2) {
         var mul = p.big ? 3 : 1;
         if (p.kind === 'ammo') { P.ammo.forEach(function (a, k) { a.res = Math.min(WEAPONS[k].resMax, a.res + Math.ceil(WEAPONS[k].mag * (k === 1 ? 1 : 1.5) * mul)); }); toast('Ammo'); }
         else { G.base = Math.min(G.baseMax, G.base + (p.big ? 25 : 12)); toast('Safehouse repaired'); }
@@ -507,15 +538,18 @@ body.cmdr #cmd { display: block; }
   function stUpCost(q) { return STK[q.kind].up[q.lv] || 0; }
   function stRepCost(q) { return Math.max(1, Math.round(STK[q.kind].cost * 0.5 * (1 - q.hp / q.hpMax) * (1 + 0.4 * q.lv))); }
   function stWorth(q) { return Math.floor((q.paid || STK[q.kind].cost) / 2); }
-  function stBox(q) { var r = STK[q.kind].r; if (q.kind === 'gate' && q.open) return { x0: -999, x1: -998, z0: -999, z1: -998 }; var b = { x0: q.x - r, x1: q.x + r, z0: q.z - r, z1: q.z + r }; if (q.kind === 'barricade') { b.low = true; b.h = groundH(q.x, q.z) + 1.0; } return b; }
+  function stBox(q) { var r = STK[q.kind].r; if (q.kind === 'gate' && q.open) return { x0: -999, x1: -998, z0: -999, z1: -998 }; return { x0: q.x - r, x1: q.x + r, z0: q.z - r, z1: q.z + r, y0: q.fl ? q.y : 0, h: q.y + (q.kind === 'barricade' ? 1.0 : q.kind === 'gate' ? 2.2 : 2.0) }; }
   function snapC(v) { return Math.max(-27.5, Math.min(27.5, Math.floor(v) + 0.5)); }
-  function stFree(x, z) {
+  function stFree(x, z, f) {
     if (Math.abs(z) > 27.5 || Math.abs(x) > 27.5) return false;
-    for (var si = 0; si < SPAWNS.length; si++) if (Math.hypot(x - SPAWNS[si][0], z - SPAWNS[si][1]) < 5) return false;
-    var b = { x0: x - 0.5, x1: x + 0.5, z0: z - 0.5, z1: z + 0.5 };
-    for (var i = 0; i < solids.length; i++) { var s = solids[i]; if (b.x0 < s.x1 && b.x1 > s.x0 && b.z0 < s.z1 && b.z1 > s.z0) return false; }
-    if (distBox(x, z, SAFE_BOX) < 1.2) return false;
-    for (var j = 0; j < G.st.length; j++) if (Math.abs(G.st[j].x - x) < 0.99 && Math.abs(G.st[j].z - z) < 0.99) return false;
+    var b = { x0: x - 0.5, x1: x + 0.5, z0: z - 0.5, z1: z + 0.5 }, i, s;
+    if (f) { if (!inDeck(x, z)) return false; for (i = 0; i < solids.length; i++) { s = solids[i]; if (s.rail && b.x0 < s.x1 && b.x1 > s.x0 && b.z0 < s.z1 && b.z1 > s.z0) return false; } }
+    else {
+      for (i = 0; i < SPAWNS.length; i++) if (Math.hypot(x - SPAWNS[i][0], z - SPAWNS[i][1]) < 5) return false;
+      for (i = 0; i < solids.length; i++) { s = solids[i]; if ((s.y0 || 0) >= 1.5) continue; if (b.x0 < s.x1 && b.x1 > s.x0 && b.z0 < s.z1 && b.z1 > s.z0) return false; }
+      if (distBox(x, z, SAFE_BOX) < 1.2) return false;
+    }
+    for (var j = 0; j < G.st.length; j++) if ((G.st[j].fl | 0) === (f ? 1 : 0) && Math.abs(G.st[j].x - x) < 0.99 && Math.abs(G.st[j].z - z) < 0.99) return false;
     return true;
   }
   function buildStMesh(kind, lv, open) {
@@ -537,8 +571,8 @@ body.cmdr #cmd { display: block; }
     var bar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.07, 0.07), new THREE.MeshBasicMaterial({ color: 0x6be08a })); bar.position.y = kind === 'turret' ? 1.25 : 2.0; bar.visible = false; g.add(bar); g.userData.bar = bar;
     scene.add(g); return g;
   }
-  function addStruct(kind, x, z, id) {
-    var K = STK[kind], q = { id: id || G.nid++, kind: kind, x: x, z: z, lv: 0, hp: K.hp[0], hpMax: K.hp[0], cd: 0.5, paid: 0, aim: 0, open: false }; q.mesh = buildStMesh(kind, 0, false); q.mesh.position.set(x, 0, z); if (role === 'commander') q.mesh.scale.setScalar(1.5); G.st.push(q); dirtySolids(); return q;
+  function addStruct(kind, x, z, id, fl) {
+    var K = STK[kind], q = { id: id || G.nid++, kind: kind, x: x, z: z, lv: 0, hp: K.hp[0], hpMax: K.hp[0], cd: 0.5, paid: 0, aim: 0, open: false, fl: fl ? 1 : 0, y: fl ? ROOF_H : groundH(x, z) }; q.mesh = buildStMesh(kind, 0, false); q.mesh.position.set(x, q.y, z); if (role === 'commander') q.mesh.scale.setScalar(1.5); G.st.push(q); dirtySolids(); return q;
   }
   function removeStruct(q) { scene.remove(q.mesh); var i = G.st.indexOf(q); if (i >= 0) G.st.splice(i, 1); dirtySolids(); }
   function dirtySolids() { allSolids = solids.concat(G.st.map(stBox)); nav.dirty = true; }
@@ -549,15 +583,15 @@ body.cmdr #cmd { display: block; }
     G.st.forEach(function (q) {
       if (q.kind !== 'turret') return; var K = STK.turret; q.cd -= dt; if (q.cd > 0) return;
       var best = null, bd = K.range[q.lv];
-      G.zombies.forEach(function (e) { var d = Math.hypot(e.x - q.x, e.z - q.z); if (d < bd) { var wall = false, dx = e.x - q.x, dz = e.z - q.z, dl = d || 1; for (var i = 0; i < solids.length; i++) if (rayBox(q.x, 0.9, q.z, dx / dl, 0, dz / dl, solids[i], 20) < d) { wall = true; break; } if (!wall) { bd = d; best = e; } } });
+      G.zombies.forEach(function (e) { var d = Math.hypot(e.x - q.x, e.z - q.z); if (d < bd && Math.abs(e.y - q.y) < 2.5) { var wall = false, dx = e.x - q.x, dz = e.z - q.z, dl = d || 1; for (var i = 0; i < solids.length; i++) if (rayBox(q.x, q.y + 0.9, q.z, dx / dl, 0, dz / dl, solids[i], solids[i].h === undefined ? 3.6 : solids[i].h) < d) { wall = true; break; } if (!wall) { bd = d; best = e; } } });
       if (!best) { q.cd = 0.15; return; }
-      q.cd = K.gap[q.lv]; q.aim = Math.atan2(best.x - q.x, best.z - q.z); tracer(q.x, 0.95, q.z, best.x, 1.1 * ZT[best.type].sc, best.z); spark(best.x, 1.1, best.z, 0xb01818, 2);
+      q.cd = K.gap[q.lv]; q.aim = Math.atan2(best.x - q.x, best.z - q.z); tracer(q.x, q.y + 0.95, q.z, best.x, best.y + 1.1 * ZT[best.type].sc, best.z); spark(best.x, best.y + 1.1, best.z, 0xb01818, 2);
       damageZombie(best, K.dmg[q.lv], (best.x - q.x) / bd, (best.z - q.z) / bd); if (role === 'shooter') sfx('turret');
     });
   }
   function placeStructMeshes() {
     G.st.forEach(function (q) {
-      var u = q.mesh.userData; q.mesh.position.y = groundH(q.x, q.z); if (u.head && role === 'shooter') u.head.rotation.y = q.aim + PI;
+      var u = q.mesh.userData; q.mesh.position.y = q.y; if (u.head && role === 'shooter') u.head.rotation.y = q.aim + PI;
       var f = q.hp / q.hpMax; u.bar.visible = f < 0.999; u.bar.scale.x = Math.max(0.02, f); u.bar.material.color.setHex(f > 0.5 ? 0x6be08a : f > 0.25 ? 0xffb43a : 0xff5a4d);
     });
   }
@@ -570,14 +604,16 @@ body.cmdr #cmd { display: block; }
     else { bx(0.5, 0.7, 0.3, 0x7a4a8a, 0, 0.75, 0); bx(0.3, 0.3, 0.3, 0xb78ac8, 0, 1.3, 0); bx(0.16, 0.7, 0.16, 0x5a3a6a, -0.13, 0.35, 0); bx(0.16, 0.7, 0.16, 0x5a3a6a, 0.13, 0.35, 0); g.userData.bar = bx(0.8, 0.07, 0.07, 0x6be08a, 0, 1.75, 0, true); }
     scene.add(g); return g;
   }
-  function addTrap(kind, x, z, id) {
-    var q = { id: id || G.nid++, kind: kind, x: x, z: z, life: kind === 'mine' ? 90 : kind === 'flare' ? 10 : 20, max: kind === 'mine' ? 90 : kind === 'flare' ? 10 : 20, hp: kind === 'decoy' ? 140 : 1, hpMax: kind === 'decoy' ? 140 : 1, arm: 1.0 };
-    q.mesh = buildTrMesh(kind); q.mesh.position.set(x, 0, z); if (role === 'commander') q.mesh.scale.setScalar(1.8); G.tr.push(q); return q;
+  function addTrap(kind, x, z, id, fl) {
+    var q = { id: id || G.nid++, kind: kind, x: x, z: z, life: kind === 'mine' ? 90 : kind === 'flare' ? 10 : 20, max: kind === 'mine' ? 90 : kind === 'flare' ? 10 : 20, hp: kind === 'decoy' ? 140 : 1, hpMax: kind === 'decoy' ? 140 : 1, arm: 1.0, fl: fl ? 1 : 0, y: fl ? ROOF_H : groundH(x, z) };
+    q.mesh = buildTrMesh(kind); q.mesh.position.set(x, q.y, z); if (role === 'commander') q.mesh.scale.setScalar(1.8); G.tr.push(q); return q;
   }
   function removeTrap(q) { scene.remove(q.mesh); var i = G.tr.indexOf(q); if (i >= 0) G.tr.splice(i, 1); }
-  function pointFree(x, z) {
+  function pointFree(x, z, f) {
     if (Math.abs(z) > 28.5 || Math.abs(x) > 28.5) return false;
-    for (var i = 0; i < solids.length; i++) { var b = solids[i]; if (x > b.x0 - 0.3 && x < b.x1 + 0.3 && z > b.z0 - 0.3 && z < b.z1 + 0.3) return false; }
+    var i, b;
+    if (f) { if (!inDeck(x, z)) return false; for (i = 0; i < solids.length; i++) { b = solids[i]; if (b.rail && x > b.x0 - 0.3 && x < b.x1 + 0.3 && z > b.z0 - 0.3 && z < b.z1 + 0.3) return false; } return true; }
+    for (i = 0; i < solids.length; i++) { b = solids[i]; if ((b.y0 || 0) >= 1.5) continue; if (x > b.x0 - 0.3 && x < b.x1 + 0.3 && z > b.z0 - 0.3 && z < b.z1 + 0.3) return false; }
     return true;
   }
   function stepTraps(dt) {
@@ -585,41 +621,41 @@ body.cmdr #cmd { display: block; }
       var q = G.tr[i]; q.life -= dt;
       if (q.kind === 'mine') {
         q.arm -= dt;
-        if (q.arm <= 0) { var hit = G.zombies.some(function (e) { return Math.hypot(e.x - q.x, e.z - q.z) < 1.3; });
-          if (hit) { blast(q.x, q.z, 4.6, 120); removeTrap(q); continue; } }
+        if (q.arm <= 0) { var hit = G.zombies.some(function (e) { return Math.hypot(e.x - q.x, e.z - q.z) < 1.3 && Math.abs(e.y - q.y) < 2.2; });
+          if (hit) { blast(q.x, q.z, 4.6, 120, q.y); removeTrap(q); continue; } }
       }
       if (q.life <= 0 || q.hp <= 0) removeTrap(q);
     }
   }
-  function blast(x, z, rad, dmg) {
+  function blast(x, z, rad, dmg, by) {
     spark(x, 0.6, z, 0xffa040, 22); spark(x, 0.9, z, 0xffe0a0, 12); sfx('shotgun');
-    G.zombies.slice().forEach(function (e) { var d = Math.hypot(e.x - x, e.z - z); if (d < rad) damageZombie(e, dmg * (1 - 0.6 * d / rad), (e.x - x) / (d || 1), (e.z - z) / (d || 1)); });
+    G.zombies.slice().forEach(function (e) { var d = Math.hypot(e.x - x, e.z - z); if (d < rad && (by === undefined || Math.abs(e.y - by) < 2.5)) damageZombie(e, dmg * (1 - 0.6 * d / rad), (e.x - x) / (d || 1), (e.z - z) / (d || 1)); });
   }
   function placeTrapMeshes() {
     G.tr.forEach(function (q) {
-      var u = q.mesh.userData; q.mesh.position.y = groundH(q.x, q.z); if (u.led) u.led.visible = q.arm <= 0 ? Math.sin(G.t * 8) > 0 : true;
+      var u = q.mesh.userData; q.mesh.position.y = q.y; if (u.led) u.led.visible = q.arm <= 0 ? Math.sin(G.t * 8) > 0 : true;
       if (u.glow) { var f = 0.8 + 0.3 * Math.sin(G.t * 17 + q.id); u.glow.scale.setScalar(f); }
       if (u.bar) { var h = q.hp / q.hpMax; u.bar.scale.x = Math.max(0.02, h); }
     });
   }
   function onCmd(m) {   // commander -> shooter's page
     if (!m || typeof m.c !== 'string' || !G.running || G.over) return;
-    var x = +m.x, z = +m.z;
+    var x = +m.x, z = +m.z, fl = m.f === 1 ? 1 : 0;
     if (m.c === 'build') {
       var kind = m.k; if (!STK[kind] || !isFinite(x) || !isFinite(z)) return; x = snapC(x); z = snapC(z);
       var price = stPrice(kind); if (G.coins < price) return say('Not enough coins'); if (G.st.length >= ST_MAX) return say('Structure limit reached');
-      if (!stFree(x, z)) return say('Cannot build there');
-      var q = addStruct(kind, x, z); q.paid = price; G.coins -= price; sfx('pickup'); return;
+      if (!stFree(x, z, fl)) return say('Cannot build there');
+      var q = addStruct(kind, x, z, undefined, fl); q.paid = price; G.coins -= price; sfx('pickup'); return;
     }
     if (m.c === 'trap') {
       var tk = m.k; if (!TRK[tk] || !isFinite(x) || !isFinite(z)) return; x = Math.max(-28.5, Math.min(28.5, x)); z = Math.max(-28.5, Math.min(28.5, z));
-      if (G.coins < TRK[tk].cost) return say('Not enough coins'); if (G.tr.length >= TR_MAX) return say('Too many traps out'); if (!pointFree(x, z)) return say('Cannot place there');
-      G.coins -= TRK[tk].cost; addTrap(tk, x, z); sfx('pickup'); return;
+      if (G.coins < TRK[tk].cost) return say('Not enough coins'); if (G.tr.length >= TR_MAX) return say('Too many traps out'); if (!pointFree(x, z, fl)) return say('Cannot place there');
+      G.coins -= TRK[tk].cost; addTrap(tk, x, z, undefined, fl); sfx('pickup'); return;
     }
     if (m.c === 'drop') {
       var dk = m.k; if (!DRK[dk] || !isFinite(x) || !isFinite(z)) return; x = Math.max(-28.5, Math.min(28.5, x)); z = Math.max(-28.5, Math.min(28.5, z));
-      if (G.coins < DRK[dk].cost) return say('Not enough coins'); if (!pointFree(x, z)) return say('Cannot drop there');
-      G.coins -= DRK[dk].cost; dropPickup(x, z, dk, 60, true); toast(DRK[dk].n, 'Look for the beacon'); sfx('wave'); return;
+      if (G.coins < DRK[dk].cost) return say('Not enough coins'); if (!pointFree(x, z, fl)) return say('Cannot drop there');
+      G.coins -= DRK[dk].cost; dropPickup(x, z, dk, 60, true, fl); toast(DRK[dk].n, 'Look for the beacon'); sfx('wave'); return;
     }
     var q2 = findSt(m.id | 0); if (!q2) return;
     if (m.c === 'gate') { if (q2.kind === 'gate') { setGate(q2, !q2.open); sfx('pickup'); } return; }
@@ -660,7 +696,7 @@ body.cmdr #cmd { display: block; }
     return [P.x, P.z];
   }
   function botSees(e) {   // true if nothing solid is between the bot's eyes and the zombie's chest
-    var ox = P.x, oy = eyeY(), oz = P.z, ty = 1.0 * ZT[e.type].sc + groundH(e.x, e.z), dx = e.x - ox, dy = ty - oy, dz = e.z - oz, d = Math.hypot(dx, dy, dz) || 1;
+    var ox = P.x, oy = eyeY(), oz = P.z, ty = 1.0 * ZT[e.type].sc + (e.y || 0), dx = e.x - ox, dy = ty - oy, dz = e.z - oz, d = Math.hypot(dx, dy, dz) || 1;
     dx /= d; dy /= d; dz /= d;
     for (var i = 0; i < solids.length; i++) if (rayBox(ox, oy, oz, dx, dy, dz, solids[i], solids[i].h || 3.6) < d - 0.3) return false;
     return true;
@@ -675,7 +711,7 @@ body.cmdr #cmd { display: block; }
     if (face) {   // turn toward the target; only the one it can actually see is shot at
       var fd = Math.hypot(face.x - P.x, face.z - P.z), ty = Math.atan2(-(face.x - P.x), -(face.z - P.z)), dy = ty - P.yaw; while (dy > PI) dy -= 2 * PI; while (dy < -PI) dy += 2 * PI;
       P.yaw += dy * Math.min(1, dt * 8);
-      var aimY = (tgt ? (td < 9 ? 1.5 : 1.05) : 1.0) * ZT[face.type].sc + groundH(face.x, face.z);   // head when close, chest when far
+      var aimY = (tgt ? (td < 9 ? 1.5 : 1.05) : 1.0) * ZT[face.type].sc + (face.y || 0);   // head when close, chest when far
       P.pitch += (Math.atan2(aimY - eyeY(), Math.max(0.5, fd)) - P.pitch) * Math.min(1, dt * 8);
       if (tgt) {
         var want = td < 7 && P.ammo[1].mag + P.ammo[1].res > 0 ? 1 : 2; if (P.ammo[want].mag + P.ammo[want].res === 0) want = P.ammo[2].mag + P.ammo[2].res > 0 ? 2 : 0;
@@ -686,7 +722,11 @@ body.cmdr #cmd { display: block; }
       }
     }
     if (!tgt || td > 12) {   // go back to the town hall steps, or pick up a drop if the way is clear
-      var hx = 0, hz = 7; pickups.forEach(function (p) { if (clearLine(P.x, P.z, p.x, p.z)) { hx = p.x; hz = p.z; } });
+      var hx = 0, hz = 6; pickups.forEach(function (p) { if (clearLine(P.x, P.z, p.x, p.z)) { hx = p.x; hz = p.z; } });
+      if (near && nd < 26 && !pickups.length) {   // nothing in sight: circle the town hall toward the nearest zombie
+        var phi = Math.atan2(P.z, P.x), th = Math.atan2(near.z, near.x), df = th - phi; while (df > PI) df -= 2 * PI; while (df < -PI) df += 2 * PI;
+        if (Math.abs(df) > 0.2) { var wa = phi + (df > 0 ? 0.5 : -0.5); hx = 5.5 * Math.cos(wa); hz = 5.5 * Math.sin(wa); } else { hx = P.x; hz = P.z; }
+      }
       var ddx = hx - P.x, ddz = hz - P.z, dd = Math.hypot(ddx, ddz);
       if (dd > 1.5) { ddx /= dd; ddz /= dd; o.fwd += ddx * -Math.sin(P.yaw) + ddz * -Math.cos(P.yaw); o.side += ddx * Math.cos(P.yaw) + ddz * -Math.sin(P.yaw); }
     }
@@ -694,55 +734,86 @@ body.cmdr #cmd { display: block; }
     P.ammo.forEach(function (x, k) { if (x.res < 12) x.res = Math.min(WEAPONS[k].resMax, 30); });   // the test bot never runs dry
     return o;
   }
-  // ---------- zombie pathing: a cost map over the town, rebuilt when defences change ----------
-  var NAV_N = 58, nav = { dist: new Float32Array(NAV_N * NAV_N), blk: new Uint8Array(NAV_N * NAV_N), extra: new Float32Array(NAV_N * NAV_N), dirty: true, ready: false };
+  // ---------- zombie pathing: cost maps over two levels (street and roof) joined by the stair ramps ----------
+  var NAV_N = 58, NN = NAV_N * NAV_N, nav = { dist: new Float32Array(2 * NN), pd: new Float32Array(2 * NN), blk: new Uint8Array(2 * NN), extra: new Float32Array(2 * NN), rk: new Int8Array(NN).fill(-1), portals: {}, dirty: true, ready: false, pt: 0, pcell: -1 };
   function navIdx(v) { return Math.max(0, Math.min(NAV_N - 1, Math.floor(v + 29))); }
-  function navRebuild() {
-    var N = NAV_N, i, j, ix, iz;
-    if (!nav.ready) { for (iz = 0; iz < N; iz++) for (ix = 0; ix < N; ix++) { var cx = ix - 28.5, cz = iz - 28.5, b = 0; for (i = 0; i < solids.length; i++) if (distBox(cx, cz, solids[i]) < 0.46) { b = 1; break; } nav.blk[iz * N + ix] = b; } nav.ready = true; }
-    nav.extra.fill(0); G.st.forEach(function (q) { if (q.kind === 'gate' && q.open) return; nav.extra[navIdx(q.z) * N + navIdx(q.x)] += 25; });
-    var d = nav.dist, hd = [], hi = []; d.fill(1e9);
+  function navRampOK(a, b) { var ra = nav.rk[a], rb = nav.rk[b]; if (ra >= 0 && rb >= 0) return Math.abs(ra - rb) <= 1; if (ra >= 0) return ra === 0; if (rb >= 0) return rb === 0; return true; }
+  function navStatic() {
+    var N = NAV_N, ix, iz, i, s;
+    RAMP_STEPS.forEach(function (st) { for (iz = 0; iz < N; iz++) for (ix = 0; ix < N; ix++) { var cx = ix - 28.5, cz = iz - 28.5; if (cx > st.x0 && cx < st.x1 && cz > st.z0 && cz < st.z1) nav.rk[iz * N + ix] = st.k; } });
+    for (iz = 0; iz < N; iz++) for (ix = 0; ix < N; ix++) {
+      var j = iz * N + ix, x = ix - 28.5, z = iz - 28.5, b0 = 0, b1 = inDeck(x, z) ? 0 : 1;
+      for (i = 0; i < solids.length; i++) { s = solids[i]; if ((s.y0 || 0) < 1.5 && !s.ramp && distBox(x, z, s) < 0.46) { b0 = 1; break; } }
+      if (!b1) for (i = 0; i < solids.length; i++) { s = solids[i]; if (s.rail && distBox(x, z, s) < 0.46) { b1 = 1; break; } }
+      nav.blk[j] = b0; nav.blk[NN + j] = b1;
+    }
+    nav.portals = {};
+    RAMP_STEPS.forEach(function (st) {
+      if (st.k !== 7) return; var zc = (st.z0 + st.z1) / 2, z1 = zc - (zc > 0 ? 1 : -1);
+      [st.x0 + 0.5, st.x1 - 0.5].forEach(function (xc) { var a = navIdx(zc) * N + navIdx(xc), b = NN + navIdx(z1) * N + navIdx(xc); nav.portals[a] = [b]; nav.portals[b] = [a]; });
+    });
+    nav.ready = true;
+  }
+  function navRun(goals, d) {
+    var N = NAV_N, hd = [], hi = []; d.fill(1e9);
     function push(v, k) { var n = hd.length; hd.push(v); hi.push(k); while (n > 0) { var pr = (n - 1) >> 1; if (hd[pr] <= hd[n]) break; var tv = hd[pr]; hd[pr] = hd[n]; hd[n] = tv; tv = hi[pr]; hi[pr] = hi[n]; hi[n] = tv; n = pr; } }
     function pop() { var v = hd[0], k = hi[0], lv = hd.pop(), lk = hi.pop(); if (hd.length) { hd[0] = lv; hi[0] = lk; var n = 0, L = hd.length; for (;;) { var a = 2 * n + 1, c = a + 1, m = n; if (a < L && hd[a] < hd[m]) m = a; if (c < L && hd[c] < hd[m]) m = c; if (m === n) break; var tv = hd[m]; hd[m] = hd[n]; hd[n] = tv; tv = hi[m]; hi[m] = hi[n]; hi[n] = tv; n = m; } } return [v, k]; }
-    for (iz = 0; iz < N; iz++) for (ix = 0; ix < N; ix++) { j = iz * N + ix; if (!nav.blk[j] && distBox(ix - 28.5, iz - 28.5, SAFE_BOX) <= 1.3) { d[j] = 0; push(0, j); } }
+    goals.forEach(function (g) { d[g] = 0; push(0, g); });
     while (hd.length) {
-      var t = pop(), v = t[0], k = t[1]; if (v > d[k]) continue; var kx = k % N, kz = (k - kx) / N;
+      var t = pop(), v = t[0], k = t[1]; if (v > d[k] + 0.01) continue; var L = k >= NN ? 1 : 0, base = L * NN, j = k - base, kx = j % N, kz = (j - kx) / N;
       for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) {
-        if (!dx && !dz) continue; var nx = kx + dx, nz = kz + dz; if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue; j = nz * N + nx; if (nav.blk[j]) continue;
-        if (dx && dz && (nav.blk[kz * N + nx] || nav.blk[nz * N + kx])) continue;
-        var nv = v + (dx && dz ? 1.414 : 1) + nav.extra[j]; if (nv < d[j]) { d[j] = nv; push(nv, j); }
+        if (!dx && !dz) continue; var nx = kx + dx, nz = kz + dz; if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue; var jj = nz * N + nx; if (nav.blk[base + jj]) continue;
+        if (dx && dz && (nav.blk[base + kz * N + nx] || nav.blk[base + nz * N + kx])) continue;
+        if (L === 0 && !navRampOK(j, jj)) continue;
+        var nv = v + (dx && dz ? 1.414 : 1) + nav.extra[base + jj]; if (nv < d[base + jj]) { d[base + jj] = nv; push(nv, base + jj); }
       }
+      var pr = nav.portals[k]; if (pr) for (var q = 0; q < pr.length; q++) { var o = pr[q], nv2 = v + 1 + nav.extra[o]; if (nv2 < d[o]) { d[o] = nv2; push(nv2, o); } }
     }
-    nav.dirty = false;
   }
-  function flowTarget(e) {   // centre of the neighbouring cell that is closest to the safehouse by the cost map
-    var N = NAV_N, ix = navIdx(e.x), iz = navIdx(e.z), bd = nav.dist[iz * N + ix], bx = -1, bz = -1;
+  function navRebuild() {
+    var N = NAV_N, ix, iz, goals = [];
+    if (!nav.ready) navStatic();
+    nav.extra.fill(0); G.st.forEach(function (q) { if (q.kind === 'gate' && q.open) return; nav.extra[(q.fl ? NN : 0) + navIdx(q.z) * N + navIdx(q.x)] += 25; });
+    for (iz = 0; iz < N; iz++) for (ix = 0; ix < N; ix++) { var j = iz * N + ix; if (!nav.blk[j] && distBox(ix - 28.5, iz - 28.5, SAFE_BOX) <= 1.3) goals.push(j); }
+    navRun(goals, nav.dist); nav.dirty = false; nav.pcell = -1;
+  }
+  function navPlayerField() {   // zombies close to a shooter who is up on the roofs head for them instead
+    var N = NAV_N, L = P.y > 2.3 ? 1 : 0, cx = navIdx(P.x), cz = navIdx(P.z), goals = [];
+    for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var nx = cx + dx, nz = cz + dz; if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue; var k = L * NN + nz * N + nx; if (!nav.blk[k]) goals.push(k); }
+    if (goals.length) navRun(goals, nav.pd);
+  }
+  function flowTarget(e, field) {   // centre of the neighbouring cell that is closest to the goal by the cost map
+    var N = NAV_N, ix = navIdx(e.x), iz = navIdx(e.z), j = iz * N + ix, L = nav.rk[j] >= 0 ? 0 : (e.y > 2.3 ? 1 : 0), base = L * NN, k = base + j, bd = field[k], bx = -1, bz = -1;
     for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) {
-      if (!dx && !dz) continue; var nx = ix + dx, nz = iz + dz; if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue; var j = nz * N + nx; if (nav.blk[j]) continue;
-      if (dx && dz && (nav.blk[iz * N + nx] || nav.blk[nz * N + ix])) continue;
-      if (nav.dist[j] < bd) { bd = nav.dist[j]; bx = nx; bz = nz; }
+      if (!dx && !dz) continue; var nx = ix + dx, nz = iz + dz; if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue; var jj = nz * N + nx; if (nav.blk[base + jj]) continue;
+      if (dx && dz && (nav.blk[base + iz * N + nx] || nav.blk[base + nz * N + ix])) continue;
+      if (L === 0 && !navRampOK(j, jj)) continue;
+      if (field[base + jj] < bd) { bd = field[base + jj]; bx = nx; bz = nz; }
     }
+    var pr = nav.portals[k]; if (pr) for (var q = 0; q < pr.length; q++) { var o = pr[q]; if (field[o] < bd) { bd = field[o]; var oj = o >= NN ? o - NN : o; bx = oj % N; bz = (oj - bx) / N; } }
     return bx < 0 ? [0, 0] : [bx - 28.5, bz - 28.5];
   }
-  function clearLine(x0, z0, x1, z1) {
+  function clearLine(x0, z0, x1, z1, y) {
     var n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.6);
-    for (var k = 1; k < n; k++) { var x = x0 + (x1 - x0) * k / n, z = z0 + (z1 - z0) * k / n; for (var i = 0; i < solids.length; i++) { var b = solids[i]; if (x > b.x0 - 0.3 && x < b.x1 + 0.3 && z > b.z0 - 0.3 && z < b.z1 + 0.3) return false; } }
+    for (var k = 1; k < n; k++) { var x = x0 + (x1 - x0) * k / n, z = z0 + (z1 - z0) * k / n; for (var i = 0; i < solids.length; i++) { var b = solids[i]; if (x > b.x0 - 0.3 && x < b.x1 + 0.3 && z > b.z0 - 0.3 && z < b.z1 + 0.3 && blockAt(b, y || 0)) return false; } }
     return true;
   }
   // ---------- simulation ----------
   function stepZombies(dt) {
     if (nav.dirty) navRebuild();
+    nav.pt -= dt; if (P.y > 2.3) { var pcl = navIdx(P.z) * NAV_N + navIdx(P.x); if (nav.pt <= 0 || pcl !== nav.pcell) { navPlayerField(); nav.pt = 0.5; nav.pcell = pcl; } }
     var list = G.zombies;
     for (var i = list.length - 1; i >= 0; i--) {
       var e = list[i], T = ZT[e.type], chase = false;
       var pd = Math.hypot(P.x - e.x, P.z - e.z);
-      if ((pd < 7 && e.type !== 'brute' || pd < 4) && clearLine(e.x, e.z, P.x, P.z)) chase = true;
+      var hunt = P.y > 2.3 && pd < 30;
+      if ((pd < 7 && e.type !== 'brute' || pd < 4) && Math.abs(P.y - e.y) < 1.8 && clearLine(e.x, e.z, P.x, P.z, e.y)) chase = true;
       var tx, tz;
       if (chase) { tx = P.x; tz = P.z; }
-      else { var ft = flowTarget(e); tx = ft[0]; tz = ft[1]; }
-      var ns = null, nd = 1.8; if (!chase) G.st.forEach(function (q) { if (q.open) return; var d = Math.hypot(q.x - e.x, q.z - e.z); if (d < nd) { nd = d; ns = q; } });
+      else { var ft = flowTarget(e, hunt ? nav.pd : nav.dist); tx = ft[0]; tz = ft[1]; }
+      var ns = null, nd = 1.8; if (!chase) G.st.forEach(function (q) { if (q.open || Math.abs(q.y - e.y) > 2.5) return; var d = Math.hypot(q.x - e.x, q.z - e.z); if (d < nd) { nd = d; ns = q; } });
       if (ns) { tx = ns.x; tz = ns.z; }
-      var lure = null; if (!chase && !ns) { var ld = 1e9; G.tr.forEach(function (q) { var d = Math.hypot(q.x - e.x, q.z - e.z); if (q.kind === 'decoy' && d < 6) { if (!lure || lure.kind !== 'decoy' || d < ld) { lure = q; ld = d; } } else if (q.kind === 'flare' && d < 14 && (!lure || lure.kind === 'flare') && d < ld) { lure = q; ld = d; } }); }
+      var lure = null; if (!chase && !ns) { var ld = 1e9; G.tr.forEach(function (q) { if (Math.abs(q.y - e.y) > 2.5) return; var d = Math.hypot(q.x - e.x, q.z - e.z); if (q.kind === 'decoy' && d < 6) { if (!lure || lure.kind !== 'decoy' || d < ld) { lure = q; ld = d; } } else if (q.kind === 'flare' && d < 14 && (!lure || lure.kind === 'flare') && d < ld) { lure = q; ld = d; } }); }
       if (lure) { tx = lure.x; tz = lure.z; }
       var dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, atkBase = distBox(e.x, e.z, SAFE_BOX) < 1.35 && !chase;
       if (atkBase) { G.base -= T.dmg * dt; e.atk = 1; if (rnd() < dt * 2) sfx('base'); }
@@ -755,14 +826,14 @@ body.cmdr #cmd { display: block; }
       if (e.kx || e.kz) { e.x += e.kx * dt * 6; e.z += e.kz * dt * 6; e.kx *= Math.exp(-6 * dt); e.kz *= Math.exp(-6 * dt); }
       // separation
       for (var j = i - 1; j >= 0 && j > i - 14; j--) { var o = list[j], ddx = e.x - o.x, ddz = e.z - o.z, dd = Math.hypot(ddx, ddz); if (dd < 0.7 && dd > 0.001) { var pu = (0.7 - dd) / 2; e.x += ddx / dd * pu; e.z += ddz / dd * pu; o.x -= ddx / dd * pu; o.z -= ddz / dd * pu; } }
-      if (e.fl > 0) e.fl -= dt; pushOut(e, 0.4, allSolids); e.ph += dt * T.spd * 3; e.flash = Math.max(0, e.flash - dt);
+      if (e.fl > 0) e.fl -= dt; pushOut(e, 0.4, allSolids.filter(function (b) { return blockAt(b, e.y); })); var ty = surfaceH(e.x, e.z, e.y); e.y = ty > e.y ? Math.min(ty, e.y + 8 * dt) : Math.max(ty, e.y - 12 * dt); e.ph += dt * T.spd * 3; e.flash = Math.max(0, e.flash - dt);
     }
   }
   function placeZombieMeshes() {
     G.zombies.forEach(function (e) {
       var m = e.mesh, u = m.userData, s = Math.sin(e.ph) * 0.6;
       m.position.set(e.x, 0, e.z); m.rotation.order = 'YXZ'; m.rotation.y = e.face; m.rotation.x = -Math.min(0.5, (e.fl || 0) * 2.2); u.legL.rotation.x = s; u.legR.rotation.x = -s;
-      u.armL.rotation.x = -1.2 + (e.atk ? Math.sin(G.t * 12) * 0.5 : s * 0.2); u.armR.rotation.x = -1.2 + (e.atk ? -Math.sin(G.t * 12) * 0.5 : -s * 0.2); m.position.y = Math.abs(Math.sin(e.ph)) * 0.04 + groundH(e.x, e.z);
+      u.armL.rotation.x = -1.2 + (e.atk ? Math.sin(G.t * 12) * 0.5 : s * 0.2); u.armR.rotation.x = -1.2 + (e.atk ? -Math.sin(G.t * 12) * 0.5 : -s * 0.2); m.position.y = Math.abs(Math.sin(e.ph)) * 0.04 + (e.y || 0);
       var f = e.flash > 0; u.all.forEach(function (p) { p.material = f ? u.mats.flash : (p === u.head || p === u.armL || p === u.armR ? u.mats.skin : u.mats.cloth); });
     });
   }
@@ -778,7 +849,7 @@ body.cmdr #cmd { display: block; }
     }
     // player
     if (P.slow > 0) P.slow -= dt;
-    var inp = readInput(dt), gh0 = groundH(P.x, P.z), ground = P.y <= gh0 + 0.02 && P.vy <= 0.01, moving = Math.hypot(P.vx, P.vz);
+    var inp = readInput(dt), gh0 = surfaceH(P.x, P.z, P.y), ground = P.y <= gh0 + 0.02 && P.vy <= 0.01, moving = Math.hypot(P.vx, P.vz);
     // crouch / slide / jump
     P.slideCd = Math.max(0, P.slideCd - dt);
     if (inp.crouch && !P.cPrev && ground && P.slide <= 0 && P.slideCd <= 0 && inp.sprint && moving > 5.5) { P.slide = 0.9; P.sdx = P.vx / moving; P.sdz = P.vz / moving; P.slideCd = 1.2; sfx('empty'); }
@@ -794,9 +865,9 @@ body.cmdr #cmd { display: block; }
       if (P.slide <= 0) { P.slide = 0; P.vx *= 0.4; P.vz *= 0.4; }
     } else { var ac = ground ? 12 : 3; P.vx += (wx * spd - P.vx) * Math.min(1, dt * ac); P.vz += (wz * spd - P.vz) * Math.min(1, dt * ac); }
     P.x += P.vx * dt; P.z += P.vz * dt;
-    pushOut(P, 0.42, P.y > gh0 + 0.05 ? allSolids.filter(function (b) { return !(b.low && P.y > b.h - 0.45); }) : allSolids);
-    var gh = groundH(P.x, P.z); P.vy -= 16 * dt; P.y += P.vy * dt;
-    if (P.y <= gh || (ground && P.vy <= 0 && P.y - gh < 0.2)) { P.y = gh; P.vy = 0; }
+    pushOut(P, 0.42, allSolids.filter(function (b) { return blockAt(b, P.y); }));
+    var gh = surfaceH(P.x, P.z, P.y); P.vy -= 16 * dt; P.y += P.vy * dt;
+    if (P.y <= gh || (ground && P.vy <= 0 && P.y - gh < 0.6)) { P.y = gh; P.vy = 0; }
     P.x = Math.max(-HALF, Math.min(HALF, P.x)); P.z = Math.max(-HALF, Math.min(HALF, P.z));
     if (ground && P.slide <= 0) P.bob += Math.hypot(P.vx, P.vz) * dt * 1.8;
     // weapons
@@ -930,14 +1001,14 @@ body.cmdr #cmd { display: block; }
   function publish(t) {
     if (!conns.length || t - lastGs < 0.1) return; lastGs = t;
     sendAll({ t: 'gs', run: G.running, over: G.over, w: G.wave, cd: Math.round(G.cd * 10) / 10, base: Math.round(G.base), bm: G.baseMax, c: G.coins, s: G.score, k: G.kills, l: G.zombies.length + G.toSpawn, p: [r2(P.x), r2(P.z), r2(P.yaw)],
-      z: G.zombies.map(function (e) { return [e.id, r2(e.x), r2(e.z), Math.round(100 * e.hp / e.hpMax), r2(e.face), TIDX[e.type]]; }),
-      st: G.st.map(function (q) { return [q.id, KINDS.indexOf(q.kind), q.x, q.z, q.lv, Math.round(100 * q.hp / q.hpMax), q.open ? 1 : 0]; }),
-      tr: G.tr.map(function (q) { return [q.id, TKINDS.indexOf(q.kind), q.x, q.z, Math.round(100 * q.life / q.max), Math.round(100 * q.hp / q.hpMax)]; }),
-      pk: pickups.map(function (p) { return [p.id, p.kind === 'ammo' ? 0 : 1, p.x, p.z, p.big ? 1 : 0]; }) });
+      z: G.zombies.map(function (e) { return [e.id, r2(e.x), r2(e.z), Math.round(100 * e.hp / e.hpMax), r2(e.face), TIDX[e.type], r2(e.y)]; }),
+      st: G.st.map(function (q) { return [q.id, KINDS.indexOf(q.kind), q.x, q.z, q.lv, Math.round(100 * q.hp / q.hpMax), q.open ? 1 : 0, q.fl]; }),
+      tr: G.tr.map(function (q) { return [q.id, TKINDS.indexOf(q.kind), q.x, q.z, Math.round(100 * q.life / q.max), Math.round(100 * q.hp / q.hpMax), q.fl]; }),
+      pk: pickups.map(function (p) { return [p.id, p.kind === 'ammo' ? 0 : 1, p.x, p.z, p.big ? 1 : 0, p.fl]; }) });
   }
 
   // ---------- commander ----------
-  var C = { tool: null, sel: null, ghost: null, mx: 0, mz: 0, marker: null, last: 0 };
+  var C = { floor: 0, tool: null, sel: null, ghost: null, mx: 0, mz: 0, marker: null, last: 0 };
   function nums(a, n) { if (!Array.isArray(a) || a.length < n) return false; for (var i = 0; i < n; i++) if (typeof a[i] !== 'number' || !isFinite(a[i])) return false; return true; }
   function onGs(d) {
     G.running = !!d.run; G.over = !!d.over; G.wave = d.w | 0; G.cd = +d.cd || 0; G.base = +d.base || 0; G.baseMax = +d.bm || 100; G.coins = d.c | 0; G.score = d.s | 0; G.kills = d.k | 0; G.left = d.l | 0;
@@ -946,32 +1017,33 @@ body.cmdr #cmd { display: block; }
     (Array.isArray(d.z) ? d.z : []).slice(0, 200).forEach(function (a) {
       if (!nums(a, 6)) return; var type = TYPES[a[5] | 0] || 'walker', e = null;
       for (var i = 0; i < G.zombies.length; i++) if (G.zombies[i].id === a[0]) { e = G.zombies[i]; break; }
-      if (!e) { e = { id: a[0], type: type, x: a[1], z: a[2], hp: 1, hpMax: 1, face: a[4], ph: rnd() * 6, flash: 0, atk: 0, mesh: makeZombieMesh(type) }; e.mesh.scale.set(2.2, 1.4, 2.2); G.zombies.push(e); }
-      e.tx = a[1]; e.tz = a[2]; e.face = a[4]; seen[a[0]] = 1;
+      if (!e) { e = { id: a[0], type: type, x: a[1], z: a[2], y: 0, hp: 1, hpMax: 1, face: a[4], ph: rnd() * 6, flash: 0, atk: 0, mesh: makeZombieMesh(type) }; e.mesh.scale.set(2.2, 1.4, 2.2); G.zombies.push(e); }
+      e.tx = a[1]; e.tz = a[2]; e.face = a[4]; e.y = isFinite(a[6]) ? +a[6] : 0; seen[a[0]] = 1;
     });
     G.zombies.slice().forEach(function (e) { if (!seen[e.id]) removeZombie(e); });
     var sseen = {};
     (Array.isArray(d.st) ? d.st : []).slice(0, 40).forEach(function (a) {
       if (!nums(a, 6) || !KINDS[a[1] | 0]) return; var kind = KINDS[a[1] | 0], q = findSt(a[0]);
-      if (!q) { q = { id: a[0], kind: kind, x: a[2], z: a[3], lv: a[4] | 0, hp: a[5], hpMax: 100, open: a[6] === 1, mesh: buildStMesh(kind, a[4] | 0, a[6] === 1) }; q.mesh.position.set(q.x, 0, q.z); q.mesh.scale.setScalar(1.5); G.st.push(q); }
-      var op = a[6] === 1; if (q.lv !== (a[4] | 0) || (kind === 'gate' && !!q.open !== op)) { scene.remove(q.mesh); q.lv = a[4] | 0; q.open = op; q.mesh = buildStMesh(kind, q.lv, op); q.mesh.position.set(q.x, 0, q.z); q.mesh.scale.setScalar(1.5); }
+      if (!q) { q = { id: a[0], kind: kind, x: a[2], z: a[3], lv: a[4] | 0, hp: a[5], hpMax: 100, open: a[6] === 1, fl: a[7] === 1 ? 1 : 0, mesh: buildStMesh(kind, a[4] | 0, a[6] === 1) }; q.y = q.fl ? ROOF_H : groundH(q.x, q.z); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(1.5); G.st.push(q); }
+      var op = a[6] === 1; if (q.lv !== (a[4] | 0) || (kind === 'gate' && !!q.open !== op)) { scene.remove(q.mesh); q.lv = a[4] | 0; q.open = op; q.mesh = buildStMesh(kind, q.lv, op); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(1.5); }
       q.hp = a[5]; sseen[a[0]] = 1;
     });
     var tseen = {};
     (Array.isArray(d.tr) ? d.tr : []).slice(0, 30).forEach(function (a) {
       if (!nums(a, 6) || !TKINDS[a[1] | 0]) return; var q = null; for (var i = 0; i < G.tr.length; i++) if (G.tr[i].id === a[0]) { q = G.tr[i]; break; }
-      if (!q) { q = { id: a[0], kind: TKINDS[a[1] | 0], x: a[2], z: a[3], life: 1, max: 1, hp: 1, hpMax: 1, arm: 0 }; q.mesh = buildTrMesh(q.kind); q.mesh.position.set(q.x, 0, q.z); q.mesh.scale.setScalar(1.8); G.tr.push(q); }
+      if (!q) { q = { id: a[0], kind: TKINDS[a[1] | 0], x: a[2], z: a[3], life: 1, max: 1, hp: 1, hpMax: 1, arm: 0, fl: a[6] === 1 ? 1 : 0 }; q.y = q.fl ? ROOF_H : groundH(q.x, q.z); q.mesh = buildTrMesh(q.kind); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(1.8); G.tr.push(q); }
       q.hp = a[5]; q.hpMax = 100; tseen[a[0]] = 1;
     });
     G.tr.slice().forEach(function (q) { if (!tseen[q.id]) removeTrap(q); });
     var pseen = {};
     (Array.isArray(d.pk) ? d.pk : []).slice(0, 30).forEach(function (a) {
       if (!nums(a, 5)) return; var p = null; for (var i = 0; i < pickups.length; i++) if (pickups[i].id === a[0]) { p = pickups[i]; break; }
-      if (!p) { var kk = a[1] === 0 ? 'ammo' : 'health', m = box(0.45, 0.3, 0.3, kk === 'ammo' ? 0xffb43a : 0x6be08a, a[2], 1, a[3]); m.scale.setScalar(a[4] ? 4 : 2.6); pickups.push({ id: a[0], x: a[2], z: a[3], kind: kk, m: m, life: 99 }); }
+      if (!p) { var kk = a[1] === 0 ? 'ammo' : 'health', m = box(0.45, 0.3, 0.3, kk === 'ammo' ? 0xffb43a : 0x6be08a, a[2], 1 + (a[5] === 1 ? ROOF_H : groundH(a[2], a[3])), a[3]); m.scale.setScalar(a[4] ? 4 : 2.6); pickups.push({ id: a[0], x: a[2], z: a[3], kind: kk, m: m, life: 99, fl: a[5] === 1 ? 1 : 0, y: a[5] === 1 ? ROOF_H : groundH(a[2], a[3]) }); }
       pseen[a[0]] = 1;
     });
     pickups.slice().forEach(function (p) { if (!pseen[p.id]) { scene.remove(p.m); pickups.splice(pickups.indexOf(p), 1); } });
     G.st.slice().forEach(function (q) { if (!sseen[q.id]) { scene.remove(q.mesh); G.st.splice(G.st.indexOf(q), 1); if (C.sel === q.id) selectSt(null); } });
+    applyFloor();
     cmdRefresh();
   }
   function cmdRefresh() {
@@ -985,7 +1057,12 @@ body.cmdr #cmd { display: block; }
       $('cUp').hidden = !K.up.length; $('cUp').textContent = mx ? 'Max level' : 'Upgrade ' + stUpCost(q); $('cUp').disabled = mx || G.coins < stUpCost(q); $('cSell').textContent = 'Sell +' + stWorth({ kind: q.kind, paid: K.cost + (q.lv ? K.up.slice(0, q.lv).reduce(function (a, b) { return a + b; }, 0) : 0) }); }
   }
   function toolPrice(t) { return STK[t] ? stPrice(t) : TRK[t] ? TRK[t].cost : DRK[t] ? DRK[t].cost : 0; }
-  function toolOk(t, x, z) { return STK[t] ? stFree(x, z) : pointFree(x, z); }
+  function toolOk(t, x, z) { var f = C.floor | 0; return STK[t] ? stFree(x, z, f) : pointFree(x, z, f); }
+  function applyFloor() {   // the tablet shows one level at a time
+    var f = C.floor | 0; upperG.visible = f === 1;
+    G.st.forEach(function (q) { q.mesh.visible = !q.fl || f === 1; }); G.tr.forEach(function (q) { q.mesh.visible = !q.fl || f === 1; }); pickups.forEach(function (p) { p.m.visible = !p.fl || f === 1; if (p.bm) p.bm.visible = !p.fl || f === 1; });
+    G.zombies.forEach(function (e) { e.mesh.visible = !(e.y > 2.3) || f === 1; });
+  }
   function selectSt(id) { C.sel = id; cmdRefresh(); }
   function cmdSend(o) { var o2 = { t: 'cmd' }; for (var k in o) o2[k] = o[k]; if (bot.solo) { onCmd(o2); return; } if (conns[0] && conns[0].open) conns[0].send(o2); }
   function ptWorld(e) {
@@ -998,13 +1075,14 @@ body.cmdr #cmd { display: block; }
     C.ghost = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthTest: false })); C.ghost.rotation.x = -PI / 2; C.ghost.position.y = 3; C.ghost.visible = false; scene.add(C.ghost);
     var tools = document.querySelectorAll('#cTools button');
     tools.forEach(function (b) { b.addEventListener('click', function () { var t = b.getAttribute('data-tool'); C.tool = C.tool === t ? null : t; tools.forEach(function (o) { o.setAttribute('aria-pressed', String(o.getAttribute('data-tool') === C.tool)); }); C.ghost.visible = false; selectSt(null); }); });
+    document.querySelectorAll('#cFloors button').forEach(function (b) { b.addEventListener('click', function () { C.floor = +b.getAttribute('data-f'); document.querySelectorAll('#cFloors button').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); }); C.ghost.visible = false; selectSt(null); applyFloor(); }); });
     var cv = renderer.domElement;
     function ghostAt(e) { if (!C.tool) { C.ghost.visible = false; return; } var w = ptWorld(e); C.mx = snapC(w.x); C.mz = snapC(w.z); C.ghost.position.set(C.mx, 3, C.mz); C.ghost.material.color.setHex(toolOk(C.tool, C.mx, C.mz) ? 0x6be08a : 0xff5a4d); C.ghost.visible = true; }
     cv.addEventListener('pointermove', ghostAt);
     cv.addEventListener('pointerdown', function (e) {
-      var w = ptWorld(e), hit = null, bd = 1.3; G.st.forEach(function (q) { var d = Math.max(Math.abs(q.x - w.x), Math.abs(q.z - w.z)); if (d < bd) { bd = d; hit = q; } });
+      var w = ptWorld(e), hit = null, bd = 1.3; G.st.forEach(function (q) { if ((q.fl | 0) !== (C.floor | 0)) return; var d = Math.max(Math.abs(q.x - w.x), Math.abs(q.z - w.z)); if (d < bd) { bd = d; hit = q; } });
       if (hit && !C.tool) { selectSt(hit.id); return; }
-      if (C.tool) { ghostAt(e); if (hit) { selectSt(hit.id); return; } if (!linked) { toast('Not connected to the shooter'); return; } cmdSend({ c: STK[C.tool] ? 'build' : TRK[C.tool] ? 'trap' : 'drop', k: C.tool, x: C.mx, z: C.mz }); return; }
+      if (C.tool) { ghostAt(e); if (hit) { selectSt(hit.id); return; } if (!linked) { toast('Not connected to the shooter'); return; } cmdSend({ c: STK[C.tool] ? 'build' : TRK[C.tool] ? 'trap' : 'drop', k: C.tool, x: C.mx, z: C.mz, f: C.floor | 0 }); return; }
       selectSt(null);
     });
     $('fpv').addEventListener('click', function (e) { if (e.target.id !== 'fpvX') $('fpv').classList.toggle('big'); }); $('fpvX').addEventListener('click', function () { $('fpv').hidden = true; $('fpvShow').hidden = false; $('fpvShow').textContent = 'Shooter view'; }); $('fpvShow').addEventListener('click', function () { if ($('fpvV').srcObject) { $('fpv').hidden = false; $('fpvShow').hidden = true; } else if (conns[0]) { try { conns[0].send({ t: 'view' }); } catch (e) {} } });
@@ -1047,15 +1125,15 @@ body.cmdr #cmd { display: block; }
     var r = f.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight; if (r.width < 10) return;
     var saved = [], norm = function (m) { if (m) { saved.push([m, m.scale.clone()]); m.scale.set(1, 1, 1); } };
     G.zombies.forEach(function (e) { norm(e.mesh); }); G.st.forEach(function (q) { norm(q.mesh); }); G.tr.forEach(function (q) { norm(q.mesh); }); pickups.forEach(function (q) { norm(q.m); });
-    var mv = C.marker.visible, gv = C.ghost ? C.ghost.visible : false; C.marker.visible = false; if (C.ghost) C.ghost.visible = false;
+    var uv = upperG.visible; upperG.visible = true; var mv = C.marker.visible, gv = C.ghost ? C.ghost.visible : false; C.marker.visible = false; if (C.ghost) C.ghost.visible = false;
     camera.position.set(P.x, eyeY(), P.z); camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ'); camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
     renderer.setScissorTest(true); renderer.setViewport(r.left, H - r.bottom, r.width, r.height); renderer.setScissor(r.left, H - r.bottom, r.width, r.height); renderer.clearDepth();
     scene.fog = new THREE.FogExp2(0x0a0e1a, 0.022); renderer.render(scene, camera); scene.fog = null;
     renderer.setScissorTest(false); renderer.setViewport(0, 0, W, H);
-    saved.forEach(function (a) { a[0].scale.copy(a[1]); }); C.marker.visible = mv; if (C.ghost) C.ghost.visible = gv;
+    saved.forEach(function (a) { a[0].scale.copy(a[1]); }); C.marker.visible = mv; upperG.visible = uv; if (C.ghost) C.ghost.visible = gv;
   }
   function soloCommanderFrame(dt) {
-    step(dt); bot.t -= dt; if (bot.t <= 0) { bot.t = 0.2; G.left = G.zombies.length + G.toSpawn; cmdRefresh(); }
+    step(dt); bot.t -= dt; if (bot.t <= 0) { bot.t = 0.2; G.left = G.zombies.length + G.toSpawn; cmdRefresh(); applyFloor(); }
     C.marker.visible = true; C.marker.position.set(P.x, 4, P.z); C.marker.rotation.y = P.yaw;
   }
   function startSoloCommander() {
@@ -1081,7 +1159,7 @@ body.cmdr #cmd { display: block; }
     renderer.render(scene, camera); copyView();
     requestAnimationFrame(frame);
   }
-  window.__z = { coinFx: coinFx, corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
+  window.__z = { nav: nav, inDeck: inDeck, surfaceH: surfaceH, DECKS: DECKS, applyFloor: applyFloor, C: C, coinFx: coinFx, corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
   if (role === 'commander') initCommander(); else startHost();
   requestAnimationFrame(frame);
 })();
