@@ -39,6 +39,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #cross i { position: absolute; inset: 8px; background: var(--bg); }
 #hit { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%) rotate(45deg); border: 2px solid #fff; opacity: 0; }
 #hit.head { border-color: var(--hot); } #hit.kill { border-color: #ff3b3b; width: 46px; height: 46px; border-width: 3px; }
+#coins { display: inline-block; transition: transform .12s, color .12s; transform-origin: right center; } #coins.pop { transform: scale(1.2); color: #fff; }
 .dn { position: fixed; left: 0; top: 0; font: 700 17px var(--font-display); color: #fff; text-shadow: 0 1px 4px #000, 0 0 2px #000; pointer-events: none; z-index: 6; display: none; transform: translate(-50%, -50%); } .dn.h { color: var(--amber); font-size: 21px; } .dn.k { color: #ff5a4d; font-size: 24px; }
 #vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(200, 0, 0, .75)); opacity: 0; }
 #toast { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); font: 700 28px var(--font-display); letter-spacing: .16em; text-transform: uppercase; text-align: center; opacity: 0; text-shadow: 0 2px 10px #000; }
@@ -337,6 +338,25 @@ body.cmdr #cmd { display: block; }
     for (var k = 0; k < n; k++) { var p = null; for (var i = 0; i < fxPool.length; i++) if (fxPool[i].life <= 0) { p = fxPool[i]; break; } if (!p) return;
       p.life = 0.4 + rnd() * 0.35; p.vx = dx * spd * (0.5 + rnd()) + (rnd() - 0.5) * 2; p.vy = 1 + rnd() * 3.5; p.vz = dz * spd * (0.5 + rnd()) + (rnd() - 0.5) * 2; p.m.position.set(x, y, z); p.m.material.color.setHex(col); p.m.visible = true; }
   }
+  var coinFx = [], coinHit = 0, coinHitT = 0;   // gold coins burst out of a kill and fly to the shooter
+  (function () { var geo = new THREE.CylinderGeometry(0.13, 0.13, 0.035, 10), mat = new THREE.MeshBasicMaterial({ color: 0xffc83a }), rim = new THREE.MeshBasicMaterial({ color: 0xfff0a0 });
+    for (var i = 0; i < 48; i++) { var m = new THREE.Mesh(geo, i % 3 ? mat : rim); m.visible = false; if (role === 'commander') m.scale.setScalar(2.6); scene.add(m); coinFx.push({ m: m, on: false }); } })();
+  function spawnCoins(x, y, z, n) {
+    for (var k = 0; k < n; k++) { var c = null; for (var i = 0; i < coinFx.length; i++) if (!coinFx[i].on) { c = coinFx[i]; break; } if (!c) return;
+      var a = rnd() * 6.28, sp = 1.2 + rnd() * 2.2; c.on = true; c.t = 0; c.hold = 0.3 + rnd() * 0.25; c.vx = Math.cos(a) * sp; c.vz = Math.sin(a) * sp; c.vy = 3 + rnd() * 2.5; c.hv = 0; c.m.position.set(x, y, z); c.m.rotation.set(rnd() * 3, 0, rnd() * 3); c.m.visible = true; }
+  }
+  function stepCoins(dt) {
+    coinHitT -= dt; if (coinHitT <= 0) coinHit = 0;
+    for (var i = 0; i < coinFx.length; i++) {
+      var c = coinFx[i]; if (!c.on) continue; c.t += dt; var p = c.m.position; c.m.rotation.x += dt * 14; c.m.rotation.z += dt * 9;
+      if (c.t < c.hold) { c.vy -= 14 * dt; p.x += c.vx * dt; p.z += c.vz * dt; p.y += c.vy * dt; var gy = groundH(p.x, p.z) + 0.1; if (p.y < gy) { p.y = gy; c.vy = Math.abs(c.vy) * 0.45; c.vx *= 0.7; c.vz *= 0.7; } }
+      else {
+        c.hv = Math.min(26, c.hv + dt * 55); var tx = P.x, ty = eyeY() - 0.45, tz = P.z, dx = tx - p.x, dy = ty - p.y, dz = tz - p.z, d = Math.hypot(dx, dy, dz) || 1;
+        if (d < 0.55 || c.t > 2.5) { c.on = false; c.m.visible = false; coinHit++; coinHitT = 0.35; if (role === 'shooter') { tone(1050 + Math.min(8, coinHit) * 110, 1500 + Math.min(8, coinHit) * 110, 0.06, 0.07, 'triangle'); var ce = hudE.coins; if (ce) { ce.classList.add('pop'); clearTimeout(ce._pt); ce._pt = setTimeout(function () { ce.classList.remove('pop'); }, 110); } } continue; }
+        var st = Math.min(d, c.hv * dt); p.x += dx / d * st; p.y += dy / d * st; p.z += dz / d * st;
+      }
+    }
+  }
   var corpses = [];
   function corpseOf(e, dx, dz) {   // a killed zombie keeps its body and topples over
     var u = e.mesh.userData, M = u.mats; u.all.forEach(function (q) { q.material = (q === u.head || q === u.armL || q === u.armR) ? M.skin : M.cloth; });
@@ -449,7 +469,7 @@ body.cmdr #cmd { display: block; }
     if (e.hp <= 0) { killZombie(e, dx, dz); return true; } return false;
   }
   function killZombie(e, dx, dz) {
-    var T = ZT[e.type]; G.kills++; G.score += T.score; G.coins += T.coin; sfx('kill'); spray(e.x, 1.1 * T.sc + groundH(e.x, e.z), e.z, 0x8a1010, 22, dx || 0, dz || 0, 3.5); spark(e.x, 1.1, e.z, 0x6a0c0c, 8);
+    var T = ZT[e.type]; G.kills++; G.score += T.score; G.coins += T.coin; spawnCoins(e.x, 1.0 * T.sc + groundH(e.x, e.z), e.z, Math.min(T.coin, 8)); sfx('kill'); spray(e.x, 1.1 * T.sc + groundH(e.x, e.z), e.z, 0x8a1010, 22, dx || 0, dz || 0, 3.5); spark(e.x, 1.1, e.z, 0x6a0c0c, 8);
     if (rnd() < 0.14) dropPickup(e.x, e.z, rnd() < 0.2 ? 'health' : 'ammo');
     var zi = G.zombies.indexOf(e); if (zi >= 0) G.zombies.splice(zi, 1); corpseOf(e, dx, dz);
   }
@@ -784,7 +804,7 @@ body.cmdr #cmd { display: block; }
     if (P.rel > 0) { P.rel -= dt; if (P.rel <= 0) { var w = WEAPONS[P.relFor], a = P.ammo[P.relFor], need = w.mag - a.mag, take = Math.min(need, a.res); a.mag += take; a.res -= take; P.rel = 0; } }
     if (G.running && !G.over && inp.shoot && (WEAPONS[P.w].auto || !P.hold)) fire();
     P.hold = inp.shoot;
-    hitT = Math.max(0, hitT - dt); hudE.hit.style.opacity = hitT > 0 ? 1 : 0; hudE.hit.style.transform = 'translate(-50%, -50%) rotate(45deg) scale(' + (1 + Math.min(0.3, hitT) * 3) + ')'; stepCorpses(dt);
+    hitT = Math.max(0, hitT - dt); hudE.hit.style.opacity = hitT > 0 ? 1 : 0; hudE.hit.style.transform = 'translate(-50%, -50%) rotate(45deg) scale(' + (1 + Math.min(0.3, hitT) * 3) + ')'; stepCorpses(dt); stepCoins(dt);
     vigA = Math.max(0, vigA - dt * 1.4); hudE.vig.style.opacity = vigA;
     toastT = Math.max(0, toastT - dt); hudE.toast.style.opacity = Math.min(1, toastT * 2);
     stepFx(dt); placeZombieMeshes(); placeStructMeshes(); placeTrapMeshes(); refreshHud();
@@ -794,7 +814,7 @@ body.cmdr #cmd { display: block; }
     if (document.pointerLockElement) document.exitPointerLock();
   }
   function startGame() {
-    G.zombies.slice().forEach(removeZombie); corpses.forEach(function (c) { scene.remove(c.m); }); corpses.length = 0; pickups.forEach(function (p) { scene.remove(p.m); if (p.bm) scene.remove(p.bm); }); pickups.length = 0;
+    G.zombies.slice().forEach(removeZombie); corpses.forEach(function (c) { scene.remove(c.m); }); corpses.length = 0; coinFx.forEach(function (c) { c.on = false; c.m.visible = false; }); pickups.forEach(function (p) { scene.remove(p.m); if (p.bm) scene.remove(p.bm); }); pickups.length = 0;
     G.st.slice().forEach(removeStruct); G.tr.slice().forEach(removeTrap); G.running = true; G.over = false; G.wave = 0; G.cd = 5; G.clr = true; G.toSpawn = 0; G.q = []; G.base = G.baseMax; G.score = 0; G.coins = 60; G.kills = 0; resetPlayer(); showGun();
     $('startOv').hidden = true; $('endOv').hidden = true; toast('Get ready', 'Hold the safehouse');
   }
@@ -1061,7 +1081,7 @@ body.cmdr #cmd { display: block; }
     renderer.render(scene, camera); copyView();
     requestAnimationFrame(frame);
   }
-  window.__z = { corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
+  window.__z = { coinFx: coinFx, corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
   if (role === 'commander') initCommander(); else startHost();
   requestAnimationFrame(frame);
 })();
