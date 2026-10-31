@@ -40,7 +40,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #hit { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%) rotate(45deg); border: 2px solid #fff; opacity: 0; }
 #hit.head { border-color: var(--hot); } #hit.kill { border-color: #ff3b3b; width: 46px; height: 46px; border-width: 3px; }
 #coins { display: inline-block; transition: transform .12s, color .12s; transform-origin: right center; } #coins.pop { transform: scale(1.2); color: #fff; }
-.dn { position: fixed; left: 0; top: 0; font: 700 17px var(--font-display); color: #fff; text-shadow: 0 1px 4px #000, 0 0 2px #000; pointer-events: none; z-index: 6; display: none; transform: translate(-50%, -50%); } .dn.h { color: var(--amber); font-size: 25px; } .dn.d { color: #ff7a3a; font-size: 16px; letter-spacing: .1em; }
+.dn { position: fixed; left: 0; top: 0; font: 700 17px var(--font-display); color: #fff; text-shadow: 0 1px 4px #000, 0 0 2px #000; pointer-events: none; z-index: 6; display: none; transform: translate(-50%, -50%); } .hb { position: fixed; left: 0; top: 0; height: 8px; background: rgba(0, 0, 0, .65); border: 1px solid #000; border-radius: 2px; pointer-events: none; z-index: 5; display: none; transform: translate(-50%, -50%); }
+.hb i { display: block; height: 100%; background: #ff5a4d; } .hb b { position: absolute; left: 0; top: -5px; height: 3px; background: #9fb4cc; border-radius: 1px; }
+.dn.h { color: var(--amber); font-size: 25px; } .dn.d { color: #ff7a3a; font-size: 16px; letter-spacing: .1em; }
 #scope { position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 4; background: radial-gradient(circle at 50% 50%, transparent 0, transparent 33vh, #000 33.4vh); }
 #scope::before, #scope::after { content: ''; position: absolute; background: rgba(0, 0, 0, .85); }
 #scope::before { left: 50%; top: calc(50% - 33vh); width: 1px; height: 66vh; } #scope::after { top: 50%; left: calc(50% - 33vh); height: 1px; width: 66vh; } .dn.k { color: #ff5a4d; font-size: 24px; }
@@ -1044,6 +1046,22 @@ body.cmdr #cmd { display: block; }
     if (!d) { if (dnPool.length >= 14) return; var el = document.createElement('div'); document.body.appendChild(el); d = { el: el, live: false }; dnPool.push(d); }
     d.live = true; d.t = 0; d.x = x + (rnd() - 0.5) * 0.4; d.y = y; d.z = z; d.el.textContent = v; d.el.className = 'dn ' + kind;
   }
+  var hbPool = [], hbVec = null;
+  function stepBars() {   // little health bars over zombies that have taken damage (grey bar above = armour left)
+    if (!hbVec) hbVec = new THREE.Vector3(); var W = window.innerWidth, H = window.innerHeight, list = [], i;
+    for (i = 0; i < G.zombies.length; i++) { var e = G.zombies[i]; if (!e.hurt) continue; var d = Math.hypot(e.x - P.x, e.z - P.z); if (d < 30) list.push([d, e]); }
+    list.sort(function (a, b) { return a[0] - b[0]; }); if (list.length > 14) list.length = 14;
+    for (i = 0; i < list.length || i < hbPool.length; i++) {
+      var h = hbPool[i]; if (!h) { var el = document.createElement('div'); el.className = 'hb'; el.innerHTML = '<b></b><i></i>'; document.body.appendChild(el); h = hbPool[i] = { el: el, fill: el.lastChild, arm: el.firstChild }; }
+      if (i >= list.length) { h.el.style.display = 'none'; continue; }
+      var z = list[i][1], T = ZT[z.type], sc = T.sc; hbVec.set(z.x, (z.y || 0) + (z.crawl ? 0.9 : 1.95) * sc + 0.25, z.z).project(camera);
+      if (hbVec.z > 1 || Math.abs(hbVec.x) > 1.1 || Math.abs(hbVec.y) > 1.1) { h.el.style.display = 'none'; continue; }
+      var f = Math.max(0, Math.min(1, z.hp / z.hpMax)); h.el.style.display = 'block'; h.el.style.width = Math.round(50 * Math.max(1, Math.min(1.6, sc))) + 'px';
+      h.el.style.left = ((hbVec.x * 0.5 + 0.5) * W) + 'px'; h.el.style.top = ((-hbVec.y * 0.5 + 0.5) * H) + 'px';
+      h.fill.style.width = (f * 100) + '%'; h.fill.style.background = f > 0.5 ? '#6be08a' : f > 0.25 ? '#ffb43a' : '#ff5a4d';
+      var am = T.armor ? Math.max(0, Math.min(1, z.armor / T.armor)) : 0; h.arm.style.display = am > 0 ? 'block' : 'none'; h.arm.style.width = (am * 100) + '%';
+    }
+  }
   function stepNums(dt) {
     if (!dnVec) dnVec = new THREE.Vector3(); var W = window.innerWidth, H = window.innerHeight;
     dnPool.forEach(function (d) {
@@ -1091,6 +1109,7 @@ body.cmdr #cmd { display: block; }
     hitStop = Math.max(hitStop, dead ? 0.07 : 0.05); P.shake = Math.max(P.shake, 2.2); dmgNum(hx, hy + 0.2, hz, Math.round(dmg), dead ? 'k' : bh ? 'h' : '');
   }
   function damageZombie(e, dmg, dx, dz, kb, fl, limb) {
+    e.hurt = true;
     var lb = limb && e.lh && e.lh[limb] > 0 && !(e.gone && e.gone[limb]) ? limb : null;
     if (lb) { e.lh[lb] -= dmg; dmg *= 0.55; }
     else if (e.armor > 0) {   // plates soak the damage until they break
@@ -1932,7 +1951,7 @@ body.cmdr #cmd { display: block; }
     step(sdt); publish(t); stepAudio(dt);
     var sk = P.shake * shakeK, rc = P.rcl * shakeK; P.shake *= Math.exp(-13 * dt); P.rcl *= Math.exp(-9 * dt); P.fovK *= Math.exp(-10 * dt); P.yawK = (P.yawK || 0) * Math.exp(-9 * dt); muzzleL.intensity *= Math.exp(-28 * dt);
     camera.position.set(P.x + (rnd() - 0.5) * sk * 0.035, eyeY() + Math.sin(P.bob) * 0.04 + (rnd() - 0.5) * sk * 0.035, P.z + (rnd() - 0.5) * sk * 0.035); camera.rotation.set(P.pitch + rc, P.yaw + (P.yawK || 0) * shakeK + (rnd() - 0.5) * sk * 0.004, (rnd() - 0.5) * sk * 0.012, 'YXZ');
-    var fv = 75 + (ADSF[P.w] - 75) * P.ads + P.fovK * shakeK; if (Math.abs(camera.fov - fv) > 0.02) { camera.fov = fv; camera.updateProjectionMatrix(); } stepNums(dt);
+    var fv = 75 + (ADSF[P.w] - 75) * P.ads + P.fovK * shakeK; if (Math.abs(camera.fov - fv) > 0.02) { camera.fov = fv; camera.updateProjectionMatrix(); } stepNums(dt); stepBars();
     gunRig.position.set(Math.sin(P.bob * 0.5) * 0.01, Math.abs(Math.sin(P.bob)) * 0.012 - P.kick * 0.2, P.kick * 0.9); gunRig.rotation.x = P.kick * 1.4 + (P.rel > 0 ? -0.5 * Math.sin(Math.min(1, (WEAPONS[P.w].reload - P.rel) / WEAPONS[P.w].reload) * PI) : 0);
     animGun(dt); stepDebris(dt);
     P.mt = Math.max(0, (P.mt || 0) - dt * 3.2); if (P.mt > 0) { var mp = 1 - P.mt, arc = Math.sin(Math.min(1, mp / 0.9) * PI); gunRig.position.z -= 0.28 * arc; gunRig.position.y -= 0.04 * arc; gunRig.position.x -= 0.12 * arc; gunRig.rotation.x -= 0.7 * arc; gunRig.rotation.y = (0.6 - 1.4 * mp) * arc; } else gunRig.rotation.y = 0;
