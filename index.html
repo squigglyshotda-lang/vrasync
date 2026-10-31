@@ -102,6 +102,10 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .gamebar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-content: start; overflow-y: auto; overflow-x: hidden; min-width: 0; }
 .gamebar .grp { grid-column: 1 / -1; font: 600 11px var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 .gamebar .gtool[hidden] { display: none; }
+.bank { display: flex; gap: 6px; align-self: stretch; }
+.bank button { font: 700 12px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); background: var(--bc, var(--hud)); border: 0; padding: 0 12px; min-width: 78px; cursor: pointer; touch-action: manipulation; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+.bank button small { font: 500 10px var(--font-data); opacity: .75; letter-spacing: .04em; text-transform: none; }
+.bank button.armed { outline: 3px solid #fff; }
 .lvsel { display: flex; border: 1px solid var(--line); align-self: stretch; }
 .lvsel button { font: 700 13px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: transparent; border: 0; padding: 0 14px; min-width: 64px; cursor: pointer; touch-action: manipulation; pointer-events: auto; }
 .lvsel button[aria-pressed="true"] { background: var(--hud); color: var(--ink); }
@@ -223,6 +227,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   <main id="controlUI" hidden>
     <div class="statbar">
       <button class="gstart" id="gStart" type="button">Start game</button>
+      <div class="bank" id="bankBar" aria-label="Banked power-ups"><button type="button" data-i="0" hidden></button><button type="button" data-i="1" hidden></button><button type="button" data-i="2" hidden></button></div>
       <div class="lvsel" role="group" aria-label="Level"><button type="button" id="lvFlat" aria-pressed="true">Flat</button><button type="button" id="lvLanes" aria-pressed="false">Lanes</button></div>
       <div class="tile"><span class="tl">Wave</span><b id="stWave">–</b></div>
       <div class="tile"><span class="tl">Score</span><b id="stScore">0</b></div>
@@ -1315,7 +1320,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var UP_COST = [8, 14, 20, 28, 40], UP_MAX = 5, SCORE_VAL = { ghost: 100, runner: 60, wisp: 150, brute: 400, splitter: 200, mini: 40, teleporter: 250, shielded: 250, bat: 40, phantom: 300, bomber: 200 }, COIN_VAL = { ghost: 4, runner: 2, wisp: 6, brute: 16, splitter: 8, mini: 2, teleporter: 10, shielded: 10, bat: 2, phantom: 12, bomber: 8 }, ORB_RANGE = 9, BATT_REGEN = 12, BATT_ADD = 45, ORB_SPEED = 22, FREEZE_R = 2.2, PUSH_R = 3.5, BOMB_R = 2.6, BLAST_R = 4.5;
   var G = { running: false, over: false, wave: 0, kills: 0, budget: 0, energy: 100, enemies: [], turrets: [], barriers: [],
             toSpawn: 0, spawnT: 0, breakT: 0, nid: 1, pingT: 0, wasEnemies: 0, coins: 0, battery: 100, orbs: [], zones: [], drops: [], up: { dmg: 0, bat: 0, rng: 0 }, hitT: 0, fireCd: 0,
-            score: 0, pending: false, rally: { act: 0, cd: 0 }, combo: { n: 0, t: 0, m: 1 }, acc: { h: 0, m: 0, mc: 0 }, level: 0, towers: [], walls: [], q: [], nextQ: null, fx: { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }, blasts: 0, cd: 0, cdN: 0, dying: 0, deadT: 0, inv: 0, clr: false };
+            score: 0, pending: false, rally: { act: 0, cd: 0 }, combo: { n: 0, t: 0, m: 1 }, acc: { h: 0, m: 0, mc: 0 }, level: 0, bank: [], towers: [], walls: [], q: [], nextQ: null, fx: { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }, blasts: 0, cd: 0, cdN: 0, dying: 0, deadT: 0, inv: 0, clr: false };
   var gameGroup = new THREE.Group(); scene.add(gameGroup);
   var gm = {}, enemyGeo = new THREE.CylinderGeometry(0.2, 0.25, 1.0, 12), headGeo = new THREE.SphereGeometry(0.16, 12, 8),
       noseGeo = new THREE.ConeGeometry(0.07, 0.25, 8), 
@@ -1688,7 +1693,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function fxLine() {
     var a = []; ['rapid', 'pierce', 'slow', 'free', 'dbl', 'magnet'].forEach(function (k) { if (G.fx[k] > 0) a.push(PU_INFO[k].s + ' ' + Math.ceil(G.fx[k])); });
-    if (G.fx.shield > 0) a.unshift('SHIELD'); if (G.blasts > 0) a.push('BLAST x' + G.blasts);
+    if (G.fx.shield > 0) a.unshift('SHIELD'); if (G.blasts > 0) a.push('BLAST x' + G.blasts); if (G.bank.length) a.push('BANK ' + G.bank.map(function (k) { return PU_INFO[k].s; }).join('/'));
     if (G.rally.act > 0) a.push('RALLY ' + Math.ceil(G.rally.act)); if (G.mod && G.running) a.push(G.mod.n); if (G.combo.m > 1 && G.combo.t > 0) a.push('COMBO x' + fmtMult(G.combo.m));
     return a.join('  ');
   }
@@ -1696,7 +1701,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.level = (lv === 0 || lv === 1) ? lv : (solo.head ? lvSel : G.level);
     localBalls().forEach(removeLocal);
     G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.up = { dmg: 0, bat: 0, rng: 0 }; G.running = true; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.budget = 6; G.pingT = 0;
-    G.fx = { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }; G.blasts = 0; G.towers = []; G.walls = []; G.q = []; G.nextQ = { n: 1, q: makeQueue(1) }; G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.acc = { h: 0, m: 0, mc: 0 }; G.mod = null; G.score = 0; G.pending = false; G.cd = 3; G.cdN = 4; G.dying = 0; G.deadT = 0; G.inv = 0; G.clr = false; G.toSpawn = 0; G.breakT = 0;
+    G.fx = { rapid: 0, pierce: 0, shield: 0, slow: 0, free: 0, dbl: 0, magnet: 0 }; G.blasts = 0; G.bank = []; G.towers = []; G.walls = []; G.q = []; G.nextQ = { n: 1, q: makeQueue(1) }; G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.acc = { h: 0, m: 0, mc: 0 }; G.mod = null; G.score = 0; G.pending = false; G.cd = 3; G.cdN = 4; G.dying = 0; G.deadT = 0; G.inv = 0; G.clr = false; G.toSpawn = 0; G.breakT = 0;
     ev.bn = null; overlay(0xff0000, 0, 0, 4);
   }
   function countdownStep(dt) {
@@ -1758,10 +1763,16 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   }
   function givePU(pk) {
     var I = PU_INFO[pk]; if (!I) return;
+    if (pk !== 'blast' && G.bank.length < BANK_MAX) { G.bank.push(pk); toast('BANKED  ' + I.n, I.c); stinger('pu'); return; }   // held until the control player deploys it (a full bank applies it at once)
+    applyPU(pk);
+  }
+  function applyPU(pk) {
+    var I = PU_INFO[pk]; if (!I) return;
     if (pk === 'shield') G.fx.shield = 1; else if (pk === 'blast') G.blasts = Math.min(3, G.blasts + 1); else G.fx[pk] = I.d;
     toast(I.n + (I.d ? '  ' + I.d + 'S' : ''), I.c); stinger('pu');
     if (pk === 'slow') overlay(0x6ab8ff, 0.3, 0, 2);
   }
+  var BANK_MAX = 3;
   var toastAt = {};
   function toastOnce(key, text, col, gap) { var n = performance.now(); if (toastAt[key] && n - toastAt[key] < gap * 1000) return; toastAt[key] = n; toast(text, col); }
   function rallyCry() {
@@ -2258,6 +2269,10 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       toast({ dmg: 'DAMAGE', bat: 'BATTERY', rng: 'RANGE' }[k] + ' UP  LV ' + (lv + 1), '#ffd23a');
       soundTone(hp.x + 0.3, hp.y - 0.4, hp.z - 0.3, 600, 1800, 0.3, 1.4, 'triangle'); return;
     }
+    if (m.c === 'usepu') {
+      var bi = m.i | 0; if (bi < 0 || bi >= G.bank.length) return;
+      applyPU(G.bank.splice(bi, 1)[0]); return;
+    }
     if (m.c === 'collect') {
       for (var ci = 0; ci < G.drops.length; ci++) if (G.drops[ci].id === m.id) {
         collectDrop(G.drops.splice(ci, 1)[0]); break;
@@ -2353,6 +2368,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     lastGs = t;
     var ZC = { freeze: 0, push: 1, decoy: 2, bomb: 3, blast: 4 };
     linkSend({ t: 'gs', run: G.running, over: G.over, w: G.wave, k: G.kills, c: G.coins, b: Math.round(G.budget * 10) / 10, bt: Math.round(G.battery), up: [G.up.dmg, G.up.bat, G.up.rng], cd: Math.round(G.cd * 10) / 10,
+      bk: G.bank.map(function (k) { return PU.indexOf(k) + 1; }),
       fx: [G.fx.rapid, G.fx.pierce, G.fx.shield, G.fx.slow, G.fx.free, G.fx.dbl, G.fx.magnet, G.blasts].map(function (v) { return Math.round(v * 10) / 10; }),
       en: G.enemies.map(function (e) { return [e.id, r3(e.x), r3(e.z), e.hp, r3(e.face), e.frz ? 1 : 0, Math.max(0, ETYPE_NAMES.indexOf(e.type)), r3(e.y || 0), Math.round((e.alpha == null ? 1 : e.alpha) * 100), r3(e.sh || 0)]; }),
       zn: G.zones.map(function (z) { return [z.id, ZC[z.kind], r3(z.x), r3(z.z), Math.round(1000 * z.life / z.max) / 1000]; }),
@@ -2370,6 +2386,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     G.enemies = (Array.isArray(d.en) ? d.en : []).filter(function (a) { return nums(a, 5); }).slice(0, 60).map(function (a) { var ty = ETYPE_NAMES[a[6]] || 'ghost'; return { id: a[0], x: a[1], z: a[2], hp: a[3], face: a[4], frz: a[5] === 1, type: ty, sc: ETYPES[ty].sc, y: a[7] || 0, alpha: typeof a[8] === 'number' ? a[8] / 100 : 1, sh: a[9] || 0 }; });
     G.zones = (Array.isArray(d.zn) ? d.zn : []).filter(function (a) { return nums(a, 5) && ZN[a[1]]; }).slice(0, 20).map(function (a) { var k = ZN[a[1]]; return { id: a[0], kind: k, x: a[2], z: a[3], life: a[4] * ZM[k], max: ZM[k] }; });
     G.drops = (Array.isArray(d.dr) ? d.dr : []).filter(function (a) { return nums(a, 5); }).slice(0, 30).map(function (a) { var pi = (a[5] | 0) - 1; return { id: a[0], x: a[1], z: a[2], val: a[3], pk: PU[pi], life: a[4] * (pi >= 0 ? 14 : 12), max: pi >= 0 ? 14 : 12 }; });
+    G.bank = (Array.isArray(d.bk) ? d.bk : []).slice(0, BANK_MAX).map(function (n) { return PU[(n | 0) - 1]; }).filter(function (k) { return k && k !== 'blast'; });
     if (Array.isArray(d.fx) && d.fx.length >= 8) { var fk = ['rapid', 'pierce', 'shield', 'slow', 'free', 'dbl', 'magnet']; fk.forEach(function (k, ii) { G.fx[k] = Math.max(0, +d.fx[ii] || 0); }); G.blasts = Math.max(0, Math.min(3, d.fx[7] | 0)); }
     G.towers = (Array.isArray(d.tw) ? d.tw : []).filter(function (a) { return nums(a, 6) && TW_KINDS[a[1]]; }).slice(0, 12).map(function (a) { return { id: a[0], kind: TW_KINDS[a[1]], x: a[2], z: a[3], lv: Math.max(0, Math.min(2, a[4] | 0)), hp: Math.max(0, Math.min(100, a[5])), hpMax: 100 }; });
     G.walls = (Array.isArray(d.wl) ? d.wl : []).filter(function (a) { return nums(a, 3); }).slice(0, 30).map(function (a) { var sh = WALL_KINDS[a[4] | 0] || 'wall', rt = (a[5] | 0) & 3; return { id: a[0], x: a[1], z: a[2], shape: sh, rot: rt, lv: Math.max(0, Math.min(2, a[6] | 0)), cells: wallCells(sh, a[1], a[2], rt), hp: a.length > 3 ? Math.max(0, Math.min(100, a[3])) : 100, hpMax: 100 }; });
@@ -2473,6 +2490,13 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   $('scoreBtn').addEventListener('click', function () { openBoard(null); });
   window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !scoreModal.hidden) scoreModal.hidden = true; });
   window.addEventListener('keydown', function (e) { if ((e.key === 'r' || e.key === 'R') && role === 'control' && WALL_SHAPES[tool] && !/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || '')) { wrot = (wrot + 1) & 3; showGhost(ghost.position.x, ghost.position.z); } });
+  var bankBtns = Array.prototype.slice.call(document.querySelectorAll('#bankBar button')), bankTap = { i: -1, t: 0 };
+  bankBtns.forEach(function (b, i) {
+    b.addEventListener('click', function () {
+      var n = performance.now(); if (bankTap.i === i && n - bankTap.t < 450) { bankTap.i = -1; sendCmd({ c: 'usepu', i: i }); return; }
+      bankTap = { i: i, t: n }; link.msg = 'Double tap ' + (G.bank[i] ? PU_INFO[G.bank[i]].n : 'a power') + ' to use it.'; refreshNote();
+    });
+  });
   var lvBtns = [$('lvFlat'), $('lvLanes')], optLevel = $('optLevel');
   function levelLabels() { lvBtns.forEach(function (b, i) { b.setAttribute('aria-pressed', String(i === lvSel)); }); if (optLevel) optLevel.textContent = 'Level: ' + LEVELS[lvSel].n; }
   function setLevelSel(n) {
@@ -2487,6 +2511,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     if (role !== 'control') return;
     var run = G.running, free = G.fx.free > 0;
     lvBtns.forEach(function (b) { b.disabled = run; }); levelLabels();
+    bankBtns.forEach(function (b, i) { var k = G.bank[i]; b.hidden = !(run && k); if (run && k) { b.style.setProperty('--bc', PU_INFO[k].c); b.innerHTML = PU_INFO[k].s + '<small>double tap</small>'; } });
     var dcy = document.querySelector('.gtool[data-tool="decoy"]'); if (dcy) { dcy.hidden = lvActive(); if (dcy.hidden && tool === 'decoy') gTools[0].click(); }
     gStart.textContent = G.over ? 'Play again' : (run ? 'Restart' : 'Start game');
     stWave.textContent = run || G.over ? String(G.wave || (G.cd > 0 ? '…' : 0)) : '–';
@@ -2563,7 +2588,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   var opts = { skill: 1, bot: true, practice: false, slow: false, invincible: false, inf: false };
   var solo = { head: false, control: false }, bc = { t: 0, lastId: 0, overT: 0 }, soloBtn = $('soloBtn'), soloHead = $('soloHead');
   function resetGame() {
-    G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.acc = { h: 0, m: 0, mc: 0 }; G.towers = []; G.walls = []; G.q = []; G.nextQ = null; G.cd = 0; G.dying = 0; G.blasts = 0; Object.keys(G.fx).forEach(function (k) { G.fx[k] = 0; }); clearEvents();
+    G.rally = { act: 0, cd: 0 }; G.combo = { n: 0, t: 0, m: 1 }; G.acc = { h: 0, m: 0, mc: 0 }; G.towers = []; G.walls = []; G.q = []; G.nextQ = null; G.cd = 0; G.dying = 0; G.blasts = 0; G.bank = []; Object.keys(G.fx).forEach(function (k) { G.fx[k] = 0; }); clearEvents();
     localBalls().forEach(removeLocal);
     G.enemies = []; G.turrets = []; G.barriers = []; G.orbs = []; G.zones = []; G.drops = []; G.battery = 100; G.hitT = 0; G.running = false; G.over = false; G.wave = 0; G.kills = 0; G.coins = 0; G.energy = 100; G.toSpawn = 0;
   }

@@ -30,6 +30,9 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 - Enemies drop power-ups that the control player taps on the map: Rapid fire, Piercing shots, Shield (survives one touch), Slow time (both players), Free builds, Double coins, Big blast (one giant explosion, tap the map to fire it) and Magnet.
 - New enemies: Teleporter (wave 5, blinks forward, warning sound first), Shielded ghost (wave 6, shoot it when its shield swings aside), Bat swarm (wave 7, six fast zig-zaggers), Phantom (wave 8, only hurt while visible).
 
+## Banked power-ups
+- Timed power-ups (Rapid fire, Pierce, Shield, Slow time, Free builds, Double coins, Magnet) are no longer applied when picked up. They go into a bank of 3 slots, shown as coloured buttons next to Start on the control page and as a BANK line on the VR HUD. Double tap a slot on the control page to deploy it at once. If the bank is full, a new pick-up applies immediately. Big blast keeps its own store (up to 3). Battery refills are still instant.
+
 ## Tower defence for the control player
 - Coins are the one currency: flashlight upgrades, towers, walls and traps all cost coins. Enemies pay out double what they used to.
 - Player-built walls are switched off for now (the code is kept behind a `WALLS_ON` flag), so the notes below about wall shapes and wall armour are dormant. Enemies go after towers instead.
