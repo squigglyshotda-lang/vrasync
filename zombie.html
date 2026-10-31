@@ -798,16 +798,24 @@ body.cmdr #cmd { display: block; }
     p.on('open', function () { $('codeLine').textContent = 'Commander code: ' + myCode; $('codeBoxV').textContent = myCode; $('codeBox').hidden = false; });
     p.on('connection', function (c) {
       c.on('open', function () { conns.push(c); linked = true; $('codeBox').hidden = true; toast('Commander linked'); sendView(c); });
-      c.on('data', onCmd);
+      c.on('data', function (m) { if (m && m.t === 'view') sendView(c); else onCmd(m); });
       function gone() { var i = conns.indexOf(c); if (i >= 0) conns.splice(i, 1); if (!conns.length) { linked = false; $('codeBox').hidden = !myCode; } }
       c.on('close', gone); c.on('error', gone);
     });
     p.on('disconnected', function () { setTimeout(function () { try { if (!p.destroyed) p.reconnect(); } catch (e) {} }, 1500); });
     p.on('error', function (err) { if (err && err.type === 'unavailable-id') startHost(); });
   }
-  var viewStream = null;
+  var viewStream = null, viewCv = null, viewCtx = null, viewCalls = {};
   function sendView(c) {   // live picture of the shooter's screen to the commander, over the same PeerJS link
-    try { if (!viewStream) viewStream = renderer.domElement.captureStream(15); if (peer && viewStream && c.peer) peer.call(c.peer, viewStream); } catch (e) {}
+    try {
+      if (!viewStream) { viewCv = document.createElement('canvas'); viewCv.width = 640; viewCv.height = 360; viewCtx = viewCv.getContext('2d'); viewStream = viewCv.captureStream(15); }
+      if (peer && c.peer) { try { if (viewCalls[c.peer]) viewCalls[c.peer].close(); } catch (e) {} viewCalls[c.peer] = peer.call(c.peer, viewStream); }
+    } catch (e) {}
+  }
+  function copyView() {   // called after each render while a commander is linked
+    if (!viewCtx || !conns.length) return;
+    var cv = renderer.domElement, sw = cv.width, sh = cv.height, k = Math.max(640 / sw, 360 / sh), dw = sw * k, dh = sh * k;
+    try { viewCtx.drawImage(cv, (640 - dw) / 2, (360 - dh) / 2, dw, dh); } catch (e) {}
   }
   var TIDX = { walker: 0, runner: 1, brute: 2 };
   function publish(t) {
@@ -890,7 +898,7 @@ body.cmdr #cmd { display: block; }
       if (C.tool) { ghostAt(e); if (hit) { selectSt(hit.id); return; } if (!linked) { toast('Not connected to the shooter'); return; } cmdSend({ c: STK[C.tool] ? 'build' : TRK[C.tool] ? 'trap' : 'drop', k: C.tool, x: C.mx, z: C.mz }); return; }
       selectSt(null);
     });
-    $('fpv').addEventListener('click', function (e) { if (e.target.id !== 'fpvX') $('fpv').classList.toggle('big'); }); $('fpvX').addEventListener('click', function () { $('fpv').hidden = true; $('fpvShow').hidden = false; }); $('fpvShow').addEventListener('click', function () { $('fpv').hidden = false; $('fpvShow').hidden = true; });
+    $('fpv').addEventListener('click', function (e) { if (e.target.id !== 'fpvX') $('fpv').classList.toggle('big'); }); $('fpvX').addEventListener('click', function () { $('fpv').hidden = true; $('fpvShow').hidden = false; $('fpvShow').textContent = 'Shooter view'; }); $('fpvShow').addEventListener('click', function () { if ($('fpvV').srcObject) { $('fpv').hidden = false; $('fpvShow').hidden = true; } else if (conns[0]) { try { conns[0].send({ t: 'view' }); } catch (e) {} } });
     $('soloCmdBtn').addEventListener('click', startSoloCommander); $('cRestart').addEventListener('click', function () { selectSt(null); startGame(); });
     $('cGate').addEventListener('click', function () { if (C.sel != null) cmdSend({ c: 'gate', id: C.sel }); });
     $('cRep').addEventListener('click', function () { if (C.sel != null) cmdSend({ c: 'rep', id: C.sel }); });
@@ -910,14 +918,16 @@ body.cmdr #cmd { display: block; }
     if (!window.Peer) { $('joinMsg').textContent = 'Pairing library did not load.'; return; }
     $('joinMsg').textContent = 'Connecting...'; try { if (peer) peer.destroy(); } catch (e) {}
     var p = new Peer(peerOpts()), timer; peer = p; timer = setTimeout(function () { $('joinMsg').textContent = 'No answer. Check the code and that the shooter page is open.'; }, 15000);
+    var viewTimer = null, viewTries = 0;
+    function askView(cc) { if (viewTries++ > 6) { $('fpvShow').textContent = 'Shooter view: not available'; return; } $('fpvShow').hidden = !$('fpv').hidden; $('fpvShow').textContent = 'Shooter view: connecting...'; try { cc.send({ t: 'view' }); } catch (e) {} viewTimer = setTimeout(function () { askView(cc); }, 4000); }
     p.on('call', function (call) {
       call.answer();
-      call.on('stream', function (st) { var v = $('fpvV'); v.srcObject = st; $('fpv').hidden = false; $('fpvShow').hidden = true; try { v.play(); } catch (e) {} });
+      call.on('stream', function (st) { clearTimeout(viewTimer); var v = $('fpvV'); v.srcObject = st; $('fpv').hidden = false; $('fpvShow').hidden = true; try { v.play(); } catch (e) {} });
       call.on('close', function () { $('fpv').hidden = true; $('fpvShow').hidden = true; });
     });
     p.on('open', function () {
       var c = p.connect(ID_PREFIX + code, { serialization: 'json', reliable: true });
-      c.on('open', function () { clearTimeout(timer); conns = [c]; linked = true; $('joinOv').hidden = true; cmdRefresh(); });
+      c.on('open', function () { clearTimeout(timer); conns = [c]; linked = true; $('joinOv').hidden = true; cmdRefresh(); viewTries = 0; clearTimeout(viewTimer); viewTimer = setTimeout(function () { askView(c); }, 3500); });
       c.on('data', function (d) { if (d && d.t === 'gs') onGs(d); else if (d && d.t === 'tx' && typeof d.s === 'string') toast(d.s.slice(0, 60)); });
       c.on('close', function () { linked = false; conns = []; $('fpv').hidden = true; $('fpvShow').hidden = true; $('joinOv').hidden = false; $('joinMsg').textContent = 'Link dropped. Connect again.'; cmdRefresh(); });
     });
@@ -944,7 +954,7 @@ body.cmdr #cmd { display: block; }
     step(dt); publish(t);
     camera.position.set(P.x, eyeY() + Math.sin(P.bob) * 0.04, P.z); camera.rotation.z = 0; camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ');
     gunRig.position.set(Math.sin(P.bob * 0.5) * 0.01, Math.abs(Math.sin(P.bob)) * 0.012, P.kick * 1.6); gunRig.rotation.x = P.kick * 1.2 + (P.rel > 0 ? -0.5 * Math.sin(Math.min(1, (WEAPONS[P.w].reload - P.rel) / WEAPONS[P.w].reload) * PI) : 0);
-    renderer.render(scene, camera);
+    renderer.render(scene, camera); copyView();
     requestAnimationFrame(frame);
   }
   window.__z = { bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
