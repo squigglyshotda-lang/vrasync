@@ -55,7 +55,7 @@ body.cmdr #hud, body.cmdr #startOv, body.cmdr #endOv { display: none !important;
 #cmd { display: none; position: fixed; inset: 0; z-index: 8; pointer-events: none; }
 body.cmdr #cmd { display: block; }
 #cmd button { pointer-events: auto; font: 700 14px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(14, 20, 36, .92); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation; }
-#fpv { position: absolute; top: 56px; right: 12px; width: 240px; border: 1px solid var(--line); background: #000; border-radius: 6px; overflow: hidden; pointer-events: auto; touch-action: manipulation; } #fpv.big { width: min(62vw, 720px); } #fpv video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #05070d; } #fpv .fl { position: absolute; top: 4px; left: 6px; font: 700 10px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; } #fpv button { position: absolute; top: 2px; right: 2px; min-width: 32px; min-height: 28px; padding: 0; } #fpvShow { position: absolute; top: 58px; right: 12px; padding: 8px 12px; } #fpv[hidden], #fpvShow[hidden] { display: none; }
+#fpv { position: absolute; top: 56px; right: 12px; width: 240px; border: 1px solid var(--line); background: #000; border-radius: 6px; overflow: hidden; pointer-events: auto; touch-action: manipulation; } #fpv.big { width: min(62vw, 720px); } #fpv.solo, #fpv.solo video { background: transparent; } #fpv video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #05070d; } #fpv .fl { position: absolute; top: 4px; left: 6px; font: 700 10px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; } #fpv button { position: absolute; top: 2px; right: 2px; min-width: 32px; min-height: 28px; padding: 0; } #fpvShow { position: absolute; top: 58px; right: 12px; padding: 8px 12px; } #fpv[hidden], #fpvShow[hidden] { display: none; }
 #cTop { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 22px; align-items: baseline; padding: 10px 16px; background: linear-gradient(rgba(10, 14, 26, .92), rgba(10, 14, 26, 0)); font: 700 13px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 #cTop b { color: var(--text); font-size: 24px; margin-left: 6px; font-variant-numeric: tabular-nums; } #cTop b.amb { color: var(--amber); } #cTop .st { margin-left: auto; font: 500 12px var(--font-data); letter-spacing: .04em; text-transform: none; }
 #cTools { position: absolute; left: 10px; top: 60px; display: grid; gap: 5px; width: 158px; }
@@ -933,12 +933,24 @@ body.cmdr #cmd { display: block; }
     });
     p.on('error', function (err) { clearTimeout(timer); $('joinMsg').textContent = err && err.type === 'peer-unavailable' ? 'No shooter has that code.' : 'Could not reach the pairing service.'; });
   }
+  function renderBotView() {   // solo test: draw the bot shooter's first-person view into the picture-in-picture window
+    var f = $('fpv'); if (f.hidden) return;
+    var r = f.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight; if (r.width < 10) return;
+    var saved = [], norm = function (m) { if (m) { saved.push([m, m.scale.clone()]); m.scale.set(1, 1, 1); } };
+    G.zombies.forEach(function (e) { norm(e.mesh); }); G.st.forEach(function (q) { norm(q.mesh); }); G.tr.forEach(function (q) { norm(q.mesh); }); pickups.forEach(function (q) { norm(q.m); });
+    var mv = C.marker.visible, gv = C.ghost ? C.ghost.visible : false; C.marker.visible = false; if (C.ghost) C.ghost.visible = false;
+    camera.position.set(P.x, eyeY(), P.z); camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ'); camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+    renderer.setScissorTest(true); renderer.setViewport(r.left, H - r.bottom, r.width, r.height); renderer.setScissor(r.left, H - r.bottom, r.width, r.height); renderer.clearDepth();
+    scene.fog = new THREE.FogExp2(0x0a0e1a, 0.022); renderer.render(scene, camera); scene.fog = null;
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, W, H);
+    saved.forEach(function (a) { a[0].scale.copy(a[1]); }); C.marker.visible = mv; if (C.ghost) C.ghost.visible = gv;
+  }
   function soloCommanderFrame(dt) {
     step(dt); bot.t -= dt; if (bot.t <= 0) { bot.t = 0.2; G.left = G.zombies.length + G.toSpawn; cmdRefresh(); }
     C.marker.visible = true; C.marker.position.set(P.x, 4, P.z); C.marker.rotation.y = P.yaw;
   }
   function startSoloCommander() {
-    bot.solo = true; bot.shoot = true; linked = true; $('joinOv').hidden = true; $('cRestart').hidden = false; startGame(); toast('Solo test', 'A bot is the shooter'); cmdRefresh();
+    bot.solo = true; bot.shoot = true; linked = true; $('joinOv').hidden = true; $('fpv').hidden = false; $('fpv').classList.add('solo'); $('fpvShow').hidden = true; $('cRestart').hidden = false; startGame(); toast('Solo test', 'A bot is the shooter'); cmdRefresh();
   }
   function commanderFrame(dt) {
     G.t += dt; placeTrapMeshes();
@@ -950,7 +962,7 @@ body.cmdr #cmd { display: block; }
   var test = { shoot: false }, last = performance.now() / 1000;
   function frame() {
     var t = performance.now() / 1000, dt = Math.min(0.05, Math.max(0, t - last)); last = t;
-    if (role === 'commander') { if (bot.solo) soloCommanderFrame(dt); else commanderFrame(dt); renderer.render(scene, mapCam); requestAnimationFrame(frame); return; }
+    if (role === 'commander') { if (bot.solo) soloCommanderFrame(dt); else commanderFrame(dt); renderer.render(scene, mapCam); if (bot.solo) renderBotView(); requestAnimationFrame(frame); return; }
     step(dt); publish(t);
     camera.position.set(P.x, eyeY() + Math.sin(P.bob) * 0.04, P.z); camera.rotation.z = 0; camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ');
     gunRig.position.set(Math.sin(P.bob * 0.5) * 0.01, Math.abs(Math.sin(P.bob)) * 0.012, P.kick * 1.6); gunRig.rotation.x = P.kick * 1.2 + (P.rel > 0 ? -0.5 * Math.sin(Math.min(1, (WEAPONS[P.w].reload - P.rel) / WEAPONS[P.w].reload) * PI) : 0);
