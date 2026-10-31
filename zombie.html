@@ -113,7 +113,7 @@ body.cmdr #cmd { display: block; }
   <div id="toast"></div>
   <div class="gun"><b id="ammo">-<span>/-</span></b><div id="gunName">Pistol</div><div class="slots" id="slots"><span>1 Pistol</span><span>2 Shotgun</span><span>3 Rifle</span></div></div>
   <div class="codebox" id="codeBox" hidden>Commander code<b id="codeBoxV"></b></div>
-  <div id="hint">WASD move · Shift sprint · Space jump · C or Ctrl crouch · crouch while sprinting to slide · mouse aim · click shoot · hold right-click to aim · R reload · 1-3 or wheel weapons · Esc release mouse</div>
+  <div id="hint">WASD move · Shift sprint · Space jump · C or Ctrl crouch · crouch while sprinting to slide · mouse aim · click shoot · hold right-click to aim · V melee · R reload · 1-3 or wheel weapons · Esc release mouse</div>
 </div>
 <div class="overlay" id="startOv">
   <div class="card">
@@ -471,6 +471,10 @@ body.cmdr #cmd { display: block; }
     else if (k === 'draw') { noise(0.14, 0.12, 800, 3500); tone(300, 480, 0.05, 0.05, 'square'); }
     else if (k === 'hit') { tone(620, 220, 0.06, 0.12, 'triangle'); noise(0.07, 0.2, 0, 2200); }
     else if (k === 'snap') { noise(0.14, 0.45, 200, 2600, pos); tone(190, 50, 0.13, 0.22, 'sawtooth', pos); tone(950, 300, 0.04, 0.1, 'square', pos); tone(110, 60, 0.18, 0.2, 'sine', pos, 0.04); }
+    else if (k === 'bhit') { noise(0.06, 0.32, 150, 1800); tone(150 * v, 70, 0.08, 0.2, 'sine'); tone(520 * v, 300, 0.03, 0.08, 'square'); }
+    else if (k === 'bcrit') { tone(1900, 2600, 0.1, 0.16, 'triangle'); tone(1250, 800, 0.16, 0.1, 'sine'); noise(0.05, 0.3, 2500, 9000); tone(90, 40, 0.14, 0.3, 'sine'); }
+    else if (k === 'swing') { noise(0.16, 0.2, 400, 3000); tone(300, 120, 0.12, 0.05, 'sawtooth'); }
+    else if (k === 'bash') { tone(110, 45, 0.14, 0.35, 'sine'); noise(0.07, 0.3, 100, 1500); }
     else if (k === 'ping') { tone(1700 + rnd() * 400, 1100, 0.07, 0.06, 'triangle', pos); noise(0.04, 0.1, 3000, 9000, pos); }
     else if (k === 'clang') { tone(900, 500, 0.35, 0.16, 'square', pos); tone(1350, 700, 0.3, 0.1, 'triangle', pos); noise(0.2, 0.3, 1500, 8000, pos); }
     else if (k === 'kill') { noise(0.24, 0.4, 0, 1200, pos); tone(120 * v, 36, 0.28, 0.2, 'sawtooth', pos); tone(58, 24, 0.25, 0.26, 'sine', pos); noise(0.1, 0.18, 1500, 6000, pos, 0.02); }
@@ -1072,9 +1076,19 @@ body.cmdr #cmd { display: block; }
         spray(ox + dx * bt, oy + dy * bt, oz + dz * bt, 0xb01818, bh ? 10 : 5, dx, dz, 3.2);
       } else if (bt < 60) spark(ox + dx * bt, oy + dy * bt, oz + dz * bt, 0xffd9a0, 2);
     }
-    if (anyHit) { hitT = killedAny ? 0.22 : 0.13; hudE.hit.className = killedAny ? 'kill' : headHit ? 'head' : ''; sfx(headHit ? 'head' : 'hit'); hitStop = Math.max(hitStop, killedAny ? (headHit ? 0.09 : 0.06) : 0.02); if (killedAny) P.shake = Math.max(P.shake, w.shk * 1.3); }
+    if (anyHit) { hitT = killedAny ? 0.22 : 0.13; hudE.hit.className = killedAny ? 'kill' : headHit ? 'head' : ''; sfx(headHit ? 'bcrit' : 'bhit'); hitStop = Math.max(hitStop, killedAny ? (headHit ? 0.09 : 0.06) : 0.02); if (killedAny) P.shake = Math.max(P.shake, w.shk * 1.3); }
     for (var id in dmgBy) { var r = dmgBy[id]; dmgNum(r.x, r.y, r.z, Math.round(r.v), r.k ? 'k' : r.h ? 'h' : ''); }
     if (a.mag === 0 && a.res > 0) setTimeout(reload, 150);
+  }
+  function melee() {   // quick gun-butt strike: small damage, knockback and stagger, can take limbs and crit the head
+    if (!G.running || G.over || (P.mCd || 0) > 0) return; P.mCd = 0.5; P.mt = 1; P.fireT = Math.max(P.fireT, 0.3); P.shake = Math.max(P.shake, 0.6); sfx('swing');
+    var ox = P.x, oy = eyeY(), oz = P.z, dx = -Math.sin(P.yaw) * Math.cos(P.pitch), dy = Math.sin(P.pitch), dz = -Math.cos(P.yaw) * Math.cos(P.pitch), fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), best = null, bt = 2.3, bh = false, bl = null;
+    G.zombies.forEach(function (e) { if (Math.abs((e.y || 0) - P.y) > 2) return; var r = zombieHitDist(e, ox, oy, oz, dx, dy, dz); if (r[0] < bt) { bt = r[0]; best = e; bh = r[1]; bl = r[2]; } });
+    if (!best) { var nd = 1.7; G.zombies.forEach(function (e) { var ex = e.x - P.x, ez = e.z - P.z, d = Math.hypot(ex, ez); if (d < nd && d > 0.01 && (ex * fx + ez * fz) / d > 0.6 && Math.abs((e.y || 0) - P.y) < 1.5) { nd = d; best = e; bt = d; } }); }
+    if (!best) return;
+    var dmg = 22 * (bh ? 3 : 1), dead = damageZombie(best, dmg, fx, fz, 3.4, 3, bh ? null : bl), hx = ox + dx * bt, hy = oy + dy * bt, hz = oz + dz * bt;
+    sfx(bh ? 'bcrit' : 'bhit'); sfx('bash'); spray(hx, hy, hz, 0xb01818, bh ? 8 : 4, fx, fz, 2.5); hitT = dead ? 0.22 : 0.13; hudE.hit.className = dead ? 'kill' : bh ? 'head' : '';
+    hitStop = Math.max(hitStop, dead ? 0.07 : 0.05); P.shake = Math.max(P.shake, 2.2); dmgNum(hx, hy + 0.2, hz, Math.round(dmg), dead ? 'k' : bh ? 'h' : '');
   }
   function damageZombie(e, dmg, dx, dz, kb, fl, limb) {
     var lb = limb && e.lh && e.lh[limb] > 0 && !(e.gone && e.gone[limb]) ? limb : null;
@@ -1604,7 +1618,7 @@ body.cmdr #cmd { display: block; }
     P.slideCd = Math.max(0, P.slideCd - dt);
     if (inp.crouch && !P.cPrev && ground && P.slide <= 0 && P.slideCd <= 0 && inp.sprint && moving > 5.5) { P.slide = 0.9; P.sdx = P.vx / moving; P.sdz = P.vz / moving; P.slideCd = 1.2; sfx('slide'); }
     P.cPrev = !!inp.crouch;
-    var wantAds = !!inp.ads && P.rel <= 0 && P.slide <= 0 && !(inp.sprint && moving > 5.5 && P.cr < 0.4); P.ads += ((wantAds ? 1 : 0) - P.ads) * Math.min(1, dt * (wantAds ? 11 : 14));
+    var wantAds = !!inp.ads && P.rel <= 0 && !(P.mt > 0.05) && P.slide <= 0 && !(inp.sprint && moving > 5.5 && P.cr < 0.4); P.ads += ((wantAds ? 1 : 0) - P.ads) * Math.min(1, dt * (wantAds ? 11 : 14));
     if (inp.jump && !P.jPrev && ground) { P.vy = 6.2; P.slide = 0; sfx('jump'); }
     P.jPrev = !!inp.jump;
     var wantCr = (inp.crouch || P.slide > 0) && ground ? 1 : 0; P.cr += (wantCr - P.cr) * Math.min(1, dt * 14);
@@ -1622,7 +1636,7 @@ body.cmdr #cmd { display: block; }
     P.x = Math.max(-HALF, Math.min(HALF, P.x)); P.z = Math.max(-HALF, Math.min(HALF, P.z));
     if (ground && P.slide <= 0) { P.bob += Math.hypot(P.vx, P.vz) * dt * 1.8; if (moving > 1) { var cyc = Math.floor(P.bob / PI); if (cyc !== P.stepI) { P.stepI = cyc; footstep(); } } }
     // weapons
-    P.fireT = Math.max(0, P.fireT - dt); P.kick = Math.max(0, P.kick - dt * 0.6);
+    P.fireT = Math.max(0, P.fireT - dt); P.mCd = Math.max(0, (P.mCd || 0) - dt); P.kick = Math.max(0, P.kick - dt * 0.6);
     if (P.rel > 0) { P.rel -= dt; if (P.rel <= 0) { var w = WEAPONS[P.relFor], a = P.ammo[P.relFor], need = w.mag - a.mag, take = Math.min(need, a.res); a.mag += take; a.res -= take; P.rel = 0; } }
     if (G.running && !G.over && inp.shoot && (WEAPONS[P.w].auto || !P.hold)) fire();
     P.hold = inp.shoot;
@@ -1687,13 +1701,13 @@ body.cmdr #cmd { display: block; }
   function lock() { audioOn(); try { renderer.domElement.requestPointerLock(); } catch (e) {} }
   window.addEventListener('keydown', function (e) {
     var k = e.key.toLowerCase(); keys[k] = true;
-    if (k === 'r') reload(); else if (k >= '1' && k <= '3') switchWeapon(+k - 1);
+    if (k === 'v') melee(); else if (k === 'r') reload(); else if (k >= '1' && k <= '3') switchWeapon(+k - 1);
     if (k === ' ' || k === 'tab') e.preventDefault();
   });
   window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
   window.addEventListener('blur', function () { keys = {}; mouseDown = false; mouseAds = false; });
   window.addEventListener('contextmenu', function (e) { if (role === 'shooter') e.preventDefault(); });
-  renderer.domElement.addEventListener('mousedown', function (e) { if (e.button === 2) { mouseAds = true; return; } if (e.button !== 0) return; audioOn(); if (!document.pointerLockElement && G.running) lock(); mouseDown = true; });
+  renderer.domElement.addEventListener('mousedown', function (e) { if (e.button === 3 || e.button === 4) { e.preventDefault(); melee(); return; } if (e.button === 2) { mouseAds = true; return; } if (e.button !== 0) return; audioOn(); if (!document.pointerLockElement && G.running) lock(); mouseDown = true; });
   window.addEventListener('mouseup', function (e) { if (e.button === 2) mouseAds = false; else mouseDown = false; });
   window.addEventListener('mousemove', function (e) { if (!document.pointerLockElement) return; var sn = 0.0022 * (1 - 0.5 * P.ads); P.yaw -= (e.movementX || 0) * sn; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - (e.movementY || 0) * sn)); });
   window.addEventListener('wheel', function (e) { if (!G.running) return; switchWeapon((P.w + (e.deltaY > 0 ? 1 : -1) + WEAPONS.length) % WEAPONS.length); }, { passive: true });
@@ -1713,9 +1727,9 @@ body.cmdr #cmd { display: block; }
       var ax = gp.axes, b = gp.buttons; o.side += dz(ax[0] || 0); o.fwd -= dz(ax[1] || 0);
       var gs = 1 - 0.5 * P.ads; P.yaw -= dz(ax[2] || 0) * 2.6 * dt * gs; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - dz(ax[3] || 0) * 2.2 * dt * gs));
       if (b[7] && b[7].value > 0.3) o.shoot = true; if (b[6] && b[6].value > 0.3) o.ads = true; if (b[10] && b[10].pressed) o.sprint = true; if (b[0] && b[0].pressed) o.jump = true; if (b[1] && b[1].pressed) o.crouch = true;
-      var rl = !!(b[2] && b[2].pressed), wp = !!(b[4] && b[4].pressed), wn = !!(b[5] && b[5].pressed), st = !!(b[9] && b[9].pressed);
+      var ms = !!(b[11] && b[11].pressed); if (ms && !padLast.ms) melee(); var rl = !!(b[2] && b[2].pressed), wp = !!(b[4] && b[4].pressed), wn = !!(b[5] && b[5].pressed), st = !!(b[9] && b[9].pressed);
       if (rl && !padLast.rl) reload(); if (wp && !padLast.wp) switchWeapon((P.w + WEAPONS.length - 1) % WEAPONS.length); if (wn && !padLast.wn) switchWeapon((P.w + 1) % WEAPONS.length);
-      if (st && !padLast.start && !G.running) startGame(); padLast = { start: st, rl: rl, wp: wp, wn: wn };
+      if (st && !padLast.start && !G.running) startGame(); padLast = { start: st, rl: rl, wp: wp, wn: wn, ms: ms };
     }
     return o;
   }
@@ -1829,6 +1843,8 @@ body.cmdr #cmd { display: block; }
     var mk = new THREE.Group(), ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.3, 20), new THREE.MeshBasicMaterial({ color: 0x4dd8ff, side: THREE.DoubleSide })), arrow = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.8, 3), new THREE.MeshBasicMaterial({ color: 0x4dd8ff }));
     ring.rotation.x = -PI / 2; arrow.rotation.x = -PI / 2; arrow.position.set(0, 0, -2.6); mk.add(ring); mk.add(arrow); mk.position.y = 4; mk.visible = false; scene.add(mk); C.marker = mk;
     C.ghost = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthTest: false })); C.ghost.rotation.x = -PI / 2; C.ghost.position.y = 3; C.ghost.visible = false; scene.add(C.ghost);
+    var rg = new THREE.Group(), disc = new THREE.Mesh(new THREE.CircleGeometry(1, 56), new THREE.MeshBasicMaterial({ color: 0x4dd8ff, transparent: true, opacity: 0.13, depthTest: false, side: THREE.DoubleSide })), edge = new THREE.Mesh(new THREE.RingGeometry(0.98, 1, 72), new THREE.MeshBasicMaterial({ color: 0x4dd8ff, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide })), nxt = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 72), new THREE.MeshBasicMaterial({ color: 0xffd25a, transparent: true, opacity: 0.45, depthTest: false, side: THREE.DoubleSide }));
+    [disc, edge, nxt].forEach(function (m, i) { m.rotation.x = -PI / 2; m.renderOrder = 3 + i; rg.add(m); }); rg.visible = false; scene.add(rg); C.rng = rg;
     var tools = document.querySelectorAll('#cTools button');
     tools.forEach(function (b) { b.addEventListener('click', function () { var t = b.getAttribute('data-tool'); C.tool = C.tool === t ? null : t; tools.forEach(function (o) { o.setAttribute('aria-pressed', String(o.getAttribute('data-tool') === C.tool)); }); C.ghost.visible = false; selectSt(null); }); });
     document.querySelectorAll('#cFloors button').forEach(function (b) { b.addEventListener('click', function () { C.floor = +b.getAttribute('data-f'); document.querySelectorAll('#cFloors button').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); }); C.ghost.visible = false; selectSt(null); applyFloor(); }); });
@@ -1881,16 +1897,22 @@ body.cmdr #cmd { display: block; }
     var r = f.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight; if (r.width < 10) return;
     var saved = [], norm = function (m) { if (m) { saved.push([m, m.scale.clone()]); m.scale.set(1, 1, 1); } };
     G.zombies.forEach(function (e) { norm(e.mesh); }); G.st.forEach(function (q) { norm(q.mesh); }); G.tr.forEach(function (q) { norm(q.mesh); }); pickups.forEach(function (q) { norm(q.m); });
-    var uv = upperG.visible; upperG.visible = true; var mv = C.marker.visible, gv = C.ghost ? C.ghost.visible : false; C.marker.visible = false; if (C.ghost) C.ghost.visible = false;
+    var rv = C.rng ? C.rng.visible : false; if (C.rng) C.rng.visible = false; var uv = upperG.visible; upperG.visible = true; var mv = C.marker.visible, gv = C.ghost ? C.ghost.visible : false; C.marker.visible = false; if (C.ghost) C.ghost.visible = false;
     camera.position.set(P.x, eyeY(), P.z); camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ'); camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
     renderer.setScissorTest(true); renderer.setViewport(r.left, H - r.bottom, r.width, r.height); renderer.setScissor(r.left, H - r.bottom, r.width, r.height); renderer.clearDepth();
     scene.fog = new THREE.FogExp2(FOG_COL, FOG_D); renderer.render(scene, camera); scene.fog = null;
     renderer.setScissorTest(false); renderer.setViewport(0, 0, W, H);
-    saved.forEach(function (a) { a[0].scale.copy(a[1]); }); C.marker.visible = mv; upperG.visible = uv; if (C.ghost) C.ghost.visible = gv;
+    saved.forEach(function (a) { a[0].scale.copy(a[1]); }); C.marker.visible = mv; if (C.rng) C.rng.visible = rv; upperG.visible = uv; if (C.ghost) C.ghost.visible = gv;
+  }
+  function updateRange() {   // where a turret can shoot: ring while a turret is selected or being placed (gold ring = reach after the next upgrade)
+    var g = C.rng; if (!g) return; var q = C.sel != null ? findSt(C.sel) : null, r = 0, nx = 0, x = 0, z = 0;
+    if (q && q.kind === 'turret' && (q.fl | 0) === (C.floor | 0)) { x = q.x; z = q.z; r = STK.turret.range[q.lv] || 0; nx = STK.turret.range[q.lv + 1] || 0; }
+    else if (C.tool === 'turret' && C.ghost && C.ghost.visible) { x = C.mx; z = C.mz; r = STK.turret.range[0]; }
+    g.visible = r > 0; if (!r) return; g.position.set(x, 3.2, z); g.children[0].scale.set(r, r, 1); g.children[1].scale.set(r, r, 1); g.children[2].visible = nx > 0; g.children[2].scale.set(nx || 1, nx || 1, 1);
   }
   function soloCommanderFrame(dt) {
     step(dt); bot.t -= dt; if (bot.t <= 0) { bot.t = 0.2; G.left = G.zombies.length + G.toSpawn; cmdRefresh(); applyFloor(); }
-    C.marker.visible = true; C.marker.position.set(P.x, 4, P.z); C.marker.rotation.y = P.yaw;
+    C.marker.visible = true; C.marker.position.set(P.x, 4, P.z); C.marker.rotation.y = P.yaw; updateRange();
   }
   function startSoloCommander() {
     bot.solo = true; bot.shoot = true; linked = true; $('joinOv').hidden = true; $('fpv').hidden = false; $('fpv').classList.add('solo'); $('fpvShow').hidden = true; $('cRestart').hidden = false; startGame(); toast('Solo test', 'A bot is the shooter'); cmdRefresh();
@@ -1898,7 +1920,7 @@ body.cmdr #cmd { display: block; }
   function commanderFrame(dt) {
     G.t += dt; placeTrapMeshes();
     G.zombies.forEach(function (e) { if (e.tx != null) { var k = Math.min(1, dt * 14); e.x += (e.tx - e.x) * k; e.z += (e.tz - e.z) * k; } e.ph += dt * 6; });
-    placeZombieMeshes(); placeStructMeshes();
+    placeZombieMeshes(); placeStructMeshes(); updateRange();
   }
 
   // ---------- main loop ----------
@@ -1913,12 +1935,13 @@ body.cmdr #cmd { display: block; }
     var fv = 75 + (ADSF[P.w] - 75) * P.ads + P.fovK * shakeK; if (Math.abs(camera.fov - fv) > 0.02) { camera.fov = fv; camera.updateProjectionMatrix(); } stepNums(dt);
     gunRig.position.set(Math.sin(P.bob * 0.5) * 0.01, Math.abs(Math.sin(P.bob)) * 0.012 - P.kick * 0.2, P.kick * 0.9); gunRig.rotation.x = P.kick * 1.4 + (P.rel > 0 ? -0.5 * Math.sin(Math.min(1, (WEAPONS[P.w].reload - P.rel) / WEAPONS[P.w].reload) * PI) : 0);
     animGun(dt); stepDebris(dt);
+    P.mt = Math.max(0, (P.mt || 0) - dt * 3.2); if (P.mt > 0) { var mp = 1 - P.mt, arc = Math.sin(Math.min(1, mp / 0.9) * PI); gunRig.position.z -= 0.28 * arc; gunRig.position.y -= 0.04 * arc; gunRig.position.x -= 0.12 * arc; gunRig.rotation.x -= 0.7 * arc; gunRig.rotation.y = (0.6 - 1.4 * mp) * arc; } else gunRig.rotation.y = 0;
     var ad = P.ads; if (ad > 0.001) { gunRig.position.x -= 0.165 * ad; gunRig.position.y += ADSY[P.w] * ad; }
     var sc = P.w === 2 ? Math.max(0, Math.min(1, (ad - 0.7) / 0.3)) : 0; gunRig.visible = sc < 0.99; hudE.scope.style.opacity = sc; hudE.cross.style.opacity = 1 - Math.min(1, ad * 1.6);
     renderer.render(scene, camera); copyView();
     requestAnimationFrame(frame);
   }
-  window.__z = { hitDist: zombieHitDist, dmg: damageZombie, acids: acids, aud: function () { return { actx: actx, master: aMaster, out: aOut, bus: mBus, mu: MU }; }, sfx: sfx, audioOn: audioOn, nav: nav, inDeck: inDeck, surfaceH: surfaceH, DECKS: DECKS, applyFloor: applyFloor, C: C, coinFx: coinFx, corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
+  window.__z = { melee: melee, hitDist: zombieHitDist, dmg: damageZombie, acids: acids, aud: function () { return { actx: actx, master: aMaster, out: aOut, bus: mBus, mu: MU }; }, sfx: sfx, audioOn: audioOn, nav: nav, inDeck: inDeck, surfaceH: surfaceH, DECKS: DECKS, applyFloor: applyFloor, C: C, coinFx: coinFx, corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
   if (role === 'commander') initCommander(); else startHost();
   requestAnimationFrame(frame);
 })();
