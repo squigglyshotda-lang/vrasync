@@ -562,29 +562,66 @@ body.cmdr #cmd { display: block; }
   // ---------- test bots (solo play) ----------
   var BOT_SPOTS = [[-2.5, -12.5], [2.5, -12.5], [-2.5, 12.5], [2.5, 12.5], [-12.5, -2.5], [-12.5, 2.5], [12.5, -2.5], [12.5, 2.5]];
   function botCommander(dt) {
-    bot.ct -= dt; if (bot.ct > 0) return; bot.ct = 1.2;
+    bot.ct -= dt; if (bot.ct > 0) return; bot.ct = 1.0;
     var turrets = G.st.filter(function (q) { return q.kind === 'turret'; }), i, q;
     for (i = 0; i < G.st.length; i++) { q = G.st[i]; if (q.hp < q.hpMax * 0.5 && G.coins >= stRepCost(q)) { onCmd({ c: 'rep', id: q.id }); return; } }
     var ammoTot = P.ammo[0].res + P.ammo[1].res + P.ammo[2].res;
-    if (ammoTot < 40 && G.coins >= 15 && !pickups.some(function (p) { return p.big && p.kind === 'ammo'; })) { onCmd({ c: 'drop', k: 'ammo', x: P.x + 2.5, z: P.z + 2.5 }); return; }
-    if (G.base < G.baseMax * 0.5 && G.coins >= 25 && !pickups.some(function (p) { return p.big && p.kind === 'health'; })) { onCmd({ c: 'drop', k: 'health', x: P.x - 2.5, z: P.z + 2.5 }); return; }
-    if (turrets.length < 6 && G.coins >= stPrice('turret')) { for (i = 0; i < BOT_SPOTS.length; i++) if (stFree(BOT_SPOTS[i][0], BOT_SPOTS[i][1])) { onCmd({ c: 'build', k: 'turret', x: BOT_SPOTS[i][0], z: BOT_SPOTS[i][1] }); return; } }
-    var u = turrets.filter(function (t) { return t.lv < 2 && G.coins >= stUpCost(t) + 20; })[0]; if (u) { onCmd({ c: 'up', id: u.id }); return; }
-    if (G.cd <= 0 && G.coins >= 60 && G.tr.filter(function (t) { return t.kind === 'mine'; }).length < 3) { var mi = Math.floor(rnd() * 4), mo = (rnd() - 0.5) * 6, mr = 14 + rnd() * 6; onCmd({ c: 'trap', k: 'mine', x: [0, 0, -mr, mr][mi] + (mi < 2 ? mo : 0), z: [-mr, mr, 0, 0][mi] + (mi < 2 ? 0 : mo) }); }
+    if (ammoTot < 40 && G.coins >= 15 && !pickups.some(function (p) { return p.big && p.kind === 'ammo'; })) { var ap = botSafeSpot(2.5, 2.5); onCmd({ c: 'drop', k: 'ammo', x: ap[0], z: ap[1] }); return; }
+    if (G.base < G.baseMax * 0.5 && G.coins >= 25 && !pickups.some(function (p) { return p.big && p.kind === 'health'; })) { var hp = botSafeSpot(-2.5, 2.5); onCmd({ c: 'drop', k: 'health', x: hp[0], z: hp[1] }); return; }
+    // build where the zombies are coming from: free spots ranked by how close they are to the nearest zombie
+    function nearestZ(x, z) { var d = 1e9; G.zombies.forEach(function (e) { var k = Math.hypot(e.x - x, e.z - z); if (k < d) d = k; }); return d; }
+    var free = BOT_SPOTS.filter(function (b) { return stFree(b[0], b[1]); });
+    if (turrets.length < 8 && G.coins >= stPrice('turret') && free.length) {
+      var side = function (b) { return G.zombies.length ? nearestZ(b[0], b[1]) : (turrets.length % 2 ? Math.abs(b[0]) : Math.abs(b[1])); };
+      free.sort(function (a, b) { return side(a) - side(b); }); onCmd({ c: 'build', k: 'turret', x: free[0][0], z: free[0][1] }); return;
+    }
+    var u = turrets.filter(function (t) { return t.lv < 2 && G.coins >= stUpCost(t) + 20; }).sort(function (a, b) { return a.lv - b.lv; })[0]; if (u) { onCmd({ c: 'up', id: u.id }); return; }
+    // a barricade in front of each turret to hold zombies in its range
+    if (turrets.length >= 3 && G.coins >= stPrice('barricade') + 30 && G.st.filter(function (k) { return k.kind === 'barricade'; }).length < 6) {
+      for (i = 0; i < turrets.length; i++) { var t = turrets[i], m = Math.hypot(t.x, t.z) || 1, bx = snapC(t.x + t.x / m * 3), bz = snapC(t.z + t.z / m * 3); if (stFree(bx, bz)) { onCmd({ c: 'build', k: 'barricade', x: bx, z: bz }); return; } }
+    }
+    if (G.cd <= 0 && G.coins >= 60 && G.tr.filter(function (t) { return t.kind === 'mine'; }).length < 4) {
+      var mi = Math.floor(rnd() * 4), mo = (rnd() - 0.5) * 6, mr = 14 + rnd() * 6; onCmd({ c: 'trap', k: 'mine', x: [0, 0, -mr, mr][mi] + (mi < 2 ? mo : 0), z: [-mr, mr, 0, 0][mi] + (mi < 2 ? 0 : mo) }); return;
+    }
+    if (G.zombies.length > 12 && G.coins >= 90 && G.tr.filter(function (t) { return t.kind === 'decoy'; }).length < 2) { var dz = G.zombies[0]; onCmd({ c: 'trap', k: 'decoy', x: dz.x * 0.6, z: dz.z * 0.6 }); }
+  }
+  function botSafeSpot(dx, dz) {   // a spot near the shooter that is not inside a wall
+    var c = [[dx, dz], [-dx, dz], [dx, -dz], [-dx, -dz]]; for (var i = 0; i < c.length; i++) if (pointFree(P.x + c[i][0], P.z + c[i][1])) return [P.x + c[i][0], P.z + c[i][1]];
+    return [P.x, P.z];
+  }
+  function botSees(e) {   // true if nothing solid is between the bot's eyes and the zombie's chest
+    var ox = P.x, oy = eyeY(), oz = P.z, ty = 1.0 * ZT[e.type].sc + groundH(e.x, e.z), dx = e.x - ox, dy = ty - oy, dz = e.z - oz, d = Math.hypot(dx, dy, dz) || 1;
+    dx /= d; dy /= d; dz /= d;
+    for (var i = 0; i < solids.length; i++) if (rayBox(ox, oy, oz, dx, dy, dz, solids[i], solids[i].h || 3.6) < d - 0.3) return false;
+    return true;
   }
   function botInput(dt) {
-    var n = null, nd = 1e9, o = { fwd: 0, side: 0, sprint: false, shoot: false };
-    G.zombies.forEach(function (e) { var d = Math.hypot(e.x - P.x, e.z - P.z); if (d < nd) { nd = d; n = e; } });
-    if (n && nd < 30) {
-      var ty = Math.atan2(-(n.x - P.x), -(n.z - P.z)), dy = ty - P.yaw; while (dy > PI) dy -= 2 * PI; while (dy < -PI) dy += 2 * PI;
-      P.yaw += dy * Math.min(1, dt * 7); P.pitch += (Math.atan2(1.1 - 1.7, nd) - P.pitch) * Math.min(1, dt * 7);
-      var wi = nd < 7 ? 1 : 2; if (P.w !== wi && P.rel <= 0) switchWeapon(wi);
-      o.shoot = Math.abs(dy) < 0.2 && (WEAPONS[P.w].auto || Math.floor(G.t * 6) % 2 === 0);
+    var o = { fwd: 0, side: 0, sprint: false, shoot: false }, tgt = null, td = 1e9, near = null, nd = 1e9;
+    G.zombies.forEach(function (e) {
+      var d = Math.hypot(e.x - P.x, e.z - P.z); if (d < nd) { nd = d; near = e; }
+      if (d < td && d < 32 && botSees(e)) { td = d; tgt = e; }
+    });
+    var face = tgt || near;
+    if (face) {   // turn toward the target; only the one it can actually see is shot at
+      var fd = Math.hypot(face.x - P.x, face.z - P.z), ty = Math.atan2(-(face.x - P.x), -(face.z - P.z)), dy = ty - P.yaw; while (dy > PI) dy -= 2 * PI; while (dy < -PI) dy += 2 * PI;
+      P.yaw += dy * Math.min(1, dt * 8);
+      var aimY = (tgt ? (td < 9 ? 1.5 : 1.05) : 1.0) * ZT[face.type].sc + groundH(face.x, face.z);   // head when close, chest when far
+      P.pitch += (Math.atan2(aimY - eyeY(), Math.max(0.5, fd)) - P.pitch) * Math.min(1, dt * 8);
+      if (tgt) {
+        var want = td < 7 && P.ammo[1].mag + P.ammo[1].res > 0 ? 1 : 2; if (P.ammo[want].mag + P.ammo[want].res === 0) want = P.ammo[2].mag + P.ammo[2].res > 0 ? 2 : 0;
+        if (P.w !== want && P.rel <= 0) switchWeapon(want);
+        o.shoot = Math.abs(dy) < 0.12 && (WEAPONS[P.w].auto || Math.floor(G.t * 6) % 2 === 0);
+        if (td < 5) o.fwd = -1;                          // back off when they get close
+        else o.side = Math.sin(G.t * 0.9) * 0.6;         // otherwise strafe a little
+      }
     }
-    var hx = 0, hz = 7; pickups.forEach(function (p) { hx = p.x; hz = p.z; });
-    var dx = hx - P.x, dz = hz - P.z, dd = Math.hypot(dx, dz);
-    if (dd > 1.5) { dx /= dd; dz /= dd; o.fwd = dx * -Math.sin(P.yaw) + dz * -Math.cos(P.yaw); o.side = dx * Math.cos(P.yaw) + dz * -Math.sin(P.yaw); }
-    var a = P.ammo[P.w]; if (a.mag === 0 && a.res > 0) reload(); P.ammo.forEach(function (x, k) { if (x.res < 12) x.res = Math.min(WEAPONS[k].resMax, 30); });   // the test bot never runs dry
+    if (!tgt || td > 12) {   // go back to the town hall steps, or pick up a drop if the way is clear
+      var hx = 0, hz = 7; pickups.forEach(function (p) { if (clearLine(P.x, P.z, p.x, p.z)) { hx = p.x; hz = p.z; } });
+      var ddx = hx - P.x, ddz = hz - P.z, dd = Math.hypot(ddx, ddz);
+      if (dd > 1.5) { ddx /= dd; ddz /= dd; o.fwd += ddx * -Math.sin(P.yaw) + ddz * -Math.cos(P.yaw); o.side += ddx * Math.cos(P.yaw) + ddz * -Math.sin(P.yaw); }
+    }
+    var a = P.ammo[P.w]; if (a.mag === 0 && a.res > 0) reload(); if (a.mag < WEAPONS[P.w].mag * 0.3 && a.res > 0 && !tgt) reload();
+    P.ammo.forEach(function (x, k) { if (x.res < 12) x.res = Math.min(WEAPONS[k].resMax, 30); });   // the test bot never runs dry
     return o;
   }
   // ---------- zombie pathing: a cost map over the town, rebuilt when defences change ----------
