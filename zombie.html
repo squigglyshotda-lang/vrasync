@@ -51,10 +51,39 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .card button { font: 700 18px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--amber); border: 0; padding: 0 22px; min-height: 54px; cursor: pointer; }
 .card .keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font: 500 13px var(--font-data); color: var(--text); }
 .card .keys b { color: var(--amber); font-weight: 600; }
+body.cmdr #hud, body.cmdr #startOv, body.cmdr #endOv { display: none !important; }
+#cmd { display: none; position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+body.cmdr #cmd { display: block; }
+#cmd button { pointer-events: auto; font: 700 14px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(14, 20, 36, .92); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation; }
+#cTop { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 22px; align-items: baseline; padding: 10px 16px; background: linear-gradient(rgba(10, 14, 26, .92), rgba(10, 14, 26, 0)); font: 700 13px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+#cTop b { color: var(--text); font-size: 24px; margin-left: 6px; font-variant-numeric: tabular-nums; } #cTop b.amb { color: var(--amber); } #cTop .st { margin-left: auto; font: 500 12px var(--font-data); letter-spacing: .04em; text-transform: none; }
+#cTools { position: absolute; left: 12px; top: 64px; display: grid; gap: 8px; width: 150px; }
+#cTools button { display: grid; grid-template-columns: 1fr auto; text-align: left; padding: 8px 10px; min-height: 58px; align-items: center; gap: 0 6px; border-left: 4px solid var(--ac, var(--amber)); }
+#cTools button small { font: 500 10px var(--font-data); color: var(--muted); letter-spacing: .02em; text-transform: none; grid-column: 1 / -1; }
+#cTools button .pc { font: 700 15px var(--font-display); color: var(--amber); grid-column: 2; grid-row: 1; }
+#cTools button[aria-pressed="true"] { background: rgba(255, 180, 58, .16); border-color: var(--amber); }
+#cTools button.poor .pc { color: var(--hot); }
+#cSel { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: rgba(14, 20, 36, .95); border: 1px solid var(--amber); padding: 8px 10px; pointer-events: auto; }
+#cSel #cSelTxt { font: 600 13px var(--font-data); color: var(--text); margin-right: 6px; } #cSel button { min-height: 46px; padding: 0 14px; } #cSel button:disabled { opacity: .45; }
+#cMsg { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); font: 600 14px var(--font-data); color: var(--amber); text-shadow: 0 1px 6px #000; text-align: center; }
+#joinOv input { font: 700 40px var(--font-display); letter-spacing: .4em; text-align: center; text-transform: uppercase; width: 100%; padding: 8px; background: #0a0e1a; color: var(--text); border: 1px solid var(--line); }
+.codebox { position: absolute; top: 74px; left: 16px; font: 600 13px var(--font-data); color: var(--muted); } .codebox b { color: var(--amber); font-size: 20px; letter-spacing: .3em; margin-left: 8px; }
 </style>
 </head>
 <body>
 <div id="stage"></div>
+<div id="cmd">
+  <div id="cTop"><span>Wave<b id="cWave">-</b></span><span>Safehouse<b id="cBase">-</b></span><span>Coins<b class="amb" id="cCoins">0</b></span><span>Score<b id="cScore">0</b></span><span class="st" id="cSt">Connecting...</span></div>
+  <div id="cTools">
+    <button type="button" data-tool="turret" style="--ac:#ffb43a" aria-pressed="false"><span class="nm">Turret</span><span class="pc" id="pcTurret">40</span><small>Shoots the nearest zombie</small></button>
+    <button type="button" data-tool="barricade" style="--ac:#9a7a4a" aria-pressed="false"><span class="nm">Barricade</span><span class="pc" id="pcBarricade">10</span><small>Blocks and slows them</small></button>
+  </div>
+  <div id="cSel" hidden><span id="cSelTxt"></span><button type="button" id="cRep"></button><button type="button" id="cUp"></button><button type="button" id="cSell"></button><button type="button" id="cX" aria-label="Close">&#10005;</button></div>
+  <div id="cMsg"></div>
+</div>
+<div class="overlay" id="joinOv" hidden>
+  <div class="card"><h2 style="color:var(--amber)">Commander</h2><p>Type the 4 letters shown on the shooter's screen.</p><input id="codeIn" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"><button id="codeGo" type="button">Connect</button><p id="joinMsg"></p></div>
+</div>
 <div id="hud">
   <div class="bar" id="baseBar"><div class="tl">Safehouse</div><div class="tr"><i id="baseFill"></i></div></div>
   <div class="mid"><span id="waveLbl">Wave</span><b id="waveNum">-</b><small id="waveSub"></small></div>
@@ -62,6 +91,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   <div id="cross"><i></i></div><div id="hit"></div><div id="vig"></div>
   <div id="toast"></div>
   <div class="gun"><b id="ammo">-<span>/-</span></b><div id="gunName">Pistol</div><div class="slots" id="slots"><span>1 Pistol</span><span>2 Shotgun</span><span>3 Rifle</span></div></div>
+  <div class="codebox" id="codeBox" hidden>Commander code<b id="codeBoxV"></b></div>
   <div id="hint">WASD move · Shift sprint · mouse aim · click shoot · R reload · 1-3 or wheel weapons · Esc release mouse</div>
 </div>
 <div class="overlay" id="startOv">
@@ -69,7 +99,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     <h1>Dead Block</h1>
     <p>Hold the safehouse. Zombies march down the three streets. You fight them on foot; the commander builds the defences.</p>
     <div class="keys"><b>Move</b><span>WASD / left stick</span><b>Aim</b><span>Mouse / right stick</span><b>Shoot</b><span>Click / right trigger</span><b>Reload</b><span>R / X</span><b>Weapons</b><span>1 2 3, wheel / bumpers</span><b>Sprint</b><span>Shift / left stick click</span></div>
+    <p id="codeLine" style="color:var(--amber)">Commander code: ...</p>
     <button id="startBtn" type="button">Click to play</button>
+    <p>Commander on a tablet? Open this page with <b style="color:var(--amber)">#commander</b> on the end and type the code above.</p>
   </div>
 </div>
 <div class="overlay" id="endOv" hidden>
@@ -77,11 +109,14 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 </div>
 
 <script src="vendor/three.min.js"></script>
+<script src="vendor/peerjs.min.js"></script>
 <script>
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var rnd = Math.random, PI = Math.PI;
+  var rnd = Math.random, PI = Math.PI, role = /^#?commander/.test(location.hash || '') ? 'commander' : 'shooter';
+  if (role === 'commander') document.body.classList.add('cmdr');
+  window.addEventListener('hashchange', function () { location.reload(); });
 
   // ---------- world ----------
   var HALF = 29, SAFE = { x0: -3, x1: 3, z0: 19, z1: 25 };
@@ -102,11 +137,12 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   var renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   $('stage').appendChild(renderer.domElement);
-  var scene = new THREE.Scene(); scene.background = new THREE.Color(0x0a0e1a); scene.fog = new THREE.FogExp2(0x0a0e1a, 0.022);
+  var scene = new THREE.Scene(); scene.background = new THREE.Color(0x0a0e1a); scene.fog = role === 'commander' ? null : new THREE.FogExp2(0x0a0e1a, 0.022);
+  var mapCam = new THREE.OrthographicCamera(-40, 40, 31, -31, 1, 200); mapCam.position.set(0, 100, 0); mapCam.up.set(0, 0, -1); mapCam.lookAt(0, 0, 0);
   var camera = new THREE.PerspectiveCamera(75, 1, 0.1, 140); scene.add(camera);
-  scene.add(new THREE.HemisphereLight(0x6a7ab0, 0x1c1c26, 0.95));
+  scene.add(new THREE.HemisphereLight(0x6a7ab0, 0x1c1c26, role === 'commander' ? 1.5 : 0.95));
   var moon = new THREE.DirectionalLight(0x9fb0ff, 0.55); moon.position.set(-20, 40, -10); scene.add(moon);
-  function resize() { var w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  function resize() { var w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); var hh = 31.5; mapCam.top = hh; mapCam.bottom = -hh; mapCam.right = hh * w / h; mapCam.left = -hh * w / h; mapCam.updateProjectionMatrix(); }
   window.addEventListener('resize', resize); resize();
 
   function box(w, h, d, col, x, y, z, parent) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: col })); m.position.set(x, y, z); (parent || scene).add(m); return m; }
@@ -144,7 +180,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     runner: { hp: 34, spd: 3.7, dmg: 2, coin: 4, score: 15, sc: 0.92, col: 0xa8b04a },
     brute: { hp: 320, spd: 1.15, dmg: 9, coin: 16, score: 50, sc: 1.45, col: 0x7a4a6a }
   };
-  var G = { running: false, over: false, wave: 0, cd: 0, clr: true, toSpawn: 0, spawnT: 0, q: [], zombies: [], base: 100, baseMax: 100, score: 0, coins: 0, kills: 0, nid: 1, t: 0 };
+  var G = { running: false, over: false, wave: 0, cd: 0, clr: true, toSpawn: 0, spawnT: 0, q: [], zombies: [], base: 100, baseMax: 100, score: 0, coins: 0, kills: 0, nid: 1, t: 0, st: [] };
+  var allSolids = solids.slice();
   var P = { x: 0, z: 14, yaw: 0, pitch: 0, vx: 0, vz: 0, slow: 0, w: 0, ammo: [], fireT: 0, rel: 0, relFor: -1, bob: 0, hold: false, sprint: false, kick: 0 };
   function resetPlayer() { P.x = 0; P.z = 14; P.yaw = 0; P.pitch = 0; P.slow = 0; P.w = 0; P.fireT = 0; P.rel = 0; P.relFor = -1; P.ammo = WEAPONS.map(function (w) { return { mag: w.mag, res: w.res }; }); }
   resetPlayer();
@@ -266,7 +303,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   // ---------- HUD ----------
   var hudE = { baseFill: $('baseFill'), baseBar: $('baseBar'), waveNum: $('waveNum'), waveSub: $('waveSub'), score: $('score'), coins: $('coins'), ammo: $('ammo'), gunName: $('gunName'), slots: $('slots').children, vig: $('vig'), hit: $('hit'), toast: $('toast') };
   var toastT = 0, hitT = 0, vigA = 0;
-  function toast(t, s) { hudE.toast.innerHTML = t + (s ? '<small>' + s + '</small>' : ''); toastT = 2.2; }
+  function toast(t, s) { if (role === 'commander') { var cm = $('cMsg'); cm.textContent = t; clearTimeout(toast.h); toast.h = setTimeout(function () { cm.textContent = ''; }, 2200); return; } hudE.toast.innerHTML = t + (s ? '<small>' + s + '</small>' : ''); toastT = 2.2; }
   function refreshHud() {
     hudE.baseFill.style.width = Math.max(0, G.base / G.baseMax * 100) + '%'; hudE.baseBar.classList.toggle('low', G.base / G.baseMax < 0.3);
     hudE.waveNum.textContent = G.running ? G.wave || '…' : '-';
@@ -335,6 +372,82 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     }
   }
 
+  // ---------- commander structures ----------
+  var STK = {
+    turret: { n: 'Turret', cost: 40, grow: 0.25, hp: [70, 100, 140], dmg: [11, 18, 28], range: [12, 14, 16], gap: [0.45, 0.38, 0.3], up: [30, 55], r: 0.4, col: [0x7a7f8c, 0x4a8ad8, 0xe0b040] },
+    barricade: { n: 'Barricade', cost: 10, grow: 0.04, hp: [170], up: [], r: 0.5, col: [0x8a6a3a] }
+  };
+  var KINDS = ['turret', 'barricade'], TYPES = ['walker', 'runner', 'brute'], ST_MAX = 16;
+  function r2(v) { return Math.round(v * 100) / 100; }
+  function stPrice(kind) { var n = 0; G.st.forEach(function (q) { if (q.kind === kind) n++; }); return Math.round(STK[kind].cost * (1 + STK[kind].grow * n)); }
+  function stUpCost(q) { return STK[q.kind].up[q.lv] || 0; }
+  function stRepCost(q) { return Math.max(1, Math.round(STK[q.kind].cost * 0.5 * (1 - q.hp / q.hpMax) * (1 + 0.4 * q.lv))); }
+  function stWorth(q) { return Math.floor((q.paid || STK[q.kind].cost) / 2); }
+  function stBox(q) { var r = STK[q.kind].r; return { x0: q.x - r, x1: q.x + r, z0: q.z - r, z1: q.z + r }; }
+  function snapC(v) { return Math.max(-27.5, Math.min(27.5, Math.floor(v) + 0.5)); }
+  function stFree(x, z) {
+    if (z < -22 || Math.abs(x) > 28) return false;
+    var b = { x0: x - 0.5, x1: x + 0.5, z0: z - 0.5, z1: z + 0.5 };
+    for (var i = 0; i < solids.length; i++) { var s = solids[i]; if (b.x0 < s.x1 && b.x1 > s.x0 && b.z0 < s.z1 && b.z1 > s.z0) return false; }
+    if (distBox(x, z, SAFE_BOX) < 1.2) return false;
+    for (var j = 0; j < G.st.length; j++) if (Math.abs(G.st[j].x - x) < 0.99 && Math.abs(G.st[j].z - z) < 0.99) return false;
+    return true;
+  }
+  function buildStMesh(kind, lv) {
+    var g = new THREE.Group(), col = STK[kind].col[Math.min(lv, STK[kind].col.length - 1)];
+    function bx(w, h, d, c, x, y, z) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: c })); m.position.set(x, y, z); g.add(m); return m; }
+    if (kind === 'turret') {
+      bx(0.7, 0.5, 0.7, 0x2c303a, 0, 0.25, 0); var head = new THREE.Group(); head.position.y = 0.75; g.add(head);
+      var hb = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.28, 0.45), new THREE.MeshLambertMaterial({ color: col })); head.add(hb);
+      var br = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.7), new THREE.MeshLambertMaterial({ color: 0x1c1f26 })); br.position.z = -0.45; head.add(br);
+      if (lv >= 1) { var b2 = br.clone(); b2.position.set(0.14, 0, -0.45); head.add(b2); br.position.x = -0.14; }
+      g.userData.head = head;
+    } else {
+      bx(1.0, 0.2, 0.18, col, 0, 0.35, 0).rotation.z = 0.05; bx(1.0, 0.2, 0.18, col, 0, 0.7, 0.05).rotation.z = -0.04; bx(1.0, 0.2, 0.18, col, 0, 1.05, 0);
+      bx(0.14, 1.3, 0.3, 0x4a3820, -0.45, 0.65, 0); bx(0.14, 1.3, 0.3, 0x4a3820, 0.45, 0.65, 0);
+    }
+    var bar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.07, 0.07), new THREE.MeshBasicMaterial({ color: 0x6be08a })); bar.position.y = kind === 'turret' ? 1.25 : 1.6; bar.visible = false; g.add(bar); g.userData.bar = bar;
+    scene.add(g); return g;
+  }
+  function addStruct(kind, x, z, id) {
+    var K = STK[kind], q = { id: id || G.nid++, kind: kind, x: x, z: z, lv: 0, hp: K.hp[0], hpMax: K.hp[0], cd: 0.5, paid: 0, aim: 0 }; q.mesh = buildStMesh(kind, 0); q.mesh.position.set(x, 0, z); G.st.push(q); dirtySolids(); return q;
+  }
+  function removeStruct(q) { scene.remove(q.mesh); var i = G.st.indexOf(q); if (i >= 0) G.st.splice(i, 1); dirtySolids(); }
+  function dirtySolids() { allSolids = solids.concat(G.st.map(stBox)); }
+  function setStLevel(q, lv) { scene.remove(q.mesh); q.lv = lv; q.mesh = buildStMesh(q.kind, lv); q.mesh.position.set(q.x, 0, q.z); }
+  function findSt(id) { for (var i = 0; i < G.st.length; i++) if (G.st[i].id === id) return G.st[i]; return null; }
+  function stepStructures(dt) {
+    G.st.forEach(function (q) {
+      if (q.kind !== 'turret') return; var K = STK.turret; q.cd -= dt; if (q.cd > 0) return;
+      var best = null, bd = K.range[q.lv];
+      G.zombies.forEach(function (e) { var d = Math.hypot(e.x - q.x, e.z - q.z); if (d < bd) { var wall = false, dx = e.x - q.x, dz = e.z - q.z, dl = d || 1; for (var i = 0; i < solids.length; i++) if (rayBox(q.x, 0.9, q.z, dx / dl, 0, dz / dl, solids[i], 20) < d) { wall = true; break; } if (!wall) { bd = d; best = e; } } });
+      if (!best) { q.cd = 0.15; return; }
+      q.cd = K.gap[q.lv]; q.aim = Math.atan2(best.x - q.x, best.z - q.z); tracer(q.x, 0.95, q.z, best.x, 1.1 * ZT[best.type].sc, best.z); spark(best.x, 1.1, best.z, 0xb01818, 2);
+      damageZombie(best, K.dmg[q.lv], (best.x - q.x) / bd, (best.z - q.z) / bd); if (role === 'shooter') sfx('pistol');
+    });
+  }
+  function placeStructMeshes() {
+    G.st.forEach(function (q) {
+      var u = q.mesh.userData; if (u.head && role === 'shooter') u.head.rotation.y = q.aim + PI;
+      var f = q.hp / q.hpMax; u.bar.visible = f < 0.999; u.bar.scale.x = Math.max(0.02, f); u.bar.material.color.setHex(f > 0.5 ? 0x6be08a : f > 0.25 ? 0xffb43a : 0xff5a4d);
+    });
+  }
+  function onCmd(m) {   // commander -> shooter's page
+    if (!m || typeof m.c !== 'string' || !G.running || G.over) return;
+    var x = +m.x, z = +m.z;
+    if (m.c === 'build') {
+      var kind = m.k; if (!STK[kind] || !isFinite(x) || !isFinite(z)) return; x = snapC(x); z = snapC(z);
+      var price = stPrice(kind); if (G.coins < price) return say('Not enough coins'); if (G.st.length >= ST_MAX) return say('Structure limit reached');
+      if (!stFree(x, z)) return say('Cannot build there');
+      var q = addStruct(kind, x, z); q.paid = price; G.coins -= price; sfx('pickup'); return;
+    }
+    var q2 = findSt(m.id | 0); if (!q2) return;
+    if (m.c === 'rep') { if (q2.hp >= q2.hpMax - 0.01) return; var rc = stRepCost(q2); if (G.coins < rc) return say('Not enough coins'); G.coins -= rc; q2.hp = q2.hpMax; sfx('pickup'); }
+    else if (m.c === 'up') { if (q2.lv >= STK[q2.kind].up.length) return; var uc = stUpCost(q2); if (G.coins < uc) return say('Not enough coins'); G.coins -= uc; q2.paid += uc; setStLevel(q2, q2.lv + 1); q2.hpMax = STK[q2.kind].hp[q2.lv]; q2.hp = q2.hpMax; sfx('pickup'); }
+    else if (m.c === 'sell') { G.coins += stWorth(q2); removeStruct(q2); sfx('pickup'); }
+  }
+  function say(t) { toast(t); sendAll({ t: 'tx', s: t }); }
+
   // ---------- simulation ----------
   function stepZombies(dt) {
     var list = G.zombies;
@@ -348,15 +461,18 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
         while (e.pi < L.length && Math.hypot(L[e.pi][0] + (e.pi < L.length - 1 ? e.ox : 0) - e.x, L[e.pi][1] + (e.pi < L.length - 1 ? e.oz : 0) - e.z) < 1.4) e.pi++;
         if (e.pi < L.length) { tx = L[e.pi][0] + (e.pi < L.length - 1 ? e.ox : 0); tz = L[e.pi][1] + (e.pi < L.length - 1 ? e.oz : 0); } else { tx = 0; tz = 22; }
       }
+      var ns = null, nd = 2.4; if (!chase) G.st.forEach(function (q) { var d = Math.hypot(q.x - e.x, q.z - e.z); if (d < nd) { nd = d; ns = q; } });
+      if (ns) { tx = ns.x; tz = ns.z; }
       var dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, atkBase = distBox(e.x, e.z, SAFE_BOX) < 1.35 && !chase;
       if (atkBase) { G.base -= T.dmg * dt; e.atk = 1; if (rnd() < dt * 2) sfx('base'); }
+      else if (ns && distBox(e.x, e.z, stBox(ns)) < 0.75) { ns.hp -= T.dmg * 2.2 * dt; e.atk = 1; if (ns.hp <= 0) { removeStruct(ns); toast('Defence destroyed'); } }
       else if (chase && pd < 1.15) { e.atk = 1; if (P.slow <= 0) { P.slow = 1.0; vigA = 0.7; var kd = Math.hypot(P.x - e.x, P.z - e.z) || 1; P.vx += (P.x - e.x) / kd * 7; P.vz += (P.z - e.z) / kd * 7; sfx('hit'); } }
       else { var sp = T.spd * (0.9 + 0.05 * Math.min(G.wave, 10)); e.x += dx / dist * sp * dt; e.z += dz / dist * sp * dt; e.atk = 0; }
       e.face = Math.atan2(dx, dz);
       if (e.kx || e.kz) { e.x += e.kx * dt * 6; e.z += e.kz * dt * 6; e.kx *= Math.exp(-6 * dt); e.kz *= Math.exp(-6 * dt); }
       // separation
       for (var j = i - 1; j >= 0 && j > i - 14; j--) { var o = list[j], ddx = e.x - o.x, ddz = e.z - o.z, dd = Math.hypot(ddx, ddz); if (dd < 0.7 && dd > 0.001) { var pu = (0.7 - dd) / 2; e.x += ddx / dd * pu; e.z += ddz / dd * pu; o.x -= ddx / dd * pu; o.z -= ddz / dd * pu; } }
-      pushOut(e, 0.4, solids); e.ph += dt * T.spd * 3; e.flash = Math.max(0, e.flash - dt);
+      pushOut(e, 0.4, allSolids); e.ph += dt * T.spd * 3; e.flash = Math.max(0, e.flash - dt);
     }
   }
   function placeZombieMeshes() {
@@ -373,7 +489,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
       if (G.cd > 0) { G.cd -= dt; if (G.cd <= 0) startWave(G.wave + 1); }
       else if (G.toSpawn > 0) { G.spawnT -= dt; if (G.spawnT <= 0) { spawnZombie(); G.spawnT = Math.max(0.35, 1.5 - 0.06 * G.wave) * (0.6 + rnd() * 0.8); } }
       else if (!G.clr && G.zombies.length === 0) { G.clr = true; var bonus = 20 + 6 * G.wave; G.coins += bonus; G.score += 50 * G.wave; G.cd = 12; toast('Wave ' + G.wave + ' cleared', '+' + bonus + ' coins'); }
-      stepZombies(dt); stepPickups(dt);
+      stepStructures(dt); stepZombies(dt); stepPickups(dt);
       if (G.base <= 0) gameOver();
     }
     // player
@@ -382,7 +498,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     var fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
     var wx = fx * inp.fwd + rx * inp.side, wz = fz * inp.fwd + rz * inp.side, wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
     P.vx += (wx * spd - P.vx) * Math.min(1, dt * 12); P.vz += (wz * spd - P.vz) * Math.min(1, dt * 12);
-    P.x += P.vx * dt; P.z += P.vz * dt; pushOut(P, 0.42, solids);
+    P.x += P.vx * dt; P.z += P.vz * dt; pushOut(P, 0.42, allSolids);
     P.x = Math.max(-HALF, Math.min(HALF, P.x)); P.z = Math.max(-24, Math.min(HALF, P.z));
     P.bob += Math.hypot(P.vx, P.vz) * dt * 1.8;
     // weapons
@@ -393,7 +509,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     hitT = Math.max(0, hitT - dt); hudE.hit.style.opacity = hitT > 0 ? 1 : 0;
     vigA = Math.max(0, vigA - dt * 1.4); hudE.vig.style.opacity = vigA;
     toastT = Math.max(0, toastT - dt); hudE.toast.style.opacity = Math.min(1, toastT * 2);
-    stepFx(dt); placeZombieMeshes(); refreshHud();
+    stepFx(dt); placeZombieMeshes(); placeStructMeshes(); refreshHud();
   }
   function gameOver() {
     G.over = true; G.running = false; $('endMsg').textContent = 'You reached wave ' + G.wave + ' with ' + G.kills + ' kills. Score ' + G.score + '.'; $('endOv').hidden = false;
@@ -401,7 +517,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   }
   function startGame() {
     G.zombies.slice().forEach(removeZombie); pickups.forEach(function (p) { scene.remove(p.m); }); pickups.length = 0;
-    G.running = true; G.over = false; G.wave = 0; G.cd = 5; G.clr = true; G.toSpawn = 0; G.q = []; G.base = G.baseMax; G.score = 0; G.coins = 0; G.kills = 0; resetPlayer(); showGun();
+    G.st.slice().forEach(removeStruct); G.running = true; G.over = false; G.wave = 0; G.cd = 5; G.clr = true; G.toSpawn = 0; G.q = []; G.base = G.baseMax; G.score = 0; G.coins = 60; G.kills = 0; resetPlayer(); showGun();
     $('startOv').hidden = true; $('endOv').hidden = true; toast('Get ready', 'Hold the safehouse');
   }
 
@@ -436,17 +552,131 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     return o;
   }
 
+  // ---------- pairing ----------
+  var ID_PREFIX = 'dblk1-', LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ', conns = [], peer = null, myCode = '', lastGs = 0, linked = false;
+  function peerOpts() { return window.ZOMBIE_PEER_OPTS || window.VISOR_PEER_OPTS || {}; }
+  function sendAll(o) { conns.forEach(function (c) { if (c.open) { try { c.send(o); } catch (e) {} } }); }
+  function makeCode() { var c = ''; for (var i = 0; i < 4; i++) c += LETTERS[Math.floor(rnd() * LETTERS.length)]; return c; }
+  function startHost() {
+    if (!window.Peer) { $('codeLine').textContent = 'Pairing library did not load.'; return; }
+    myCode = makeCode(); var p;
+    try { p = new Peer(ID_PREFIX + myCode, peerOpts()); } catch (e) { return; } peer = p;
+    p.on('open', function () { $('codeLine').textContent = 'Commander code: ' + myCode; $('codeBoxV').textContent = myCode; $('codeBox').hidden = false; });
+    p.on('connection', function (c) {
+      c.on('open', function () { conns.push(c); linked = true; $('codeBox').hidden = true; toast('Commander linked'); });
+      c.on('data', onCmd);
+      function gone() { var i = conns.indexOf(c); if (i >= 0) conns.splice(i, 1); if (!conns.length) { linked = false; $('codeBox').hidden = !myCode; } }
+      c.on('close', gone); c.on('error', gone);
+    });
+    p.on('disconnected', function () { setTimeout(function () { try { if (!p.destroyed) p.reconnect(); } catch (e) {} }, 1500); });
+    p.on('error', function (err) { if (err && err.type === 'unavailable-id') startHost(); });
+  }
+  var TIDX = { walker: 0, runner: 1, brute: 2 };
+  function publish(t) {
+    if (!conns.length || t - lastGs < 0.1) return; lastGs = t;
+    sendAll({ t: 'gs', run: G.running, over: G.over, w: G.wave, cd: Math.round(G.cd * 10) / 10, base: Math.round(G.base), bm: G.baseMax, c: G.coins, s: G.score, k: G.kills, l: G.zombies.length + G.toSpawn, p: [r2(P.x), r2(P.z), r2(P.yaw)],
+      z: G.zombies.map(function (e) { return [e.id, r2(e.x), r2(e.z), Math.round(100 * e.hp / e.hpMax), r2(e.face), TIDX[e.type]]; }),
+      st: G.st.map(function (q) { return [q.id, KINDS.indexOf(q.kind), q.x, q.z, q.lv, Math.round(100 * q.hp / q.hpMax)]; }) });
+  }
+
+  // ---------- commander ----------
+  var C = { tool: null, sel: null, ghost: null, mx: 0, mz: 0, marker: null, last: 0 };
+  function nums(a, n) { if (!Array.isArray(a) || a.length < n) return false; for (var i = 0; i < n; i++) if (typeof a[i] !== 'number' || !isFinite(a[i])) return false; return true; }
+  function onGs(d) {
+    G.running = !!d.run; G.over = !!d.over; G.wave = d.w | 0; G.cd = +d.cd || 0; G.base = +d.base || 0; G.baseMax = +d.bm || 100; G.coins = d.c | 0; G.score = d.s | 0; G.kills = d.k | 0; G.left = d.l | 0;
+    if (nums(d.p, 3)) { C.marker.position.set(d.p[0], 4, d.p[1]); C.marker.rotation.y = d.p[2]; C.marker.visible = true; }
+    var seen = {};
+    (Array.isArray(d.z) ? d.z : []).slice(0, 200).forEach(function (a) {
+      if (!nums(a, 6)) return; var type = TYPES[a[5] | 0] || 'walker', e = null;
+      for (var i = 0; i < G.zombies.length; i++) if (G.zombies[i].id === a[0]) { e = G.zombies[i]; break; }
+      if (!e) { e = { id: a[0], type: type, x: a[1], z: a[2], hp: 1, hpMax: 1, face: a[4], ph: rnd() * 6, flash: 0, atk: 0, mesh: makeZombieMesh(type) }; e.mesh.scale.set(2.2, 1.4, 2.2); G.zombies.push(e); }
+      e.tx = a[1]; e.tz = a[2]; e.face = a[4]; seen[a[0]] = 1;
+    });
+    G.zombies.slice().forEach(function (e) { if (!seen[e.id]) removeZombie(e); });
+    var sseen = {};
+    (Array.isArray(d.st) ? d.st : []).slice(0, 40).forEach(function (a) {
+      if (!nums(a, 6) || !KINDS[a[1] | 0]) return; var kind = KINDS[a[1] | 0], q = findSt(a[0]);
+      if (!q) { q = { id: a[0], kind: kind, x: a[2], z: a[3], lv: a[4] | 0, hp: a[5], hpMax: 100, mesh: buildStMesh(kind, a[4] | 0) }; q.mesh.position.set(q.x, 0, q.z); q.mesh.scale.setScalar(1.5); G.st.push(q); }
+      if (q.lv !== (a[4] | 0)) { scene.remove(q.mesh); q.lv = a[4] | 0; q.mesh = buildStMesh(kind, q.lv); q.mesh.position.set(q.x, 0, q.z); q.mesh.scale.setScalar(1.5); }
+      q.hp = a[5]; sseen[a[0]] = 1;
+    });
+    G.st.slice().forEach(function (q) { if (!sseen[q.id]) { scene.remove(q.mesh); G.st.splice(G.st.indexOf(q), 1); if (C.sel === q.id) selectSt(null); } });
+    cmdRefresh();
+  }
+  function cmdRefresh() {
+    $('cWave').textContent = G.running || G.over ? G.wave || '...' : '-'; $('cBase').textContent = G.running || G.over ? Math.max(0, Math.round(G.base)) + '%' : '-';
+    $('cCoins').textContent = G.coins; $('cScore').textContent = G.score;
+    $('cSt').textContent = !linked ? 'Not connected' : G.over ? 'Run over: waiting for the shooter to play again' : !G.running ? 'Waiting for the shooter to start' : G.cd > 0 ? 'Next wave in ' + Math.ceil(G.cd) + ' s' : (G.left || 0) + ' zombies left';
+    KINDS.forEach(function (k) { var b = document.querySelector('#cTools [data-tool="' + k + '"]'), pr = stPrice(k); $('pc' + k[0].toUpperCase() + k.slice(1)).textContent = pr; b.classList.toggle('poor', G.coins < pr); });
+    var q = C.sel != null ? findSt(C.sel) : null; $('cSel').hidden = !q;
+    if (q) { var K = STK[q.kind], mx = q.lv >= K.up.length; $('cSelTxt').textContent = K.n + (K.up.length ? ' LV ' + (q.lv + 1) : '') + ' · HP ' + q.hp + '%';
+      $('cRep').textContent = q.hp >= 99 ? 'Full health' : 'Repair ' + stRepCost({ kind: q.kind, hp: q.hp, hpMax: 100, lv: q.lv }); $('cRep').disabled = q.hp >= 99 || G.coins < stRepCost({ kind: q.kind, hp: q.hp, hpMax: 100, lv: q.lv });
+      $('cUp').hidden = !K.up.length; $('cUp').textContent = mx ? 'Max level' : 'Upgrade ' + stUpCost(q); $('cUp').disabled = mx || G.coins < stUpCost(q); $('cSell').textContent = 'Sell +' + stWorth({ kind: q.kind, paid: K.cost + (q.lv ? K.up.slice(0, q.lv).reduce(function (a, b) { return a + b; }, 0) : 0) }); }
+  }
+  function selectSt(id) { C.sel = id; cmdRefresh(); }
+  function cmdSend(o) { var o2 = { t: 'cmd' }; for (var k in o) o2[k] = o[k]; if (conns[0] && conns[0].open) conns[0].send(o2); }
+  function ptWorld(e) {
+    var r = renderer.domElement.getBoundingClientRect(), nx = (e.clientX - r.left) / r.width, ny = (e.clientY - r.top) / r.height;
+    return { x: mapCam.left + (mapCam.right - mapCam.left) * nx, z: -mapCam.top + (mapCam.top - mapCam.bottom) * ny * 1 };
+  }
+  function initCommander() {
+    var mk = new THREE.Group(), ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.3, 20), new THREE.MeshBasicMaterial({ color: 0x4dd8ff, side: THREE.DoubleSide })), arrow = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.8, 3), new THREE.MeshBasicMaterial({ color: 0x4dd8ff }));
+    ring.rotation.x = -PI / 2; arrow.rotation.x = -PI / 2; arrow.position.set(0, 0, -2.6); mk.add(ring); mk.add(arrow); mk.position.y = 4; mk.visible = false; scene.add(mk); C.marker = mk;
+    C.ghost = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthTest: false })); C.ghost.rotation.x = -PI / 2; C.ghost.position.y = 3; C.ghost.visible = false; scene.add(C.ghost);
+    var tools = document.querySelectorAll('#cTools button');
+    tools.forEach(function (b) { b.addEventListener('click', function () { var t = b.getAttribute('data-tool'); C.tool = C.tool === t ? null : t; tools.forEach(function (o) { o.setAttribute('aria-pressed', String(o.getAttribute('data-tool') === C.tool)); }); C.ghost.visible = false; selectSt(null); }); });
+    var cv = renderer.domElement;
+    function ghostAt(e) { if (!C.tool) { C.ghost.visible = false; return; } var w = ptWorld(e); C.mx = snapC(w.x); C.mz = snapC(w.z); C.ghost.position.set(C.mx, 3, C.mz); C.ghost.material.color.setHex(stFree(C.mx, C.mz) ? 0x6be08a : 0xff5a4d); C.ghost.visible = true; }
+    cv.addEventListener('pointermove', ghostAt);
+    cv.addEventListener('pointerdown', function (e) {
+      var w = ptWorld(e), hit = null, bd = 1.3; G.st.forEach(function (q) { var d = Math.max(Math.abs(q.x - w.x), Math.abs(q.z - w.z)); if (d < bd) { bd = d; hit = q; } });
+      if (hit && !C.tool) { selectSt(hit.id); return; }
+      if (C.tool) { ghostAt(e); if (hit) { selectSt(hit.id); return; } if (!linked) { toast('Not connected to the shooter'); return; } cmdSend({ c: 'build', k: C.tool, x: C.mx, z: C.mz }); return; }
+      selectSt(null);
+    });
+    $('cRep').addEventListener('click', function () { if (C.sel != null) cmdSend({ c: 'rep', id: C.sel }); });
+    $('cUp').addEventListener('click', function () { if (C.sel != null) cmdSend({ c: 'up', id: C.sel }); });
+    $('cSell').addEventListener('click', function () { if (C.sel != null) { cmdSend({ c: 'sell', id: C.sel }); selectSt(null); } });
+    $('cX').addEventListener('click', function () { selectSt(null); });
+    // join
+    $('joinOv').hidden = false;
+    var m = /[?&]code=([A-Za-z]{4})/.exec(location.search); if (m) { $('codeIn').value = m[1].toUpperCase(); setTimeout(join, 300); }
+    $('codeIn').addEventListener('input', function () { this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); });
+    $('codeIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') join(); });
+    $('codeGo').addEventListener('click', join);
+    cmdRefresh();
+  }
+  function join() {
+    var code = $('codeIn').value.toUpperCase().replace(/[^A-Z]/g, ''); if (code.length !== 4) { $('joinMsg').textContent = 'Type the 4 letters.'; return; }
+    if (!window.Peer) { $('joinMsg').textContent = 'Pairing library did not load.'; return; }
+    $('joinMsg').textContent = 'Connecting...'; try { if (peer) peer.destroy(); } catch (e) {}
+    var p = new Peer(peerOpts()), timer; peer = p; timer = setTimeout(function () { $('joinMsg').textContent = 'No answer. Check the code and that the shooter page is open.'; }, 15000);
+    p.on('open', function () {
+      var c = p.connect(ID_PREFIX + code, { serialization: 'json', reliable: true });
+      c.on('open', function () { clearTimeout(timer); conns = [c]; linked = true; $('joinOv').hidden = true; cmdRefresh(); });
+      c.on('data', function (d) { if (d && d.t === 'gs') onGs(d); else if (d && d.t === 'tx' && typeof d.s === 'string') toast(d.s.slice(0, 60)); });
+      c.on('close', function () { linked = false; conns = []; $('joinOv').hidden = false; $('joinMsg').textContent = 'Link dropped. Connect again.'; cmdRefresh(); });
+    });
+    p.on('error', function (err) { clearTimeout(timer); $('joinMsg').textContent = err && err.type === 'peer-unavailable' ? 'No shooter has that code.' : 'Could not reach the pairing service.'; });
+  }
+  function commanderFrame(dt) {
+    G.zombies.forEach(function (e) { if (e.tx != null) { var k = Math.min(1, dt * 14); e.x += (e.tx - e.x) * k; e.z += (e.tz - e.z) * k; } e.ph += dt * 6; });
+    placeZombieMeshes(); placeStructMeshes();
+  }
+
   // ---------- main loop ----------
   var test = { shoot: false }, last = performance.now() / 1000;
   function frame() {
     var t = performance.now() / 1000, dt = Math.min(0.05, Math.max(0, t - last)); last = t;
-    step(dt);
+    if (role === 'commander') { commanderFrame(dt); renderer.render(scene, mapCam); requestAnimationFrame(frame); return; }
+    step(dt); publish(t);
     camera.position.set(P.x, 1.7 + Math.sin(P.bob) * 0.04, P.z); camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ');
     gunRig.position.set(Math.sin(P.bob * 0.5) * 0.01, Math.abs(Math.sin(P.bob)) * 0.012, P.kick * 1.6); gunRig.rotation.x = P.kick * 1.2 + (P.rel > 0 ? -0.5 * Math.sin(Math.min(1, (WEAPONS[P.w].reload - P.rel) / WEAPONS[P.w].reload) * PI) : 0);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
-  window.__z = { G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, LANES: LANES, solids: solids, switchWeapon: switchWeapon, reload: reload, camera: camera, renderer: renderer, scene: scene };
+  window.__z = { cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, LANES: LANES, solids: solids, switchWeapon: switchWeapon, reload: reload, camera: camera, renderer: renderer, scene: scene };
+  if (role === 'commander') initCommander(); else startHost();
   requestAnimationFrame(frame);
 })();
 </script>
