@@ -34,7 +34,7 @@ Coins and upgrades: every kill gives coins straight to the control player (ghost
 - On the control page, once linked, press Cast. It shows a link ending in `?code=XXXX#cast`; open it on a TV, laptop or phone browser to watch the VR player's view fullscreen with wave, score, battery and combo along the top. It is watch only: the headset ignores anything a spectator page sends. Tap the page once to hear the sound. Several spectators can watch at once.
 
 ## Banked power-ups
-- Timed power-ups (Rapid fire, Pierce, Shield, Slow time, Free builds, Double coins, Magnet) are no longer applied when picked up. They go into a bank of 3 slots, shown as coloured buttons next to Start on the control page and as a BANK line on the VR HUD. Double tap a slot on the control page to deploy it at once. If the bank is full, a new pick-up applies immediately. Big blast keeps its own store (up to 3). Battery refills are still instant.
+- Timed power-ups (Rapid fire, Pierce, Shield, Slow time, Free builds, Double coins, Magnet) are no longer applied when picked up. They go into a bank of 3 slots, shown as coloured buttons under Banked powers in the build area on the control page (below Quick abilities) and as a BANK line on the VR HUD. Tap a slot to deploy it at once. If the bank is full, a new pick-up applies immediately. Big blast keeps its own store (up to 3). Battery refills are still instant.
 
 ## Tower defence for the control player
 - Coins are the one currency: flashlight upgrades, towers, walls and traps all cost coins. Enemies pay out double what they used to.

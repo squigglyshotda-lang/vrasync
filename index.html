@@ -102,9 +102,11 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .gamebar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-content: start; overflow-y: auto; overflow-x: hidden; min-width: 0; }
 .gamebar .grp { grid-column: 1 / -1; font: 600 11px var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 .gamebar .gtool[hidden] { display: none; }
-.bank { display: flex; gap: 6px; align-self: stretch; }
-.bank button { font: 700 12px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); background: var(--bc, var(--hud)); border: 0; padding: 0 12px; min-width: 78px; cursor: pointer; touch-action: manipulation; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+.bank { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.bank[hidden], #bankGrp[hidden] { display: none; }
+.bank button { font: 700 12px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); background: var(--bc, var(--hud)); border: 0; padding: 6px 4px; min-height: 54px; cursor: pointer; touch-action: manipulation; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
 .bank button small { font: 500 10px var(--font-data); opacity: .75; letter-spacing: .04em; text-transform: none; }
+.bank button[hidden] { display: none; }
 .bank button.armed { outline: 3px solid #fff; }
 .lvsel { display: flex; border: 1px solid var(--line); align-self: stretch; }
 .lvsel button { font: 700 13px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: transparent; border: 0; padding: 0 14px; min-width: 64px; cursor: pointer; touch-action: manipulation; pointer-events: auto; }
@@ -237,7 +239,6 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   <main id="controlUI" hidden>
     <div class="statbar">
       <button class="gstart" id="gStart" type="button">Start game</button>
-      <div class="bank" id="bankBar" aria-label="Banked power-ups"><button type="button" data-i="0" hidden></button><button type="button" data-i="1" hidden></button><button type="button" data-i="2" hidden></button></div>
       <div class="lvsel" role="group" aria-label="Level"><button type="button" id="lvFlat" aria-pressed="true">Flat</button><button type="button" id="lvLanes" aria-pressed="false">Lanes</button></div>
       <div class="tile"><span class="tl">Wave</span><b id="stWave">–</b></div>
       <div class="tile"><span class="tl">Score</span><b id="stScore">0</b></div>
@@ -270,6 +271,8 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
         <button class="gtool" type="button" data-tool="push" aria-pressed="false" title="Blasts nearby enemies away. Uses build points."><span class="nm">Push</span><small class="cs">3</small><small class="ds">Shoves nearby enemies back</small></button>
         <button class="gtool" type="button" data-tool="ping" aria-pressed="false" title="Point the VR player in a direction"><span class="nm">Ping</span><small class="cs">free</small><small class="ds">Points the VR player</small></button>
         <button class="gtool gblast" id="gBlast" type="button" data-tool="blast" aria-pressed="false" hidden title="Tap the map to set off a giant explosion there"><span class="nm">Big blast</span><small class="cs">1</small><small class="ds">One giant explosion</small></button>
+        <span class="grp" id="bankGrp" hidden>Banked powers</span>
+        <div class="bank" id="bankBar" aria-label="Banked power-ups" hidden><button type="button" data-i="0" hidden></button><button type="button" data-i="1" hidden></button><button type="button" data-i="2" hidden></button></div>
       </div>
       <section class="panel" id="mapPanel" tabindex="0" aria-label="Map of the headset's world. Tap to use the chosen ability there, or to pick up a pickup.">
         <span class="cap">Map · play area 8 × 8 m</span><div id="selBar" hidden><div id="selTxt"><span id="selName"></span><span id="selInfo"></span></div><button id="selRep" type="button"></button><button id="selUp" type="button"></button><button id="selSell" type="button"></button><button id="selX" type="button" aria-label="Close">✕</button></div><span class="cap r">top = north</span><canvas class="rose" id="rose" width="136" height="136" aria-hidden="true"></canvas>
@@ -2539,11 +2542,10 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
   setInterval(refreshCast, 250);
   window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !scoreModal.hidden) scoreModal.hidden = true; });
   window.addEventListener('keydown', function (e) { if ((e.key === 'r' || e.key === 'R') && role === 'control' && WALL_SHAPES[tool] && !/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || '')) { wrot = (wrot + 1) & 3; showGhost(ghost.position.x, ghost.position.z); } });
-  var bankBtns = Array.prototype.slice.call(document.querySelectorAll('#bankBar button')), bankTap = { i: -1, t: 0 };
+  var bankBtns = Array.prototype.slice.call(document.querySelectorAll('#bankBar button'));
   bankBtns.forEach(function (b, i) {
     b.addEventListener('click', function () {
-      var n = performance.now(); if (bankTap.i === i && n - bankTap.t < 450) { bankTap.i = -1; sendCmd({ c: 'usepu', i: i }); return; }
-      bankTap = { i: i, t: n }; link.msg = 'Double tap ' + (G.bank[i] ? PU_INFO[G.bank[i]].n : 'a power') + ' to use it.'; refreshNote();
+      sendCmd({ c: 'usepu', i: i });
     });
   });
   var lvBtns = [$('lvFlat'), $('lvLanes')], optLevel = $('optLevel');
@@ -2560,7 +2562,8 @@ body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; 
     if (role !== 'control') return;
     var run = G.running, free = G.fx.free > 0;
     lvBtns.forEach(function (b) { b.disabled = run; }); levelLabels();
-    bankBtns.forEach(function (b, i) { var k = G.bank[i]; b.hidden = !(run && k); if (run && k) { b.style.setProperty('--bc', PU_INFO[k].c); b.innerHTML = PU_INFO[k].s + '<small>double tap</small>'; } });
+    bankBtns.forEach(function (b, i) { var k = G.bank[i]; b.hidden = !(run && k); if (run && k) { b.style.setProperty('--bc', PU_INFO[k].c); b.innerHTML = PU_INFO[k].s + '<small>tap to use</small>'; } });
+    var anyBank = run && G.bank.length > 0; $('bankBar').hidden = !anyBank; $('bankGrp').hidden = !anyBank;
     var dcy = document.querySelector('.gtool[data-tool="decoy"]'); if (dcy) { dcy.hidden = lvActive(); if (dcy.hidden && tool === 'decoy') gTools[0].click(); }
     gStart.textContent = G.over ? 'Play again' : (run ? 'Restart' : 'Start game');
     stWave.textContent = run || G.over ? String(G.wave || (G.cd > 0 ? '…' : 0)) : '–';
