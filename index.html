@@ -78,8 +78,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .tile .bar.build i { background: #7fd4ff; }
 .tile.low b { color: var(--warn); } .tile.low .bar i { background: var(--warn); }
 #stCoin { color: #ffd23a; } #stScore { color: #7dff8a; }
-#scoreModal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(8, 4, 18, .82); pointer-events: auto; }
-#scoreModal[hidden] { display: none; }
+#scoreModal, #castModal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(8, 4, 18, .82); pointer-events: auto; }
+#scoreModal[hidden], #castModal[hidden] { display: none; }
 .smcard { width: min(560px, 94vw); max-height: 94vh; overflow-y: auto; background: #140a26; border: 2px solid var(--hud); padding: 18px 20px; display: grid; gap: 12px; }
 .smcard h2 { margin: 0; font: 700 26px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--hud); }
 #smMsg { margin: 0; font: 600 15px/1.5 var(--font-data); color: var(--text); }
@@ -111,6 +111,15 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 .lvsel button[aria-pressed="true"] { background: var(--hud); color: var(--ink); }
 .lvsel button:disabled { opacity: .55; cursor: default; }
 .smlv { display: flex; gap: 6px; margin: 0 0 10px; } .smlv button { flex: 1; min-height: 40px; font: 700 13px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: transparent; border: 1px solid var(--line); cursor: pointer; } .smlv button[aria-pressed="true"] { background: var(--hud); color: var(--ink); }
+body.spec #bar, body.spec .statbar, body.spec #note, body.spec .abil, body.spec .upgrades, body.spec #mapPanel, body.spec #viewPanel .cap { display: none !important; }
+body.spec #shell, body.spec #controlUI { padding: 0; }
+body.spec .side { position: fixed; inset: 0; z-index: 3; display: block; }
+body.spec #viewPanel { position: absolute; inset: 0; border: 0; }
+#castBar { display: none; }
+body.spec #castBar { display: flex; position: fixed; left: 0; right: 0; top: 0; z-index: 6; gap: 22px; align-items: baseline; padding: 10px 18px; background: linear-gradient(rgba(7, 10, 24, .85), rgba(7, 10, 24, 0)); font: 700 18px var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--text); pointer-events: none; }
+#castBar b { color: var(--hud); font-size: 26px; font-variant-numeric: tabular-nums; } #castBar .st { margin-left: auto; font: 500 13px var(--font-data); color: var(--muted); letter-spacing: .04em; text-transform: none; }
+#castModal .smcard input { width: 100%; font: 500 14px var(--font-data); padding: 10px; background: #0b1022; color: var(--text); border: 1px solid var(--line); margin: 6px 0 12px; box-sizing: border-box; }
+#castModal .row { display: flex; gap: 8px; }
 #selBar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 8px; background: rgba(18, 10, 36, .94); border: 1px solid var(--hud); padding: 8px 10px; pointer-events: auto; }
 #selBar[hidden] { display: none; }
 #selTxt { display: flex; flex-direction: column; max-width: 300px; } #selInfo { font: 500 12px var(--font-data); color: var(--muted); letter-spacing: 0; text-transform: none; margin-top: 2px; line-height: 1.3; } #selInfo b { color: var(--ac, var(--hud)); font-weight: 700; }
@@ -211,6 +220,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
 <body>
 
 <div id="stage"></div>
+<div id="castBar" aria-live="off"><span>Wave <b id="cbWave">-</b></span><span>Score <b id="cbScore">0</b></span><span>Battery <b id="cbBat">-</b></span><span id="cbCombo"></span><span class="st" id="cbSt">Connecting…</span></div>
 <div id="shell">
   <header id="bar">
     <div class="name">Visor HUD <span id="mode">starting</span></div>
@@ -235,6 +245,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       <div class="tile"><span class="tl">Coins</span><b id="stCoin">0</b></div>
       <div class="tile wide"><span class="tl">Build points</span><div class="bar build"><i id="stBuildBar"></i></div><b id="stBuild">–</b></div>
       <button class="gsolo" id="scoreBtn" type="button">Scores</button>
+      <button class="gsolo" id="castBtn" type="button" title="Show the headset view on a TV, laptop or phone">Cast</button>
       <output class="gstats" id="gStats">Game not started</output>
       <details class="cfg"><summary aria-label="Link and test settings">Link</summary><div class="cfgbody">
       <div class="pairbox"><label for="codeIn">Code</label><input id="codeIn" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD" aria-describedby="note"><button id="codeGo" type="button">Link</button></div>
@@ -276,6 +287,15 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       </div>
     </div>
   </main>
+
+  <div id="castModal" class="scoremodal" hidden role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+    <div class="smcard">
+      <h2 id="cmTitle">Cast the headset view</h2>
+      <p id="cmMsg">Open this link on a TV, laptop or phone browser. It shows the VR player's view with the score along the top, watch only.</p>
+      <input id="cmLink" type="text" readonly aria-label="Spectator link">
+      <div class="row"><button id="cmCopy" type="button">Copy link</button><button id="cmShare" type="button" hidden>Share…</button><button id="cmClose" type="button">Close</button></div>
+    </div>
+  </div>
 
   <div id="scoreModal" hidden role="dialog" aria-modal="true" aria-labelledby="smTitle">
     <div class="smcard">
@@ -331,6 +351,8 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function noop() {}
   var stage = $('stage'), modeEl = $('mode'), hint = $('hint'), note = $('note');
   var enterBtn = $('enter'), enterMR = $('enterMR');
+  var spec = /^#?cast/.test(location.hash || '');   // spectator: shows the headset view fullscreen, sends nothing
+  if (spec) document.body.classList.add('spec');
   var roleHeadsetBtn = $('roleHeadset'), roleControlBtn = $('roleControl');
   var controlUI = $('controlUI'), headsetUI = $('headsetUI');
   var mapPanel = $('mapPanel'), viewPanel = $('viewPanel'), viewEmpty = $('viewEmpty'), viewMeta = $('viewMeta');
@@ -1282,7 +1304,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   })();
   function lvCell(x, z) { var v = LV.cells[Math.floor(x) + ',' + Math.floor(z)]; return v === undefined ? 2 : v; }
   buildLvVisuals();
-  function lvActive() { return role === 'control' && !G.running && !G.over ? lvSel === 1 : G.level === 1; }
+  function lvActive() { return role === 'control' && !spec && !G.running && !G.over ? lvSel === 1 : G.level === 1; }
   function lanesConnected(extra) {   // every lane must still reach the keep with the player's walls (and the candidate cells) in place
     var blk = {}; G.walls.forEach(function (w) { w.cells.forEach(function (c) { blk[Math.floor(c.x) + ',' + Math.floor(c.z)] = 1; }); }); (extra || []).forEach(function (c) { blk[Math.floor(c.x) + ',' + Math.floor(c.z)] = 1; });
     return LV.spawnCells.every(function (sc) {
@@ -1631,7 +1653,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   function banner(text, sub, col, dur, hold, fromNet) {
     ev.bn = { text: String(text).slice(0, 24), sub: String(sub || '').slice(0, 120), col: okCol(col), t: 0, dur: dur || 2.2, hold: !!hold };
     drawBanner(ev.bn); bnMesh.visible = true; evBnT.textContent = ev.bn.text; evBnS.textContent = ev.bn.sub; evBn.style.color = ev.bn.col;
-    if (role === 'control') { var mr = mapPanel.getBoundingClientRect(); if (mr.width > 50) { evBn.style.left = mr.left + 'px'; evBn.style.width = mr.width + 'px'; evBn.style.right = 'auto'; evBn.style.top = (mr.top + mr.height * 0.16) + 'px'; } }
+    if (role === 'control') { var mr = (spec ? viewPanel : mapPanel).getBoundingClientRect(); if (mr.width > 50) { evBn.style.left = mr.left + 'px'; evBn.style.width = mr.width + 'px'; evBn.style.right = 'auto'; evBn.style.top = (mr.top + mr.height * 0.16) + 'px'; } }
     if (!fromNet) linkSend({ t: 'bn', s: ev.bn.text, u: ev.bn.sub, c: ev.bn.col, d: ev.bn.dur, h: hold ? 1 : 0 });
   }
   function overlay(col, a, target, rate, fromNet) {
@@ -2406,6 +2428,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
     return null;
   }
   function sendCmd(c) {
+    if (spec) return;
     if (solo.control) { gameCmd(c); refreshGame(); return; }
     if (link.state !== 'linked') { link.msg = 'Link to the headset first, or turn on Solo test.'; refreshNote(); return; }
     var o = { t: 'cmd' }; for (var k in c) o[k] = c[k]; linkSend(o);
@@ -2488,6 +2511,32 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   $('smClose').addEventListener('click', function () { scoreModal.hidden = true; });
   $('smPlay').addEventListener('click', function () { scoreModal.hidden = true; gStart.click(); });
   $('scoreBtn').addEventListener('click', function () { openBoard(null); });
+  // ---- cast: a watch-only link for another device ----
+  var castModal = $('castModal'), cmLink = $('cmLink'), cmMsg = $('cmMsg'); document.body.appendChild(castModal);
+  function castUrl() { return location.origin + location.pathname + '?code=' + link.code + '#cast'; }
+  $('castBtn').addEventListener('click', function () {
+    var ok = link.state === 'linked' && link.code && !solo.control;
+    cmLink.hidden = !ok; $('cmCopy').hidden = !ok; $('cmShare').hidden = !(ok && navigator.share);
+    if (ok) { cmLink.value = castUrl(); cmMsg.textContent = 'Open this link on a TV, laptop or phone browser. It shows the VR player\'s view with the score along the top, watch only. Tap the page once to hear the sound.'; }
+    else cmMsg.textContent = 'Link to the headset first (type its code under Link), then press Cast to get the link for the other device.';
+    castModal.hidden = false;
+  });
+  $('cmCopy').addEventListener('click', function () {
+    cmLink.select(); var done = function () { $('cmCopy').textContent = 'Copied'; setTimeout(function () { $('cmCopy').textContent = 'Copy link'; }, 1500); };
+    try { navigator.clipboard.writeText(cmLink.value).then(done, function () { document.execCommand('copy'); done(); }); } catch (e) { try { document.execCommand('copy'); done(); } catch (e2) {} }
+  });
+  $('cmShare').addEventListener('click', function () { try { navigator.share({ title: 'Visor HUD headset view', url: cmLink.value }); } catch (e) {} });
+  $('cmClose').addEventListener('click', function () { castModal.hidden = true; });
+  // spectator bar
+  var cbWave = $('cbWave'), cbScore = $('cbScore'), cbBat = $('cbBat'), cbCombo = $('cbCombo'), cbSt = $('cbSt'), castSound = false;
+  if (spec) window.addEventListener('pointerdown', function () { castSound = true; }, { once: true });
+  function refreshCast() {
+    if (!spec) return;
+    cbWave.textContent = G.running || G.over ? G.wave : '-'; cbScore.textContent = fmtScore(G.score || 0);
+    cbBat.textContent = G.running ? Math.round(G.battery) + '%' : '-'; cbCombo.textContent = G.running && G.combo.m > 1 ? 'Combo x' + (Math.round(G.combo.m * 10) / 10) : '';
+    cbSt.textContent = link.state !== 'linked' ? (link.msg || 'Connecting to the headset…') : G.over ? 'Run over' : !G.running ? 'Waiting for a game to start' : (castSound ? '' : 'Tap the page for sound');
+  }
+  setInterval(refreshCast, 250);
   window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !scoreModal.hidden) scoreModal.hidden = true; });
   window.addEventListener('keydown', function (e) { if ((e.key === 'r' || e.key === 'R') && role === 'control' && WALL_SHAPES[tool] && !/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || '')) { wrot = (wrot + 1) & 3; showGhost(ghost.position.x, ghost.position.z); } });
   var bankBtns = Array.prototype.slice.call(document.querySelectorAll('#bankBar button')), bankTap = { i: -1, t: 0 };
@@ -2913,13 +2962,17 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
       if (solo.head) setSoloHead(false);
       link.conns.push(c); gotFirst = false; link.retries = 0; lastSent.t = -1;
       setLink('linked');
-      if (role === 'control') linkSend({ t: 'world', items: worldList });
+      if (role === 'control') linkSend(spec ? { t: 'spec' } : { t: 'world', items: worldList });
     });
-    c.on('data', onLinkData);
+    c.on('data', function (d) {
+      if (role === 'headset' && d && d.t === 'spec') { c._spec = true; if (!link.conns.some(function (x) { return !x._spec; })) setLink('waiting'); return; }
+      if (c._spec) return;
+      onLinkData(d);
+    });
     function gone() {
       if (c._dead) return; c._dead = true;
       var i = link.conns.indexOf(c); if (i >= 0) link.conns.splice(i, 1);
-      if (link.conns.length) return;
+      if (link.conns.some(function (x) { return !x._spec; })) return;
       remote.has = false;
       if (role === 'headset') { setLink(link.peer ? 'waiting' : 'idle'); return; }
       if (link.retries < 4 && link.code) {
@@ -3067,7 +3120,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   roleControlBtn.addEventListener('click', function () { chooseRole('control'); });
   window.addEventListener('hashchange', function () {
     var h = (location.hash || '').replace('#', '');
-    if (!session && (h === 'control' || h === 'headset')) setRole(h);
+    if (!session && (h === 'control' || h === 'headset')) { if (spec) { location.reload(); return; } setRole(h); }
   });
 
   ghost.scale.set(1, 1, 1);
@@ -3296,6 +3349,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--font-displ
   // ---------- start: pick a role, then connect ----------
   async function decideRole() {
     var h = (location.hash || '').replace('#', '');
+    if (h === 'cast') return 'control';
     if (h === 'control' || h === 'headset') return h;
     if (/OculusBrowser|Quest/i.test(navigator.userAgent || '')) return 'headset';
     return (await probe('immersive-vr')) ? 'headset' : 'control';
