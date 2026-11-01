@@ -58,7 +58,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .card button { font: 700 18px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--amber); border: 0; padding: 0 22px; min-height: 54px; cursor: pointer; }
 .card .keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font: 500 13px var(--font-data); color: var(--text); }
 .card .keys b { color: var(--amber); font-weight: 600; }
-body.cmdr #hud, body.cmdr #startOv, body.cmdr #endOv { display: none !important; }
+body.cmdr #hud, body.cmdr #startOv, body.cmdr #endOv, body.mechp #hud, body.mechp #startOv, body.mechp #endOv { display: none !important; }
 #cmd { display: none; position: fixed; inset: 0; z-index: 8; pointer-events: none; }
 body.cmdr #cmd { display: block; }
 #cmd button { pointer-events: auto; font: 700 14px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(14, 20, 36, .92); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation; }
@@ -75,21 +75,24 @@ body.cmdr #cmd { display: block; }
 #cSel { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: rgba(14, 20, 36, .95); border: 1px solid var(--amber); padding: 8px 10px; pointer-events: auto; }
 #cSel #cSelTxt { font: 600 13px var(--font-data); color: var(--text); margin-right: 6px; } #cSel button { min-height: 46px; padding: 0 14px; } #cSel button:disabled { opacity: .45; }
 #cMsg { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); font: 600 14px var(--font-data); color: var(--amber); text-shadow: 0 1px 6px #000; text-align: center; }
-#joinOv input { font: 700 40px var(--font-display); letter-spacing: .4em; text-align: center; text-transform: uppercase; width: 100%; padding: 8px; background: #0a0e1a; color: var(--text); border: 1px solid var(--line); }
+#joinOv input, #mechOv input { font: 700 40px var(--font-display); letter-spacing: .4em; text-align: center; text-transform: uppercase; width: 100%; padding: 8px; background: #0a0e1a; color: var(--text); border: 1px solid var(--line); }
 .codebox { position: absolute; top: 74px; left: 16px; font: 600 13px var(--font-data); color: var(--muted); } .codebox b { color: var(--amber); font-size: 20px; letter-spacing: .3em; margin-left: 8px; }
 .initrow { display: flex; gap: 10px; align-items: end; } .initrow label { font: 600 11px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); display: grid; gap: 4px; }
 .initrow input { width: 100px; font: 700 26px var(--font-display); letter-spacing: .3em; text-align: center; text-transform: uppercase; padding: 6px; background: #0a0e1a; color: var(--text); border: 1px solid var(--line); }
 #scList { margin: 0; padding: 0 0 0 26px; font: 500 14px var(--font-data); color: var(--text); max-height: 30vh; overflow-y: auto; } #scList li { padding: 2px 0; } #scList li.me { color: var(--amber); } #scList span { color: var(--muted); }
 .card button.alt { background: transparent; color: var(--text); border: 1px solid var(--line); min-height: 46px; font-size: 15px; }
 #cRestart { margin-left: auto; padding: 6px 14px; pointer-events: auto; } #cRestart + .st { margin-left: 16px; }
+#roleSw { position: fixed; top: 3px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; gap: 2px; opacity: .55; } #roleSw:hover { opacity: 1; }
+#roleSw button { font: 600 11px var(--font-display); letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; color: var(--muted); background: rgba(10,14,26,.8); border: 1px solid var(--line); cursor: pointer; } #roleSw button.on { color: var(--amber); border-color: var(--amber); }
 </style>
 </head>
 <body>
 <div id="stage"></div>
+<div id="roleSw"><button type="button" data-r="">Shooter</button><button type="button" data-r="commander">Commander</button><button type="button" data-r="mech">Mech</button></div>
 <div id="cmd">
   <div id="cFloors"><button type="button" data-f="0" aria-pressed="true">Ground</button><button type="button" data-f="1" aria-pressed="false">Roof</button></div>
   <div id="fpv" hidden><video id="fpvV" autoplay muted playsinline></video><span class="fl">Shooter view</span><button type="button" id="fpvX">&times;</button></div><button type="button" id="fpvShow" hidden>Shooter view</button>
-  <div id="cTop"><span>Wave<b id="cWave">-</b></span><span>Safehouse<b id="cBase">-</b></span><span>Coins<b class="amb" id="cCoins">0</b></span><span>Score<b id="cScore">0</b></span><button type="button" id="cRestart" hidden>Restart</button><span class="st" id="cSt">Connecting...</span></div>
+  <div id="cTop"><span>Wave<b id="cWave">-</b></span><span>Safehouse<b id="cBase">-</b></span><span>Coins<b class="amb" id="cCoins">0</b></span><span>Score<b id="cScore">0</b></span><span>Mech<b id="cMech">-</b></span><button type="button" id="cRestart" hidden>Restart</button><span class="st" id="cSt">Connecting...</span></div>
   <div id="cTools">
     <button type="button" data-tool="turret" style="--ac:#ffb43a" aria-pressed="false"><span class="nm">Turret</span><span class="pc">0</span><small>Shoots the nearest zombie</small></button>
     <button type="button" data-tool="barricade" style="--ac:#9a7a4a" aria-pressed="false"><span class="nm">Barricade</span><span class="pc">0</span><small>Blocks and slows them</small></button>
@@ -107,6 +110,12 @@ body.cmdr #cmd { display: block; }
   <div class="card"><h2 style="color:var(--amber)">Commander</h2><p>Type the 4 letters shown on the shooter's screen.</p><input id="codeIn" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"><button id="codeGo" type="button">Connect</button>
     <button id="soloCmdBtn" type="button" class="alt">Solo test: bot shooter</button><p id="joinMsg"></p></div>
 </div>
+<div class="overlay" id="mechOv" hidden>
+  <div class="card"><h2 style="color:var(--amber)">Mech pilot</h2><p>Type the mech code shown on the shooter's screen, then climb in.</p><input id="mcodeIn" maxlength="4" autocomplete="off" autocapitalize="characters">
+    <button id="mVR" type="button">Enter VR (Quest 3)</button><button id="mDesk" type="button" class="alt">Desktop preview</button>
+    <div class="keys"><b>Move / turn</b><span>Left stick / right stick</span><b>Machine gun</b><span>Left trigger</span><b>Rocket</b><span>Right trigger</span><b>Jump jets</b><span>A (hold)</span><b>Dash</b><span>B</span><b>Shield</b><span>Left grip</span><b>Stomp</b><span>Right grip</span><b>Turn style</b><span>Y: smooth or snap</span></div>
+    <p>Desktop: WASD, mouse, click = gun, right-click = rocket, Space = jets, Shift = dash, Q = shield, E = stomp.</p><p id="mMsg" style="color:var(--amber)"></p></div>
+</div>
 <div id="hud">
   <div class="bar" id="baseBar"><div class="tl">Safehouse</div><div class="tr"><i id="baseFill"></i></div></div>
   <div class="mid"><span id="waveLbl">Wave</span><b id="waveNum">-</b><small id="waveSub"></small></div>
@@ -115,6 +124,7 @@ body.cmdr #cmd { display: block; }
   <div id="toast"></div>
   <div class="gun"><b id="ammo">-<span>/-</span></b><div id="gunName">Pistol</div><div class="slots" id="slots"><span>1 Pistol</span><span>2 Shotgun</span><span>3 Rifle</span></div></div>
   <div class="codebox" id="codeBox" hidden>Commander code<b id="codeBoxV"></b></div>
+  <div class="codebox" id="codeBoxM" hidden style="top:104px">Mech pilot code<b id="codeBoxMV"></b></div>
   <div id="hint">WASD move · Shift sprint · Space jump · C or Ctrl crouch · crouch while sprinting to slide · mouse aim · click shoot · hold right-click to aim · V melee · R reload · 1-3 or wheel weapons · Esc release mouse</div>
 </div>
 <div class="overlay" id="startOv">
@@ -123,11 +133,13 @@ body.cmdr #cmd { display: block; }
     <p>Hold the safehouse. Zombies pour into the town centre from all four roads. You fight them on foot; the commander builds the defences.</p>
     <div class="keys"><b>Move</b><span>WASD / left stick</span><b>Aim</b><span>Mouse / right stick</span><b>Shoot</b><span>Click / right trigger</span><b>Reload</b><span>R / X</span><b>Weapons</b><span>1 2 3, wheel / bumpers</span><b>Sprint</b><span>Shift / left stick click</span><b>Jump</b><span>Space / A</span><b>Crouch</b><span>C or Ctrl / B</span><b>Slide</b><span>Sprint, then crouch</span></div>
     <p id="codeLine" style="color:var(--amber)">Commander code: ...</p>
+    <p id="mechLine" style="color:var(--amber)">Mech pilot code: ...</p>
     <button id="startBtn" type="button">Click to play</button>
     <button id="soloBtn" type="button" class="alt">Solo test: bot commander</button>
     <button id="shakeBtn" type="button" class="alt">Screen shake: Full</button>
     <button id="audBtn" type="button" class="alt">Sound: All sound</button>
     <p>Commander on a tablet? Open this page with <b style="color:var(--amber)">#commander</b> on the end and type the code above.</p>
+    <p>Mech pilot on a Quest 3? Open this page in the headset browser with <b style="color:var(--amber)">#mech</b> on the end and type the mech code.</p>
   </div>
 </div>
 <div class="overlay" id="endOv" hidden>
@@ -143,8 +155,10 @@ body.cmdr #cmd { display: block; }
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var rnd = Math.random, PI = Math.PI, role = /^#?commander/.test(location.hash || '') ? 'commander' : 'shooter';
-  if (role === 'commander') document.body.classList.add('cmdr');
+  var rnd = Math.random, PI = Math.PI, role = /^#?commander/.test(location.hash || '') ? 'commander' : /^#?mech/.test(location.hash || '') ? 'mech' : 'shooter';
+  if (role === 'commander') document.body.classList.add('cmdr'); if (role === 'mech') document.body.classList.add('mechp');
+  function mk(v) { return role === 'commander' ? v * CS : 1; }   // mirrored objects are drawn bigger on the tablet map only
+  document.querySelectorAll('#roleSw button').forEach(function (b) { var r = b.getAttribute('data-r'); if ((r || 'shooter') === role) b.className = 'on'; b.addEventListener('click', function () { if (document.pointerLockElement) document.exitPointerLock(); if ((r || 'shooter') === role) return; if (r) location.hash = r; else { history.replaceState(null, '', location.pathname + location.search); location.reload(); } }); });
   window.addEventListener('hashchange', function () { location.reload(); });
 
   // ---------- world ----------
@@ -203,7 +217,7 @@ body.cmdr #cmd { display: block; }
 
   // ---------- renderer / scene ----------
   var renderer = new THREE.WebGLRenderer({ antialias: true }), SH = role === 'shooter';   // SH: this page draws shadows, the sky and the far city
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(role === 'mech' ? 1 : Math.min(window.devicePixelRatio || 1, 2));
   if (SH) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }
   $('stage').appendChild(renderer.domElement);
   var FOG_COL = 0x16293a, FOG_D = 0.0088;
@@ -486,6 +500,15 @@ body.cmdr #cmd { display: block; }
     else if (k === 'base') { noise(0.2, 0.3, 0, 600, pos); tone(95, 55, 0.12, 0.14, 'sine', pos); }
     else if (k === 'wood') { noise(0.35, 0.45, 150, 2500, pos); tone(140, 55, 0.3, 0.25, 'sawtooth', pos); noise(0.2, 0.25, 600, 3500, pos, 0.1); }
     else if (k === 'build') { noise(0.06, 0.25, 600, 4000); tone(260, 120, 0.1, 0.12, 'square'); tone(1300, 900, 0.1, 0.06, 'triangle', null, 0.07); }
+    else if (k === 'mmg') { noise(0.09, 0.35, 0, 3200, pos); tone(110 * v, 50, 0.08, 0.3, 'square', pos); tone(60, 30, 0.12, 0.35, 'sine', pos); }
+    else if (k === 'mrk') { noise(0.6, 0.5, 200, 3000, pos); tone(260 * v, 70, 0.5, 0.25, 'sawtooth', pos); tone(70, 30, 0.5, 0.4, 'sine', pos); }
+    else if (k === 'mboom') { noise(1.3, 1.0, 0, 1200, pos); tone(90, 20, 1.1, 0.9, 'sine', pos); noise(0.5, 0.6, 1500, 7000, pos); noise(1.8, 0.35, 0, 260, pos, 0.15); }
+    else if (k === 'mstep') { noise(0.25, 0.7, 0, 500, pos); tone(55, 25, 0.28, 0.8, 'sine', pos); noise(0.08, 0.3, 800, 4000, pos, 0.02); }
+    else if (k === 'mstomp') { noise(0.8, 1.0, 0, 800, pos); tone(48, 18, 0.7, 1.0, 'sine', pos); noise(0.3, 0.5, 600, 5000, pos); }
+    else if (k === 'mshield') { tone(300, 900, 0.5, 0.25, 'sine', pos); tone(450, 1350, 0.5, 0.15, 'triangle', pos); }
+    else if (k === 'mhit') { noise(0.3, 0.6, 200, 2500, pos); tone(140 * v, 60, 0.25, 0.4, 'square', pos); tone(70, 40, 0.25, 0.4, 'sine', pos); }
+    else if (k === 'mdead') { noise(2.2, 1.0, 0, 900, pos); tone(80, 15, 2.0, 0.9, 'sine', pos); voice(300, 40, 1.6, 0.2, 'sawtooth', 800, 0.03, pos); }
+    else if (k === 'mdash') { noise(0.4, 0.5, 400, 6000, pos); tone(200, 600, 0.35, 0.2, 'sawtooth', pos); }
     else if (k === 'boom') { noise(0.9, 0.9, 0, 1400, pos); tone(120, 25, 0.8, 0.7, 'sine', pos); noise(0.35, 0.5, 2000, 8000, pos); noise(1.3, 0.3, 0, 350, pos, 0.12); }
     else if (k === 'spit') { noise(0.18, 0.2, 1800, 6000, pos); tone(500, 950, 0.18, 0.07, 'sine', pos); }
     else if (k === 'splat') { noise(0.25, 0.35, 0, 2600, pos); tone(220, 70, 0.18, 0.15, 'sine', pos); noise(0.7, 0.08, 3500, 9000, pos, 0.1); }
@@ -717,7 +740,7 @@ body.cmdr #cmd { display: block; }
     var T = ZT[type], hpScale = 1 + 0.12 * Math.max(0, G.wave - 1);
     var e = { id: G.nid++, type: type, x: x, z: z, y: groundH(x, z), hp: T.hp * hpScale, hpMax: T.hp * hpScale, lane: lane, pi: 1, ox: (rnd() - 0.5) * 5, oz: (rnd() - 0.5) * 2, face: 0, ph: rnd() * 6, flash: 0, atk: 0, kx: 0, kz: 0, armor: T.armor || 0, gt: 1 + rnd() * 6, lc: 1 + rnd() * 2, sp: 1 + rnd(), scr: 3 + rnd() * 2, rage: 0, leap: null, mesh: makeZombieMesh(type) };
     var LH = Math.max(30, 0.28 * e.hpMax); e.lh = { al: LH, ar: LH, ll: LH, lr: LH };
-    if (role === 'commander') e.mesh.scale.set(2.2 * CS, 1.4 * CS, 2.2 * CS);
+    if (role === 'commander') e.mesh.scale.set(mk(2.2), mk(1.4), mk(2.2));
     G.zombies.push(e); return e;
   }
   var hitStop = 0;
@@ -759,7 +782,7 @@ body.cmdr #cmd { display: block; }
   }
   var coinFx = [], coinHit = 0, coinHitT = 0;   // gold coins burst out of a kill and fly to the shooter
   (function () { var geo = new THREE.CylinderGeometry(0.13, 0.13, 0.035, 10), mat = new THREE.MeshBasicMaterial({ color: 0xffc83a }), rim = new THREE.MeshBasicMaterial({ color: 0xfff0a0 });
-    for (var i = 0; i < 48; i++) { var m = new THREE.Mesh(geo, i % 3 ? mat : rim); m.visible = false; if (role === 'commander') m.scale.setScalar(2.6 * CS); scene.add(m); coinFx.push({ m: m, on: false }); } })();
+    for (var i = 0; i < 48; i++) { var m = new THREE.Mesh(geo, i % 3 ? mat : rim); m.visible = false; if (role === 'commander') m.scale.setScalar(mk(2.6)); scene.add(m); coinFx.push({ m: m, on: false }); } })();
   function spawnCoins(x, y, z, n) {
     for (var k = 0; k < n; k++) { var c = null; for (var i = 0; i < coinFx.length; i++) if (!coinFx[i].on) { c = coinFx[i]; break; } if (!c) return;
       var a = rnd() * 6.28, sp = 1.2 + rnd() * 2.2; c.on = true; c.t = 0; c.hold = 0.3 + rnd() * 0.25; c.vx = Math.cos(a) * sp; c.vz = Math.sin(a) * sp; c.vy = 3 + rnd() * 2.5; c.hv = 0; c.m.position.set(x, y, z); c.m.rotation.set(rnd() * 3, 0, rnd() * 3); c.m.visible = true; }
@@ -845,6 +868,7 @@ body.cmdr #cmd { display: block; }
     var dp = Math.hypot(P.x - x, P.z - z); if (dp < 12) P.shake = Math.max(P.shake, 3.5 * (1 - dp / 12));
     G.zombies.slice().forEach(function (o) { if (o === e) return; var d = Math.hypot(o.x - x, o.z - z); if (d < rad && Math.abs((o.y || 0) - y) < 2.5) damageZombie(o, (shot ? 70 : 25) * (1 - 0.5 * d / rad), (o.x - x) / (d || 1), (o.z - z) / (d || 1), 2, 1); });
     G.st.slice().forEach(function (q) { var d = distBox(x, z, stBox(q)); if (d < rad && Math.abs(q.y - y) < 2.5) { q.hp -= (shot ? 20 : 70) * (1 - d / rad); if (q.hp <= 0) breakStruct(q); } });
+    if (M.on && M.alive) { var dm = Math.hypot(M.x - x, M.z - z); if (dm < rad + 2 && Math.abs(M.y - y) < 4) mechHurt(shot ? 20 : 90, e); }
     if (!shot && y < 2 && distBox(x, z, SAFE_BOX) < rad) G.base -= 6;
     if (dp < rad && Math.abs(P.y - y) < 2.5) { P.slow = Math.max(P.slow, 1.2); vigA = Math.max(vigA, 0.7); P.vx += (P.x - x) / (dp || 1) * 8; P.vz += (P.z - z) / (dp || 1) * 8; }
   }
@@ -1328,12 +1352,12 @@ body.cmdr #cmd { display: block; }
     scene.add(g); return g;
   }
   function addStruct(kind, x, z, id, fl) {
-    var K = STK[kind], q = { id: id || G.nid++, kind: kind, x: x, z: z, lv: 0, hp: K.hp[0], hpMax: K.hp[0], cd: 0.5, paid: 0, aim: 0, open: false, fl: fl ? 1 : 0, y: fl ? ROOF_H : groundH(x, z) }; q.mesh = buildStMesh(kind, 0, false); q.mesh.position.set(x, q.y, z); if (role === 'commander') q.mesh.scale.setScalar(1.5 * CS); G.st.push(q); dirtySolids(); return q;
+    var K = STK[kind], q = { id: id || G.nid++, kind: kind, x: x, z: z, lv: 0, hp: K.hp[0], hpMax: K.hp[0], cd: 0.5, paid: 0, aim: 0, open: false, fl: fl ? 1 : 0, y: fl ? ROOF_H : groundH(x, z) }; q.mesh = buildStMesh(kind, 0, false); q.mesh.position.set(x, q.y, z); if (role === 'commander') q.mesh.scale.setScalar(mk(1.5)); G.st.push(q); dirtySolids(); return q;
   }
   function removeStruct(q) { scene.remove(q.mesh); var i = G.st.indexOf(q); if (i >= 0) G.st.splice(i, 1); dirtySolids(); }
   function dirtySolids() { allSolids = solids.concat(G.st.map(stBox)); nav.dirty = true; }
-  function setStLevel(q, lv) { scene.remove(q.mesh); q.lv = lv; q.mesh = buildStMesh(q.kind, lv, q.open); q.mesh.position.set(q.x, 0, q.z); if (role === 'commander') q.mesh.scale.setScalar(1.5 * CS); }
-  function setGate(q, open) { q.open = open; scene.remove(q.mesh); q.mesh = buildStMesh('gate', 0, open); q.mesh.position.set(q.x, 0, q.z); if (role === 'commander') q.mesh.scale.setScalar(1.5 * CS); dirtySolids(); }
+  function setStLevel(q, lv) { scene.remove(q.mesh); q.lv = lv; q.mesh = buildStMesh(q.kind, lv, q.open); q.mesh.position.set(q.x, 0, q.z); if (role === 'commander') q.mesh.scale.setScalar(mk(1.5)); }
+  function setGate(q, open) { q.open = open; scene.remove(q.mesh); q.mesh = buildStMesh('gate', 0, open); q.mesh.position.set(q.x, 0, q.z); if (role === 'commander') q.mesh.scale.setScalar(mk(1.5)); dirtySolids(); }
   function findSt(id) { for (var i = 0; i < G.st.length; i++) if (G.st[i].id === id) return G.st[i]; return null; }
   function stepStructures(dt) {
     G.st.forEach(function (q) {
@@ -1363,7 +1387,7 @@ body.cmdr #cmd { display: block; }
   }
   function addTrap(kind, x, z, id, fl) {
     var q = { id: id || G.nid++, kind: kind, x: x, z: z, life: kind === 'mine' ? 90 : kind === 'flare' ? 10 : 20, max: kind === 'mine' ? 90 : kind === 'flare' ? 10 : 20, hp: kind === 'decoy' ? 140 : 1, hpMax: kind === 'decoy' ? 140 : 1, arm: 1.0, fl: fl ? 1 : 0, y: fl ? ROOF_H : groundH(x, z) };
-    q.mesh = buildTrMesh(kind); q.mesh.position.set(x, q.y, z); if (role === 'commander') q.mesh.scale.setScalar(1.8 * CS); G.tr.push(q); return q;
+    q.mesh = buildTrMesh(kind); q.mesh.position.set(x, q.y, z); if (role === 'commander') q.mesh.scale.setScalar(mk(1.8)); G.tr.push(q); return q;
   }
   function removeTrap(q) { scene.remove(q.mesh); var i = G.tr.indexOf(q); if (i >= 0) G.tr.splice(i, 1); }
   function pointFree(x, z, f) {
@@ -1568,7 +1592,7 @@ body.cmdr #cmd { display: block; }
       e.gt -= dt; if (e.gt <= 0) { e.gt = 4 + rnd() * 6; if (Math.hypot(P.x - e.x, P.z - e.z) < 40) sfx('g_' + e.type, [e.x, (e.y || 0) + 1.4, e.z]); }
       if (e.rage > 0) e.rage -= dt;
       if (e.leap) { stepLeap(e, dt); continue; }
-      var pd = Math.hypot(P.x - e.x, P.z - e.z);
+      var pd = Math.hypot(P.x - e.x, P.z - e.z), md = M.on && M.alive ? Math.hypot(M.x - e.x, M.z - e.z) : 1e9, mch = md < 9 && Math.abs((e.y || 0) - M.y) < 3 && e.type !== 'screamer';
       var hunt = P.y > 2.3 && pd < 30;
       if ((pd < 7 && e.type !== 'brute' || pd < 4) && Math.abs(P.y - e.y) < 1.8 && clearLine(e.x, e.z, P.x, P.z, e.y)) chase = true;
       if (e.type === 'screamer') { e.scr -= dt; if (e.scr <= 0) { e.scr = 5.5; scream(e); } }
@@ -1583,6 +1607,7 @@ body.cmdr #cmd { display: block; }
       }
       var tx, tz;
       if (chase) { tx = P.x; tz = P.z; }
+      else if (mch) { tx = M.x; tz = M.z; }
       else { var ft = flowTarget(e, hunt ? nav.pd : nav.dist); tx = ft[0]; tz = ft[1]; }
       var ns = null, nd = 1.8; if (!chase) G.st.forEach(function (q) { if (q.open || Math.abs(q.y - e.y) > 2.5) return; var d = Math.hypot(q.x - e.x, q.z - e.z); if (d < nd) { nd = d; ns = q; } });
       if (ns) { tx = ns.x; tz = ns.z; }
@@ -1590,7 +1615,7 @@ body.cmdr #cmd { display: block; }
       if (lure) { tx = lure.x; tz = lure.z; }
       var dx = tx - e.x, dz = tz - e.z, dist = Math.hypot(dx, dz) || 1, atkBase = distBox(e.x, e.z, SAFE_BOX) < 1.35 && !chase;
       if (e.type === 'exploder') {
-        var bm = atkBase || (ns && distBox(e.x, e.z, stBox(ns)) < 0.85) || (chase && pd < 1.5) || (lure && lure.kind === 'decoy' && Math.hypot(lure.x - e.x, lure.z - e.z) < 1.0);
+        var bm = atkBase || (ns && distBox(e.x, e.z, stBox(ns)) < 0.85) || (chase && pd < 1.5) || (mch && md < 2.8) || (lure && lure.kind === 'decoy' && Math.hypot(lure.x - e.x, lure.z - e.z) < 1.0);
         if (bm) { detonate(e, false); continue; }
       }
       var hold = false, sg = null;
@@ -1599,6 +1624,7 @@ body.cmdr #cmd { display: block; }
       else if (lure && lure.kind === 'decoy' && Math.hypot(lure.x - e.x, lure.z - e.z) < 1.0) { lure.hp -= T.dmg * (e.dm || 1) * 2.2 * dt; e.atk = 1; }
       else if (lure && lure.kind === 'flare' && Math.hypot(lure.x - e.x, lure.z - e.z) < 2.4) { e.atk = 0; }
       else if (ns && distBox(e.x, e.z, stBox(ns)) < 0.75) { ns.hp -= T.dmg * (e.dm || 1) * 2.2 * dt; e.atk = 1; if (ns.hp <= 0) breakStruct(ns); }
+      else if (mch && md < 3.5 && !chase && !hold) { e.atk = 1; e.mcd = (e.mcd || 0) - dt; if (e.mcd <= 0) { e.mcd = 0.8; mechHurt(T.dmg * (e.dm || 1) * 1.6, e); } }
       else if (chase && pd < 1.15) { e.atk = 1; if (P.slow <= 0) { P.slow = 1.0; vigA = 0.7; P.shake = Math.max(P.shake, 2); var kd = Math.hypot(P.x - e.x, P.z - e.z) || 1; P.vx += (P.x - e.x) / kd * 7; P.vz += (P.z - e.z) / kd * 7; sfx('hit'); } }
       else if (hold) { e.atk = e.sp > 1.9 ? 2 : 0; }
       else { var sp = T.spd * (0.9 + 0.05 * Math.min(G.wave, 10)) * (e.rage > 0 ? 1.45 : 1) * (e.lm || 1) * (e.fl > 0 ? (e.type === 'brute' ? 0.55 : 0.2) : 1); e.x += dx / dist * sp * dt; e.z += dz / dist * sp * dt; e.atk = 0; }
@@ -1633,6 +1659,7 @@ body.cmdr #cmd { display: block; }
       stepStructures(dt); stepTraps(dt); stepZombies(dt); stepPickups(dt);
       if (G.base <= 0) gameOver();
     }
+    stepMech(dt);
     // player
     if (P.slow > 0) P.slow -= dt;
     var inp = readInput(dt), gh0 = surfaceH(P.x, P.z, P.y), ground = P.y <= gh0 + 0.02 && P.vy <= 0.01, moving = Math.hypot(P.vx, P.vz);
@@ -1653,6 +1680,7 @@ body.cmdr #cmd { display: block; }
     } else { var ac = ground ? 12 : 3; P.vx += (wx * spd - P.vx) * Math.min(1, dt * ac); P.vz += (wz * spd - P.vz) * Math.min(1, dt * ac); }
     P.x += P.vx * dt; P.z += P.vz * dt;
     pushOut(P, 0.42, allSolids.filter(function (b) { return blockAt(b, P.y); }));
+    if (M.on && M.alive) { var mdx = P.x - M.x, mdz = P.z - M.z, mdd = Math.hypot(mdx, mdz); if (mdd < MECH_RAD + 0.5 && mdd > 0.001 && P.y < M.y + 6) { P.x = M.x + mdx / mdd * (MECH_RAD + 0.5); P.z = M.z + mdz / mdd * (MECH_RAD + 0.5); } }
     var gh = surfaceH(P.x, P.z, P.y); P.vy -= 16 * dt; P.fv = Math.min(P.fv, P.vy); P.y += P.vy * dt;
     if (P.y <= gh || (ground && P.vy <= 0 && P.y - gh < 0.6)) { if (!ground && P.fv < -3) sfx('land'); P.fv = 0; P.y = gh; P.vy = 0; }
     P.x = Math.max(-HALF, Math.min(HALF, P.x)); P.z = Math.max(-HALF, Math.min(HALF, P.z));
@@ -1673,7 +1701,7 @@ body.cmdr #cmd { display: block; }
   }
   function startGame() {
     G.zombies.slice().forEach(removeZombie); corpses.forEach(function (c) { scene.remove(c.m); }); corpses.length = 0; coinFx.forEach(function (c) { c.on = false; c.m.visible = false; }); pickups.forEach(function (p) { scene.remove(p.m); if (p.bm) scene.remove(p.bm); }); pickups.length = 0;
-    clearSpecialFx(); G.st.slice().forEach(removeStruct); G.tr.slice().forEach(removeTrap); G.running = true; G.over = false; G.wave = 0; G.cd = 5; G.clr = true; G.toSpawn = 0; G.q = []; G.base = G.baseMax; G.score = 0; G.coins = 60; G.kills = 0; resetPlayer(); showGun();
+    clearSpecialFx(); G.st.slice().forEach(removeStruct); G.tr.slice().forEach(removeTrap); G.running = true; G.over = false; G.wave = 0; G.cd = 5; G.clr = true; G.toSpawn = 0; G.q = []; G.base = G.baseMax; G.score = 0; G.coins = 60; G.kills = 0; resetPlayer(); if (M.on) mechReset(); showGun();
     $('startOv').hidden = true; $('endOv').hidden = true; toast('Get ready', 'Hold the safehouse');
   }
 
@@ -1722,17 +1750,17 @@ body.cmdr #cmd { display: block; }
   var keys = {}, mouseDown = false, mouseAds = false, padLast = { start: false, rl: false, wp: false, wn: false };
   function lock() { audioOn(); try { renderer.domElement.requestPointerLock(); } catch (e) {} }
   window.addEventListener('keydown', function (e) {
-    var k = e.key.toLowerCase(); keys[k] = true;
+    var k = e.key.toLowerCase(); keys[k] = true; if (role === 'mech') { if (k === ' ' || k === 'tab') e.preventDefault(); return; }
     if (k === 'v') melee(); else if (k === 'r') reload(); else if (k >= '1' && k <= '3') switchWeapon(+k - 1);
     if (k === ' ' || k === 'tab') e.preventDefault();
   });
   window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
   window.addEventListener('blur', function () { keys = {}; mouseDown = false; mouseAds = false; });
-  window.addEventListener('contextmenu', function (e) { if (role === 'shooter') e.preventDefault(); });
-  renderer.domElement.addEventListener('mousedown', function (e) { if (e.button === 3 || e.button === 4) { e.preventDefault(); melee(); return; } if (e.button === 2) { mouseAds = true; return; } if (e.button !== 0) return; audioOn(); if (!document.pointerLockElement && G.running) lock(); mouseDown = true; });
+  window.addEventListener('contextmenu', function (e) { if (role === 'shooter' || role === 'mech') e.preventDefault(); });
+  renderer.domElement.addEventListener('mousedown', function (e) { if (role === 'mech') { if (e.button === 0) mouseDown = true; else if (e.button === 2) mouseAds = true; audioOn(); if (MC.desk && !document.pointerLockElement) try { renderer.domElement.requestPointerLock(); } catch (er) {} return; } if (e.button === 3 || e.button === 4) { e.preventDefault(); melee(); return; } if (e.button === 2) { mouseAds = true; return; } if (e.button !== 0) return; audioOn(); if (!document.pointerLockElement && G.running) lock(); mouseDown = true; });
   window.addEventListener('mouseup', function (e) { if (e.button === 2) mouseAds = false; else mouseDown = false; });
   window.addEventListener('mousemove', function (e) { if (!document.pointerLockElement) return; var sn = 0.0022 * (1 - 0.5 * P.ads); P.yaw -= (e.movementX || 0) * sn; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - (e.movementY || 0) * sn)); });
-  window.addEventListener('wheel', function (e) { if (!G.running) return; switchWeapon((P.w + (e.deltaY > 0 ? 1 : -1) + WEAPONS.length) % WEAPONS.length); }, { passive: true });
+  window.addEventListener('wheel', function (e) { if (role === 'mech' || !G.running) return; switchWeapon((P.w + (e.deltaY > 0 ? 1 : -1) + WEAPONS.length) % WEAPONS.length); }, { passive: true });
   $('startBtn').addEventListener('click', function () { startGame(); lock(); });
   $('againBtn').addEventListener('click', function () { startGame(); lock(); });
   function shakeLabel() { $('shakeBtn').textContent = 'Screen shake: ' + SHAKE_LBL[shakeI]; } shakeLabel();
@@ -1754,6 +1782,142 @@ body.cmdr #cmd { display: block; }
       if (st && !padLast.start && !G.running) startGame(); padLast = { start: st, rl: rl, wp: wp, wn: wn, ms: ms };
     }
     return o;
+  }
+
+  // ---------- mech pilot: the third player (VR pilot on a Quest 3). The shooter page runs all the rules; the pilot's page sends where the mech is and what it is aiming at ----------
+  var MECH_EYE = 7.2, MECH_RAD = 2.1, MECH_SH = 4.5, MID_PREFIX = 'dblk1m-';
+  var M = { on: false, alive: false, x: 0, y: 0, z: 20, yaw: 0, rx: 0, ry: 0, rz: 20, ryaw: 0, hp: 900, hpMax: 900, ar: 600, arMax: 600, shOn: false, shT: 0, shCd: 0, rkCd: 0, stCd: 0, mgCd: 0, resp: 0, hurt: 0, mg: false, lo: [0, 6, 0], ld: [0, 0, -1], ro: [0, 6, 0], rd: [0, 0, -1], mesh: null, can: null, ph: 0, sp: 0, stp: 0 };
+  var rockets = [], mconns = [], mpeer = null, mCode = '', vFwd = new THREE.Vector3(0, 0, -1), vTmp = new THREE.Vector3();
+  function sendM(o) { mconns.forEach(function (c) { if (c.open) { try { c.send(o); } catch (e) {} } }); }
+  function mechReset() {
+    M.hp = M.hpMax; M.ar = M.arMax; M.shOn = false; M.shT = 0; M.shCd = 0; M.rkCd = 0; M.stCd = 0; M.mgCd = 0; M.resp = 0; M.hurt = 0; M.mg = false; M.alive = true; M.x = M.rx = 0; M.z = M.rz = 20; M.y = M.ry = groundH(0, 20); M.yaw = M.ryaw = 0;
+    rockets.forEach(function (r) { scene.remove(r.m); }); rockets.length = 0; sendM({ t: 'ev', k: 'spawn' });
+  }
+  function buildCannon(k) {   // k 0: rapid machine gun, 1: rocket pod. Points down -z, the tip is at z = -2.6
+    var g = new THREE.Group(), DARK = 0x222833, ORG = 0xd9692a, ST = 0x3b4658;
+    if (k === 0) { box(0.9, 0.9, 1.5, ST, 0, 0, -0.5, g); [[-0.22, 0.22], [0.22, 0.22], [0, -0.26]].forEach(function (o) { box(0.24, 0.24, 2.3, DARK, o[0], o[1], -1.6, g); }); box(1.0, 1.0, 0.3, ORG, 0, 0, -0.9, g); }
+    else { box(1.1, 1.1, 2.2, ORG, 0, 0, -1.0, g); [[-0.28, 0.28], [0.28, 0.28], [-0.28, -0.28], [0.28, -0.28]].forEach(function (o) { box(0.4, 0.4, 0.4, DARK, o[0], o[1], -2.1, g); }); box(0.9, 0.9, 0.8, ST, 0, 0, 0.2, g); }
+    var fl = bbox(0.8, 0.8, 0.6, 0xffe3a0, 0, 0, -2.8, g); fl.visible = false; g.userData.flash = fl; return g;
+  }
+  function buildMech() {
+    var g = new THREE.Group(), u = g.userData, STEEL = 0x3b4658, DARK = 0x222833, LT = 0x5b6b82, ORG = 0xd9692a;
+    [-1, 1].forEach(function (s) {
+      var leg = new THREE.Group(); leg.position.set(s * 1.15, 3.7, 0); g.add(leg);
+      box(1.1, 1.9, 1.2, STEEL, 0, -0.95, 0, leg); box(1.3, 0.55, 1.4, ORG, 0, -0.1, 0.05, leg);
+      var sh = new THREE.Group(); sh.position.set(0, -1.9, 0.1); leg.add(sh); box(1.0, 1.5, 1.1, LT, 0, -0.75, 0.05, sh); box(1.4, 0.5, 2.2, DARK, 0, -1.55, -0.45, sh);
+      u[s < 0 ? 'legL' : 'legR'] = leg; u[s < 0 ? 'shL' : 'shR'] = sh;
+    });
+    box(3.0, 0.8, 1.7, DARK, 0, 3.85, 0, g);
+    var tor = new THREE.Group(); tor.position.set(0, 4.25, 0); g.add(tor); u.tor = tor;
+    box(3.4, 1.9, 2.0, STEEL, 0, 1.0, 0, tor); box(2.4, 1.0, 0.3, ORG, 0, 1.2, -1.05, tor); box(1.6, 0.5, 0.3, DARK, 0, 0.35, -1.05, tor);
+    box(1.1, 0.95, 1.1, LT, 0, 2.45, -0.1, tor); bbox(0.85, 0.22, 0.12, 0x5fe8ff, 0, 2.5, -0.68, tor);
+    box(2.4, 1.7, 1.0, DARK, 0, 1.1, 1.1, tor); [-1, 1].forEach(function (s) { box(0.6, 0.6, 0.9, ORG, s * 0.7, 0.9, 1.75, tor); box(1.2, 1.2, 1.4, ORG, s * 2.3, 1.6, 0, tor); });
+    var sd = new THREE.Mesh(new THREE.SphereGeometry(4.6, 18, 12), new THREE.MeshBasicMaterial({ color: 0x4de0ff, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide })); sd.position.set(0, 4, 0); sd.visible = false; g.add(sd); u.shield = sd;
+    return g;
+  }
+  function aimCannon(c, ox, oy, oz, d) { c.position.set(ox, oy, oz); vTmp.set(d[0], d[1], d[2]).normalize(); c.quaternion.setFromUnitVectors(vFwd, vTmp); }
+  function placeMech(dt) {
+    if (!M.mesh) { M.mesh = buildMech(); scene.add(M.mesh); M.can = [buildCannon(0), buildCannon(1)]; scene.add(M.can[0]); scene.add(M.can[1]); }
+    var vis = M.on && M.alive; M.mesh.visible = M.can[0].visible = M.can[1].visible = vis; if (!vis) return;
+    var k = Math.min(1, dt * 12), u = M.mesh.userData, ox = M.rx, oz = M.rz; M.rx += (M.x - M.rx) * k; M.rz += (M.z - M.rz) * k; M.ry += (M.y - M.ry) * k; var dy = M.yaw - M.ryaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); M.ryaw += dy * k;
+    var raw = dt > 0 ? Math.hypot(M.rx - ox, M.rz - oz) / dt : 0; M.sp += (raw - M.sp) * Math.min(1, dt * 6); var sp = Math.min(1, M.sp / 9), air = M.ry > groundH(M.rx, M.rz) + 0.4;
+    M.ph += M.sp * dt * 0.55; var sw = Math.sin(M.ph) * 0.55 * sp * (air ? 0.3 : 1);
+    M.mesh.position.set(M.rx, M.ry, M.rz); M.mesh.rotation.y = M.ryaw; u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.shL.rotation.x = Math.max(0, -sw) * 0.9; u.shR.rotation.x = Math.max(0, sw) * 0.9; u.tor.position.y = 4.25 + Math.abs(Math.cos(M.ph)) * 0.12 * sp;
+    var st = Math.floor(M.ph / PI); if (st !== M.stp) { M.stp = st; if (sp > 0.15 && !air) { sfx('mstep', [M.rx, M.ry + 0.5, M.rz]); var dpl = Math.hypot(P.x - M.rx, P.z - M.rz); if (dpl < 30) P.shake = Math.max(P.shake, 1.6 * (1 - dpl / 30)); } }
+    var cy = Math.cos(M.ryaw), sy = Math.sin(M.ryaw);
+    [-1, 1].forEach(function (s, i) { var lx = s * 2.3, lz = -0.2; aimCannon(M.can[i], M.rx + lx * cy + lz * sy, M.ry + 5.85, M.rz - lx * sy + lz * cy, i ? M.rd : M.ld); M.can[i].userData.flash.visible = i === 0 ? M.mg && Math.random() < 0.6 : M.rkCd > 1.55; });
+    var ay = Math.atan2(-(M.ld[0] + M.rd[0]), -(M.ld[2] + M.rd[2])) - M.ryaw; ay = Math.atan2(Math.sin(ay), Math.cos(ay)); u.tor.rotation.y = Math.max(-0.8, Math.min(0.8, ay)) * 0.6;
+    u.shield.visible = M.shOn; if (M.shOn) { u.shield.material.opacity = 0.16 + 0.1 * Math.sin(G.t * 9) + (M.hurt > 0 ? 0.25 : 0); u.shield.rotation.y += dt; }
+  }
+  function mechPack() { return [r2(M.x), r2(M.z), r2(M.yaw), M.alive ? 1 : 0, Math.round(M.hp), M.hpMax, Math.round(M.ar), M.arMax, M.shOn ? 1 : 0, Math.round(100 * (M.shOn ? M.shT / MECH_SH : 1 - M.shCd / 12)), Math.round(100 * (1 - M.rkCd / 1.8)), Math.round(100 * (1 - M.stCd / 3.5)), Math.ceil(M.resp), r2(M.y), M.hurt > 0 ? 1 : 0]; }
+  function mechHurt(dmg, from) {
+    if (!M.on || !M.alive || dmg <= 0) return;
+    if (M.shOn) { M.hurt = 0.15; return; }
+    var ab = Math.min(M.ar, dmg * 0.75); M.ar -= ab; dmg -= ab; M.hp -= dmg; M.hurt = 0.25; if (rnd() < 0.25) sfx('mhit', [M.x, M.y + 4, M.z]);
+    if (M.hp <= 0) mechDestroy();
+  }
+  function mechDestroy() { M.hp = 0; M.alive = false; M.resp = 20; M.mg = false; M.shOn = false; M.hurt = 0; mechBoom(M.x, M.y + 3, M.z, 9, 160); sfx('mdead', [M.x, M.y + 3, M.z]); sendM({ t: 'ev', k: 'dead' }); toast('Mech destroyed', 'Back in 20 s'); }
+  function mechBoom(x, y, z, rad, dmg) {
+    blast(x, z, rad, dmg, y > ROOF_H - 2 ? ROOF_H : groundH(x, z)); spark(x, y, z, 0xffd080, 14); sfx('mboom', [x, y, z]);
+    var dp = Math.hypot(P.x - x, P.z - z); if (dp < 40) P.shake = Math.max(P.shake, 4 * (1 - dp / 40)); sendM({ t: 'ev', k: 'boom', x: r2(x), y: r2(y), z: r2(z) });
+  }
+  function rayBoxY(ox, oy, oz, dx, dy, dz, s) {   // like rayBox but respects the underside of bridges and galleries
+    var h = s.h === undefined ? 3.6 : s.h, lo = [s.x0, s.y0 || 0, s.z0], hi = [s.x1, h, s.z1], o = [ox, oy, oz], d = [dx, dy, dz], tmin = 0, tmax = 1e9;
+    for (var a = 0; a < 3; a++) {
+      if (Math.abs(d[a]) < 1e-9) { if (o[a] < lo[a] || o[a] > hi[a]) return Infinity; }
+      else { var t1 = (lo[a] - o[a]) / d[a], t2 = (hi[a] - o[a]) / d[a]; if (t1 > t2) { var tt = t1; t1 = t2; t2 = tt; } tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2); if (tmin > tmax) return Infinity; }
+    }
+    return tmin;
+  }
+  function mechMG() {
+    var o = M.lo, d = M.ld, sp = 0.012, dx = d[0] + (rnd() - 0.5) * sp * 2, dy = d[1] + (rnd() - 0.5) * sp * 2, dz = d[2] + (rnd() - 0.5) * sp * 2, L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
+    var wall = 110; for (var i = 0; i < solids.length; i++) { if (solids[i].rail) continue; var t = rayBoxY(o[0], o[1], o[2], dx, dy, dz, solids[i]); if (t < wall) wall = t; }
+    if (dy < -0.001) { var tg = (o[1] - groundH(o[0] + dx * 20, o[2] + dz * 20)) / -dy; if (tg > 0 && tg < wall) wall = tg; }
+    var best = null, bt = wall, bh = false, bl = null;
+    G.zombies.forEach(function (e) { var r = zombieHitDist(e, o[0], o[1], o[2], dx, dy, dz); if (r[0] < bt) { bt = r[0]; best = e; bh = r[1]; bl = r[2]; } });
+    tracer(o[0], o[1], o[2], o[0] + dx * bt, o[1] + dy * bt, o[2] + dz * bt); sfx('mmg', [o[0], o[1], o[2]]);
+    var hx = o[0] + dx * bt, hy = o[1] + dy * bt, hz = o[2] + dz * bt;
+    if (best) { var dmg = 17 * (bh ? 2 : 1), dead = damageZombie(best, dmg, dx, dz, 2.2, 1.5, bh ? null : bl); spray(hx, hy, hz, 0xb01818, bh ? 8 : 4, dx, dz, 3); dmgNum(hx, hy + 0.2, hz, Math.round(dmg), dead ? 'k' : bh ? 'h' : ''); }
+    else if (bt < 109) spark(hx, hy, hz, 0xffd9a0, 3);
+  }
+  function mechRocket() {
+    M.rkCd = 1.8; var d = M.rd, L = Math.hypot(d[0], d[1], d[2]) || 1, m = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffa040 }));
+    vTmp.set(d[0] / L, d[1] / L, d[2] / L); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vTmp); m.position.set(M.ro[0], M.ro[1], M.ro[2]); scene.add(m);
+    rockets.push({ x: M.ro[0], y: M.ro[1], z: M.ro[2], vx: vTmp.x * 44, vy: vTmp.y * 44, vz: vTmp.z * 44, life: 3.2, m: m }); sfx('mrk', [M.ro[0], M.ro[1], M.ro[2]]);
+  }
+  function stepRockets(dt) {
+    for (var i = rockets.length - 1; i >= 0; i--) {
+      var r = rockets[i]; r.life -= dt; r.vy -= 3 * dt; var nx = r.x + r.vx * dt, ny = r.y + r.vy * dt, nz = r.z + r.vz * dt, hit = r.life <= 0;
+      if (ny <= groundH(nx, nz) + 0.1) hit = true;
+      for (var j = 0; j < solids.length && !hit; j++) { var s = solids[j]; if (s.rail) continue; if (nx > s.x0 && nx < s.x1 && nz > s.z0 && nz < s.z1 && ny < (s.h === undefined ? 3.6 : s.h) && ny > (s.y0 || 0)) hit = true; }
+      for (var k = 0; k < G.zombies.length && !hit; k++) { var e = G.zombies[k]; if (Math.hypot(e.x - nx, e.z - nz) < 1.3 && ny > (e.y || 0) - 0.3 && ny < (e.y || 0) + 2.6) hit = true; }
+      r.x = nx; r.y = ny; r.z = nz; r.m.position.set(nx, ny, nz); if (rnd() < 0.8) spark(nx, ny, nz, 0xffb040, 1);
+      if (hit) { scene.remove(r.m); rockets.splice(i, 1); mechBoom(nx, ny, nz, 7, 170); }
+    }
+  }
+  function mechStomp() {
+    M.stCd = 3.5; sfx('mstomp', [M.x, M.y + 0.5, M.z]); ringFx(M.x, M.y, M.z, 0xffe0a0, 8); spark(M.x, M.y + 0.4, M.z, 0xd8c8a0, 18);
+    G.zombies.slice().forEach(function (e) { var d = Math.hypot(e.x - M.x, e.z - M.z); if (d < 8 && Math.abs((e.y || 0) - M.y) < 3) { var big = ZT[e.type].sc >= 1.3 || e.type === 'armoured'; damageZombie(e, big ? 130 * (1 - d / 14) : 999, (e.x - M.x) / (d || 1), (e.z - M.z) / (d || 1), big ? 4 : 2, 3); } });
+    var dp = Math.hypot(P.x - M.x, P.z - M.z); if (dp < 30) P.shake = Math.max(P.shake, 3 * (1 - dp / 30)); sendM({ t: 'ev', k: 'stomp' });
+  }
+  function stepMech(dt) {
+    if (!M.on) { if (M.mesh) placeMech(dt); return; }
+    M.hurt = Math.max(0, M.hurt - dt);
+    if (!M.alive) { M.resp -= dt; if (M.resp <= 0) mechReset(); placeMech(dt); return; }
+    M.mgCd -= dt; M.rkCd = Math.max(0, M.rkCd - dt); M.stCd = Math.max(0, M.stCd - dt);
+    if (M.shOn) { M.shT -= dt; if (M.shT <= 0) { M.shOn = false; M.shCd = 12; } } else M.shCd = Math.max(0, M.shCd - dt);
+    if (M.mg && M.mgCd <= 0) { M.mgCd = 0.075; mechMG(); }
+    stepRockets(dt);
+    G.zombies.forEach(function (e) { if (Math.abs((e.y || 0) - M.y) > 2.2) return; var dx = e.x - M.x, dz = e.z - M.z; if (dx * dx + dz * dz < 5.8) { e.mcr = (e.mcr || 0) - dt; if (e.mcr <= 0) { e.mcr = 0.4; var dd = Math.hypot(dx, dz) || 1; damageZombie(e, 40, dx / dd, dz / dd, 3, 2); } } });
+    placeMech(dt);
+  }
+  function onMechMsg(m) {
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'm') {
+      if (!M.alive || !nums([m.x, m.y, m.z, m.yaw], 4)) return;
+      M.x = Math.max(-HALF + 2, Math.min(HALF - 2, m.x)); M.z = Math.max(-HALF + 2, Math.min(HALF - 2, m.z)); M.y = Math.max(0, Math.min(60, m.y)); M.yaw = m.yaw;
+      if (nums(m.lo, 3) && nums(m.ld, 3) && Math.hypot(m.lo[0] - M.x, m.lo[2] - M.z) < 12) { M.lo = m.lo; M.ld = m.ld; }
+      if (nums(m.ro, 3) && nums(m.rd, 3) && Math.hypot(m.ro[0] - M.x, m.ro[2] - M.z) < 12) { M.ro = m.ro; M.rd = m.rd; }
+      M.mg = !!m.mg;
+    } else if (!M.alive) return;
+    else if (m.t === 'rk') { if (M.rkCd <= 0) mechRocket(); }
+    else if (m.t === 'st') { if (M.stCd <= 0) mechStomp(); }
+    else if (m.t === 'sh') { if (!M.shOn && M.shCd <= 0) { M.shOn = true; M.shT = MECH_SH; sfx('mshield', [M.x, M.y + 3, M.z]); } }
+    else if (m.t === 'ds') sfx('mdash', [M.x, M.y + 2, M.z]);
+  }
+  function refreshCodeBoxes() { $('codeBox').hidden = !myCode || conns.length > 0; $('codeBoxM').hidden = !mCode || mconns.length > 0; }
+  function startMechHost() {
+    if (!window.Peer) return; mCode = makeCode(); var p;
+    try { p = new Peer(MID_PREFIX + mCode, peerOpts()); } catch (e) { return; } mpeer = p;
+    p.on('open', function () { $('mechLine').textContent = 'Mech pilot code: ' + mCode; $('codeBoxMV').textContent = mCode; refreshCodeBoxes(); });
+    p.on('connection', function (c) {
+      c.on('open', function () { var old = mconns.slice(); mconns = [c]; old.forEach(function (o) { try { o.close(); } catch (e) {} }); M.on = true; mechReset(); refreshCodeBoxes(); toast('Mech pilot linked'); });
+      c.on('data', onMechMsg);
+      function gone() { var i = mconns.indexOf(c); if (i >= 0) mconns.splice(i, 1); if (!mconns.length) { M.on = false; M.mg = false; refreshCodeBoxes(); } }
+      c.on('close', gone); c.on('error', gone);
+    });
+    p.on('disconnected', function () { setTimeout(function () { try { if (!p.destroyed) p.reconnect(); } catch (e) {} }, 1500); });
+    p.on('error', function (err) { if (err && err.type === 'unavailable-id') startMechHost(); });
   }
 
   // ---------- pairing ----------
@@ -1789,13 +1953,14 @@ body.cmdr #cmd { display: block; }
   }
   var TIDX = {}; TYPES.forEach(function (t, i) { TIDX[t] = i; });
   function publish(t) {
-    if (!conns.length || t - lastGs < 0.1) return; lastGs = t;
-    sendAll({ t: 'gs', run: G.running, over: G.over, w: G.wave, cd: Math.round(G.cd * 10) / 10, base: Math.round(G.base), bm: G.baseMax, c: G.coins, s: G.score, k: G.kills, l: G.zombies.length + G.toSpawn, p: [r2(P.x), r2(P.z), r2(P.yaw)],
+    if ((!conns.length && !mconns.length) || t - lastGs < 0.1) return; lastGs = t;
+    var gso = { t: 'gs', run: G.running, over: G.over, w: G.wave, cd: Math.round(G.cd * 10) / 10, base: Math.round(G.base), bm: G.baseMax, c: G.coins, s: G.score, k: G.kills, l: G.zombies.length + G.toSpawn, p: [r2(P.x), r2(P.z), r2(P.yaw)],
       z: G.zombies.map(function (e) { return [e.id, r2(e.x), r2(e.z), Math.round(100 * e.hp / e.hpMax), r2(e.face), TIDX[e.type], r2(e.y)]; }),
       st: G.st.map(function (q) { return [q.id, KINDS.indexOf(q.kind), q.x, q.z, q.lv, Math.round(100 * q.hp / q.hpMax), q.open ? 1 : 0, q.fl]; }),
       tr: G.tr.map(function (q) { return [q.id, TKINDS.indexOf(q.kind), q.x, q.z, Math.round(100 * q.life / q.max), Math.round(100 * q.hp / q.hpMax), q.fl]; }),
       pk: pickups.map(function (p) { return [p.id, p.kind === 'ammo' ? 0 : 1, p.x, p.z, p.big ? 1 : 0, p.fl]; }),
-      ac: acids.slice(0, 12).map(function (a) { return [r2(a.x), r2(a.z), r2(a.y)]; }) });
+      ac: acids.slice(0, 12).map(function (a) { return [r2(a.x), r2(a.z), r2(a.y)]; }) };
+    if (M.on) gso.m = mechPack(); sendAll(gso); sendM(gso);
   }
 
   // ---------- commander ----------
@@ -1803,42 +1968,44 @@ body.cmdr #cmd { display: block; }
   function nums(a, n) { if (!Array.isArray(a) || a.length < n) return false; for (var i = 0; i < n; i++) if (typeof a[i] !== 'number' || !isFinite(a[i])) return false; return true; }
   function onGs(d) {
     G.running = !!d.run; G.over = !!d.over; G.wave = d.w | 0; G.cd = +d.cd || 0; G.base = +d.base || 0; G.baseMax = +d.bm || 100; G.coins = d.c | 0; G.score = d.s | 0; G.kills = d.k | 0; G.left = d.l | 0;
-    if (nums(d.p, 3)) { C.marker.position.set(d.p[0], 4, d.p[1]); C.marker.rotation.y = d.p[2]; C.marker.visible = true; }
+    if (role === 'mech') { MC.gs = Array.isArray(d.m) ? d.m : null; mechOnGs(); }
+    else if (C.mm) { var md = d.m; C.mech = md; if (Array.isArray(md) && md.length >= 13 && md[3]) { C.mm.visible = true; C.mm.position.set(md[0], 4.4, md[1]); C.mm.rotation.y = md[2]; } else C.mm.visible = false; }
+    if (C.marker && nums(d.p, 3)) { C.marker.position.set(d.p[0], 4, d.p[1]); C.marker.rotation.y = d.p[2]; C.marker.visible = true; }
     var seen = {};
     (Array.isArray(d.z) ? d.z : []).slice(0, 200).forEach(function (a) {
       if (!nums(a, 6)) return; var type = TYPES[a[5] | 0] || 'walker', e = null;
       for (var i = 0; i < G.zombies.length; i++) if (G.zombies[i].id === a[0]) { e = G.zombies[i]; break; }
-      if (!e) { e = { id: a[0], type: type, x: a[1], z: a[2], y: 0, hp: 1, hpMax: 1, face: a[4], ph: rnd() * 6, flash: 0, atk: 0, mesh: makeZombieMesh(type) }; e.mesh.scale.set(2.2 * CS, 1.4 * CS, 2.2 * CS); G.zombies.push(e); }
+      if (!e) { e = { id: a[0], type: type, x: a[1], z: a[2], y: 0, hp: 1, hpMax: 1, face: a[4], ph: rnd() * 6, flash: 0, atk: 0, mesh: makeZombieMesh(type) }; e.mesh.scale.set(mk(2.2), mk(1.4), mk(2.2)); G.zombies.push(e); }
       e.tx = a[1]; e.tz = a[2]; e.face = a[4]; e.y = isFinite(a[6]) ? +a[6] : 0; seen[a[0]] = 1;
     });
     G.zombies.slice().forEach(function (e) { if (!seen[e.id]) removeZombie(e); });
     var sseen = {};
     (Array.isArray(d.st) ? d.st : []).slice(0, 40).forEach(function (a) {
       if (!nums(a, 6) || !KINDS[a[1] | 0]) return; var kind = KINDS[a[1] | 0], q = findSt(a[0]);
-      if (!q) { q = { id: a[0], kind: kind, x: a[2], z: a[3], lv: a[4] | 0, hp: a[5], hpMax: 100, open: a[6] === 1, fl: a[7] === 1 ? 1 : 0, mesh: buildStMesh(kind, a[4] | 0, a[6] === 1) }; q.y = q.fl ? ROOF_H : groundH(q.x, q.z); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(1.5 * CS); G.st.push(q); }
-      var op = a[6] === 1; if (q.lv !== (a[4] | 0) || (kind === 'gate' && !!q.open !== op)) { scene.remove(q.mesh); q.lv = a[4] | 0; q.open = op; q.mesh = buildStMesh(kind, q.lv, op); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(1.5 * CS); }
+      if (!q) { q = { id: a[0], kind: kind, x: a[2], z: a[3], lv: a[4] | 0, hp: a[5], hpMax: 100, open: a[6] === 1, fl: a[7] === 1 ? 1 : 0, mesh: buildStMesh(kind, a[4] | 0, a[6] === 1) }; q.y = q.fl ? ROOF_H : groundH(q.x, q.z); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(mk(1.5)); G.st.push(q); }
+      var op = a[6] === 1; if (q.lv !== (a[4] | 0) || (kind === 'gate' && !!q.open !== op)) { scene.remove(q.mesh); q.lv = a[4] | 0; q.open = op; q.mesh = buildStMesh(kind, q.lv, op); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(mk(1.5)); }
       q.hp = a[5]; sseen[a[0]] = 1;
     });
     var tseen = {};
     (Array.isArray(d.tr) ? d.tr : []).slice(0, 30).forEach(function (a) {
       if (!nums(a, 6) || !TKINDS[a[1] | 0]) return; var q = null; for (var i = 0; i < G.tr.length; i++) if (G.tr[i].id === a[0]) { q = G.tr[i]; break; }
-      if (!q) { q = { id: a[0], kind: TKINDS[a[1] | 0], x: a[2], z: a[3], life: 1, max: 1, hp: 1, hpMax: 1, arm: 0, fl: a[6] === 1 ? 1 : 0 }; q.y = q.fl ? ROOF_H : groundH(q.x, q.z); q.mesh = buildTrMesh(q.kind); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(1.8 * CS); G.tr.push(q); }
+      if (!q) { q = { id: a[0], kind: TKINDS[a[1] | 0], x: a[2], z: a[3], life: 1, max: 1, hp: 1, hpMax: 1, arm: 0, fl: a[6] === 1 ? 1 : 0 }; q.y = q.fl ? ROOF_H : groundH(q.x, q.z); q.mesh = buildTrMesh(q.kind); q.mesh.position.set(q.x, q.y, q.z); q.mesh.scale.setScalar(mk(1.8)); G.tr.push(q); }
       q.hp = a[5]; q.hpMax = 100; tseen[a[0]] = 1;
     });
     G.tr.slice().forEach(function (q) { if (!tseen[q.id]) removeTrap(q); });
     var pseen = {};
     (Array.isArray(d.pk) ? d.pk : []).slice(0, 30).forEach(function (a) {
       if (!nums(a, 5)) return; var p = null; for (var i = 0; i < pickups.length; i++) if (pickups[i].id === a[0]) { p = pickups[i]; break; }
-      if (!p) { var kk = a[1] === 0 ? 'ammo' : 'health', m = box(0.45, 0.3, 0.3, kk === 'ammo' ? 0xffb43a : 0x6be08a, a[2], 1 + (a[5] === 1 ? ROOF_H : groundH(a[2], a[3])), a[3]); m.scale.setScalar((a[4] ? 4 : 2.6) * CS); pickups.push({ id: a[0], x: a[2], z: a[3], kind: kk, m: m, life: 99, fl: a[5] === 1 ? 1 : 0, y: a[5] === 1 ? ROOF_H : groundH(a[2], a[3]) }); }
+      if (!p) { var kk = a[1] === 0 ? 'ammo' : 'health', m = box(0.45, 0.3, 0.3, kk === 'ammo' ? 0xffb43a : 0x6be08a, a[2], 1 + (a[5] === 1 ? ROOF_H : groundH(a[2], a[3])), a[3]); m.scale.setScalar(mk(a[4] ? 4 : 2.6)); pickups.push({ id: a[0], x: a[2], z: a[3], kind: kk, m: m, life: 99, fl: a[5] === 1 ? 1 : 0, y: a[5] === 1 ? ROOF_H : groundH(a[2], a[3]) }); }
       pseen[a[0]] = 1;
     });
     pickups.slice().forEach(function (p) { if (!pseen[p.id]) { scene.remove(p.m); pickups.splice(pickups.indexOf(p), 1); } });
     showAcids(d.ac);
     G.st.slice().forEach(function (q) { if (!sseen[q.id]) { scene.remove(q.mesh); G.st.splice(G.st.indexOf(q), 1); if (C.sel === q.id) selectSt(null); } });
-    applyFloor();
-    cmdRefresh();
+    if (role === 'commander') { applyFloor(); cmdRefresh(); }
   }
   function cmdRefresh() {
+    var mh = C.mech; $('cMech').textContent = Array.isArray(mh) && mh.length >= 13 ? (mh[3] ? Math.round(100 * (mh[4] + mh[6]) / (mh[5] + mh[7])) + '%' : 'DOWN ' + mh[12] + 's') : '-';
     $('cWave').textContent = G.running || G.over ? G.wave || '...' : '-'; $('cBase').textContent = G.running || G.over ? Math.max(0, Math.round(100 * G.base / (G.baseMax || 100))) + '%' : '-';
     $('cCoins').textContent = G.coins; $('cScore').textContent = G.score;
     $('cSt').textContent = !linked ? 'Not connected' : G.over ? 'Run over: waiting for the shooter to play again' : !G.running ? 'Waiting for the shooter to start' : G.cd > 0 ? 'Next wave in ' + Math.ceil(G.cd) + ' s' : (G.left || 0) + ' zombies left';
@@ -1864,6 +2031,8 @@ body.cmdr #cmd { display: block; }
   function initCommander() {
     var mk = new THREE.Group(), ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.3, 20), new THREE.MeshBasicMaterial({ color: 0x4dd8ff, side: THREE.DoubleSide })), arrow = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.8, 3), new THREE.MeshBasicMaterial({ color: 0x4dd8ff }));
     ring.rotation.x = -PI / 2; arrow.rotation.x = -PI / 2; arrow.position.set(0, 0, -2.6); mk.add(ring); mk.add(arrow); mk.position.y = 4; mk.visible = false; scene.add(mk); C.marker = mk;
+    var mm = new THREE.Group(), mr = new THREE.Mesh(new THREE.RingGeometry(3.2, 4.4, 28), new THREE.MeshBasicMaterial({ color: 0xff8a2a, side: THREE.DoubleSide })), ma = new THREE.Mesh(new THREE.ConeGeometry(3, 6, 3), new THREE.MeshBasicMaterial({ color: 0xff8a2a }));
+    mr.rotation.x = -PI / 2; ma.rotation.x = -PI / 2; ma.position.set(0, 0, -6.4); mm.add(mr); mm.add(ma); mm.visible = false; scene.add(mm); C.mm = mm;
     C.ghost = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthTest: false })); C.ghost.rotation.x = -PI / 2; C.ghost.position.y = 3; C.ghost.visible = false; scene.add(C.ghost);
     var rg = new THREE.Group(), disc = new THREE.Mesh(new THREE.CircleGeometry(1, 56), new THREE.MeshBasicMaterial({ color: 0x4dd8ff, transparent: true, opacity: 0.13, depthTest: false, side: THREE.DoubleSide })), edge = new THREE.Mesh(new THREE.RingGeometry(0.98, 1, 72), new THREE.MeshBasicMaterial({ color: 0x4dd8ff, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide })), nxt = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 72), new THREE.MeshBasicMaterial({ color: 0xffd25a, transparent: true, opacity: 0.45, depthTest: false, side: THREE.DoubleSide }));
     [disc, edge, nxt].forEach(function (m, i) { m.rotation.x = -PI / 2; m.renderOrder = 3 + i; rg.add(m); }); rg.visible = false; scene.add(rg); C.rng = rg;
@@ -1945,6 +2114,178 @@ body.cmdr #cmd { display: block; }
     placeZombieMeshes(); placeStructMeshes(); updateRange();
   }
 
+  // ---------- mech pilot client (#mech): seated cockpit in VR on a Quest 3, or a desktop preview ----------
+  var MC = { conn: null, vr: false, desk: false, session: null, rig: null, hudCtx: null, hudTx: null, can: [], ret: [], x: 0, y: 0, z: 20, yaw: 0, pitch: 0, vx: 0, vz: 0, vy: 0, dvx: 0, dvz: 0, fuel: 100, dashT: 0, dashCd: 0, jetOn: false, gs: null, msg: 'Not connected', sendT: 0, hudT: 0, last: 0, edge: {}, mgOn: false, mgT: 0, rkC: 0, stC: 0, snap: false, snapHeld: false, vtr: [], vrk: [], hurtT: 0, shake: 0, dead: false, ph: 0, stp: 0, hp0: 0, ctrl: [], aim: [{ o: [0, 6, 0], d: [0, 0, -1] }, { o: [0, 6, 0], d: [0, 0, -1] }] };
+  var vA = new THREE.Vector3(), vB = new THREE.Vector3(), qA = new THREE.Quaternion();
+  function mechSay(s) { MC.msg = s; var el = $('mMsg'); if (el) el.textContent = s; }
+  function mechSendRaw(o) { if (MC.conn && MC.conn.open) { try { MC.conn.send(o); } catch (e) {} } }
+  function mechConnect(code) {
+    if (!window.Peer) { mechSay('Pairing library did not load.'); return; }
+    try { if (peer) peer.destroy(); } catch (e) {} mechSay('Connecting...');
+    var p = new Peer(peerOpts()), timer = setTimeout(function () { mechSay('No answer. Check the mech code and that the shooter page is open.'); }, 15000); peer = p;
+    p.on('open', function () {
+      var c = p.connect(MID_PREFIX + code, { serialization: 'json', reliable: true });
+      c.on('open', function () { clearTimeout(timer); MC.conn = c; linked = true; mechSay('Linked'); });
+      c.on('data', function (d) { if (!d) return; if (d.t === 'gs') onGs(d); else if (d.t === 'ev') mechOnEv(d); });
+      c.on('close', function () { MC.conn = null; linked = false; mechSay('Link dropped. Reload and enter the code again.'); });
+    });
+    p.on('error', function (err) { clearTimeout(timer); mechSay(err && err.type === 'peer-unavailable' ? 'No shooter has that mech code.' : 'Could not reach the pairing service.'); });
+  }
+  function mechOnGs() {
+    var m = MC.gs; if (!m || m.length < 13) return; MC.dead = !m[3];
+    if (m[4] < MC.hp0 - 0.5) { MC.hurtT = 0.35; MC.shake = Math.min(1, MC.shake + 0.4); mechBuzz('left', 0.5, 70); mechBuzz('right', 0.5, 70); if (!m[8]) sfx('mhit'); } MC.hp0 = m[4];
+  }
+  function mechBuzz(h, s, ms) { try { var ss = renderer.xr.getSession(); if (!ss) return; for (var i = 0; i < ss.inputSources.length; i++) { var src = ss.inputSources[i]; if (src.handedness === h && src.gamepad && src.gamepad.hapticActuators && src.gamepad.hapticActuators[0]) src.gamepad.hapticActuators[0].pulse(s, ms); } } catch (e) {} }
+  function mechOnEv(d) {
+    if (d.k === 'spawn') { MC.x = 0; MC.z = 20; MC.y = groundH(0, 20); MC.vx = MC.vz = MC.vy = 0; MC.yaw = 0; MC.fuel = 100; MC.dead = false; MC.hp0 = 0; }
+    else if (d.k === 'boom' && nums([d.x, d.y, d.z], 3)) { ringFx(d.x, d.y, d.z, 0xffa040, 7); spark(d.x, d.y, d.z, 0xffd080, 14); sfx('mboom', [d.x, d.y, d.z]); var r = MC.vrk.shift(); if (r) scene.remove(r.m); mechBuzz('right', 0.8, 120); }
+    else if (d.k === 'stomp') { MC.shake = Math.min(1, MC.shake + 0.5); }
+    else if (d.k === 'dead') { MC.dead = true; MC.shake = 1; mechBuzz('left', 1, 400); mechBuzz('right', 1, 400); }
+  }
+  function blockMech(b, y) {   // what stops a mech: buildings, the town hall, trees and stairs. It strides over cars, planters and low walls, and walks under bridges.
+    if (b.ramp) return true; if (b.rail) return false; var top = b.h === undefined ? 3.6 : b.h;
+    return top > y + 2.2 && !(b.y0 && y + 7.8 <= b.y0);
+  }
+  function mechKeyInput(inp) {
+    inp.fwd = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0); inp.side = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0);
+    inp.mg = !!mouseDown && !!document.pointerLockElement; inp.rk = mouseAds && !!document.pointerLockElement; inp.jet = !!keys[' ']; inp.dash = !!keys['shift']; inp.st = !!keys['e']; inp.sh = !!keys['q'];
+  }
+  function mechVRInput(inp) {
+    var s = renderer.xr.getSession(); if (!s) return;
+    for (var i = 0; i < s.inputSources.length; i++) {
+      var src = s.inputSources[i], gp = src.gamepad; if (!gp) continue; var h = src.handedness, ax = gp.axes, b = gp.buttons, sx = ax.length >= 4 ? ax[2] : ax[0], sy = ax.length >= 4 ? ax[3] : ax[1];
+      var pr = function (n) { return !!(b[n] && b[n].pressed); }, tv = b[0] ? b[0].value : 0;
+      if (h === 'left') { inp.side += dz(sx || 0); inp.fwd -= dz(sy || 0); inp.mg = tv > 0.4; inp.sh = pr(1); inp.snapBtn = pr(5); }
+      else if (h === 'right') { inp.turn += dz(sx || 0); inp.rk = tv > 0.5; inp.st = pr(1); inp.jet = pr(4); inp.dash = pr(5); }
+    }
+  }
+  function mechEdge(k, v) { var r = !!v && !MC.edge[k]; MC.edge[k] = !!v; return r; }
+  function mechMove(dt, inp) {
+    if (MC.dead) { inp = { fwd: 0, side: 0, turn: 0 }; }
+    if (mechEdge('snapBtn', inp.snapBtn)) { MC.snap = !MC.snap; mechSay(MC.snap ? 'Snap turning' : 'Smooth turning'); }
+    if (MC.snap) { if (Math.abs(inp.turn) > 0.7) { if (!MC.snapHeld) { MC.yaw -= Math.sign(inp.turn) * 0.5236; MC.snapHeld = true; } } else MC.snapHeld = false; } else MC.yaw -= (inp.turn || 0) * 1.7 * dt;
+    var sn = Math.sin(MC.yaw), cs = Math.cos(MC.yaw), fx = -sn, fz = -cs, rx = cs, rz = -sn;
+    var wx = fx * inp.fwd + rx * inp.side, wz = fz * inp.fwd + rz * inp.side, wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
+    var gh = surfaceH(MC.x, MC.z, MC.y), ground = MC.y <= gh + 0.05 && MC.vy <= 0.1;
+    MC.dashCd = Math.max(0, MC.dashCd - dt);
+    if (!MC.dead && mechEdge('dash', inp.dash) && MC.dashCd <= 0) { var dl = wl > 0.2 ? 1 : 0; MC.dvx = (dl ? wx : fx) * 30; MC.dvz = (dl ? wz : fz) * 30; MC.dashT = 0.22; MC.dashCd = 1.6; sfx('mdash'); mechSendRaw({ t: 'ds' }); mechBuzz('right', 0.6, 120); MC.shake = Math.min(1, MC.shake + 0.2); }
+    if (MC.dashT > 0) { MC.dashT -= dt; MC.vx = MC.dvx; MC.vz = MC.dvz; } else { var ac = ground ? 5 : 1.6; MC.vx += (wx * 10.5 - MC.vx) * Math.min(1, dt * ac); MC.vz += (wz * 10.5 - MC.vz) * Math.min(1, dt * ac); }
+    MC.jetOn = !MC.dead && !!inp.jet && MC.fuel > 0;
+    if (MC.jetOn) { MC.vy = Math.min(9, MC.vy + 38 * dt); MC.fuel -= 40 * dt; if (Math.random() < 0.7) spark(MC.x + (Math.random() - 0.5) * 2, MC.y + 1, MC.z + (Math.random() - 0.5) * 2, 0x6fe0ff, 1); } else MC.fuel = Math.min(100, MC.fuel + (ground ? 45 : 8) * dt);
+    MC.vy -= 20 * dt; MC.x += MC.vx * dt; MC.z += MC.vz * dt;
+    pushOut(MC, MECH_RAD, allSolids.filter(function (b) { return blockMech(b, MC.y); }));
+    MC.y += MC.vy * dt; gh = surfaceH(MC.x, MC.z, MC.y);
+    if (MC.y <= gh) { if (!ground && MC.vy < -7) { MC.shake = Math.min(1, MC.shake + 0.4); sfx('mstep'); mechBuzz('left', 0.5, 80); mechBuzz('right', 0.5, 80); } MC.y = gh; MC.vy = 0; }
+    MC.x = Math.max(-HALF + 2, Math.min(HALF - 2, MC.x)); MC.z = Math.max(-HALF + 2, Math.min(HALF - 2, MC.z));
+    if (ground) { MC.ph += Math.hypot(MC.vx, MC.vz) * dt * 0.55; var st = Math.floor(MC.ph / PI); if (st !== MC.stp) { MC.stp = st; if (Math.hypot(MC.vx, MC.vz) > 2) { sfx('mstep'); MC.shake = Math.min(1, MC.shake + 0.12); } } }
+  }
+  function mechAim() {
+    var eyeY = MC.y + MECH_EYE;
+    if (MC.vr) {
+      MC.rig.updateMatrixWorld(true); vA.setFromMatrixPosition(camera.matrixWorld);
+      MC.ctrl.forEach(function (c) {
+        var hand = c.userData.hand, i = hand === 'left' ? 0 : hand === 'right' ? 1 : -1; if (i < 0) return;
+        vB.setFromMatrixPosition(c.matrixWorld); c.getWorldQuaternion(qA); var d = new THREE.Vector3(0, 0, -1).applyQuaternion(qA), a = MC.aim[i];
+        var px = vA.x + (vB.x - vA.x) * 3, py = vA.y + (vB.y - vA.y) * 3 - 0.5, pz = vA.z + (vB.z - vA.z) * 3; a.o = [px, py, pz]; a.d = [d.x, d.y, d.z]; a.base = [px, py, pz];
+      });
+    } else {
+      var cp = Math.cos(MC.pitch), d = [-Math.sin(MC.yaw) * cp, Math.sin(MC.pitch), -Math.cos(MC.yaw) * cp], rx = Math.cos(MC.yaw), rz = -Math.sin(MC.yaw);
+      [0, 1].forEach(function (i) { var s = i ? 1 : -1, a = MC.aim[i]; a.o = [MC.x + rx * s * 1.7 + d[0] * 1.4, eyeY - 1.1 + d[1] * 1.4, MC.z + rz * s * 1.7 + d[2] * 1.4]; a.d = d; a.base = a.o.slice(); });
+    }
+    [0, 1].forEach(function (i) { var a = MC.aim[i], c = MC.can[i]; aimCannon(c, a.o[0], a.o[1], a.o[2], a.d); a.m = [a.o[0] + a.d[0] * 2.6, a.o[1] + a.d[1] * 2.6, a.o[2] + a.d[2] * 2.6]; });
+  }
+  function mechSendState(t) {
+    var q = function (a) { return [r2(a[0]), r2(a[1]), r2(a[2])]; };
+    mechSendRaw({ t: 'm', x: r2(MC.x), y: r2(MC.y), z: r2(MC.z), yaw: Math.round(MC.yaw * 1000) / 1000, lo: q(MC.aim[0].m), ld: q(MC.aim[0].d), ro: q(MC.aim[1].m), rd: q(MC.aim[1].d), mg: MC.mgOn ? 1 : 0 });
+  }
+  function mechTracer(a) {
+    var tr = null; for (var i = 0; i < MC.vtr.length; i++) if (MC.vtr[i].life <= 0) { tr = MC.vtr[i]; break; } if (!tr) return;
+    var len = 70, dy = a.d[1], ground = dy < -0.01 ? (a.m[1] - groundH(a.m[0], a.m[2])) / -dy : 1e9; len = Math.min(len, Math.max(2, ground));
+    tr.m.position.set(a.m[0] + a.d[0] * len / 2, a.m[1] + a.d[1] * len / 2, a.m[2] + a.d[2] * len / 2); tr.m.scale.set(1, 1, len); tr.m.lookAt(a.m[0] + a.d[0] * len, a.m[1] + a.d[1] * len, a.m[2] + a.d[2] * len); tr.m.visible = true; tr.life = 0.07;
+  }
+  function mechActions(inp, dt) {
+    MC.rkC = Math.max(0, MC.rkC - dt); MC.stC = Math.max(0, MC.stC - dt); MC.mgT -= dt; MC.mgOn = !!inp.mg && !MC.dead;
+    var fl0 = MC.can[0].userData.flash, fl1 = MC.can[1].userData.flash; fl0.visible = false;
+    if (MC.mgOn && MC.mgT <= 0) { MC.mgT = 0.075; mechTracer(MC.aim[0]); sfx('mmg'); mechBuzz('left', 0.35, 40); MC.shake = Math.min(1, MC.shake + 0.02); }
+    if (MC.mgOn && MC.mgT > 0.03) fl0.visible = true;
+    fl1.visible = MC.rkC > 1.6;
+    if (!MC.dead) {
+      if (mechEdge('rk', inp.rk) && MC.rkC <= 0) {
+        MC.rkC = 1.8; mechSendState(); mechSendRaw({ t: 'rk' }); sfx('mrk'); mechBuzz('right', 1, 150); MC.shake = Math.min(1, MC.shake + 0.25);
+        var a = MC.aim[1], m = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffa040 })); vA.set(a.d[0], a.d[1], a.d[2]).normalize(); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vA); scene.add(m);
+        MC.vrk.push({ m: m, x: a.m[0], y: a.m[1], z: a.m[2], vx: vA.x * 44, vy: vA.y * 44, vz: vA.z * 44, life: 3.2 });
+      } else mechEdge('rk', inp.rk);
+      if (mechEdge('st', inp.st) && MC.stC <= 0) { MC.stC = 3.5; mechSendRaw({ t: 'st' }); sfx('mstomp'); MC.shake = 1; mechBuzz('left', 1, 200); mechBuzz('right', 1, 200); }
+      if (mechEdge('sh', inp.sh)) { mechSendRaw({ t: 'sh' }); sfx('mshield'); }
+    }
+  }
+  function stepMechFx(dt) {
+    MC.vtr.forEach(function (t) { if (t.life > 0) { t.life -= dt; if (t.life <= 0) t.m.visible = false; } });
+    for (var i = MC.vrk.length - 1; i >= 0; i--) { var r = MC.vrk[i]; r.life -= dt; r.vy -= 3 * dt; r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt; r.m.position.set(r.x, r.y, r.z); if (Math.random() < 0.8) spark(r.x, r.y, r.z, 0xffb040, 1); if (r.life <= 0 || r.y < 0) { scene.remove(r.m); MC.vrk.splice(i, 1); } }
+    MC.hurtT = Math.max(0, MC.hurtT - dt); MC.shake *= Math.exp(-6 * dt);
+    [0, 1].forEach(function (i) {   // aim reticles, drawn where the cannon points (or the ground, if that is nearer)
+      var a = MC.aim[i], r = MC.ret[i], dy = a.d[1], t = 60; if (dy < -0.01) t = Math.min(t, Math.max(3, (a.m[1] - groundH(a.m[0], a.m[2])) / -dy));
+      r.position.set(a.m[0] + a.d[0] * t, a.m[1] + a.d[1] * t, a.m[2] + a.d[2] * t); r.scale.setScalar(0.35 + t * 0.03); r.quaternion.copy(camera.getWorldQuaternion(qA)); r.visible = !MC.dead;
+    });
+  }
+  function mechHud(dt) {
+    MC.hudT -= dt; if (MC.hudT > 0) return; MC.hudT = 0.1; var g = MC.hudCtx, W = 512, H = 256, m = MC.gs;
+    g.clearRect(0, 0, W, H); g.fillStyle = 'rgba(8,14,24,0.86)'; g.fillRect(0, 0, W, H); g.strokeStyle = MC.hurtT > 0 ? '#ff5a4d' : '#4de0ff'; g.lineWidth = 4; g.strokeRect(2, 2, W - 4, H - 4);
+    function bar(y, label, v, col, txt) { v = Math.max(0, Math.min(1, v)); g.fillStyle = '#9fb0c8'; g.font = '600 22px sans-serif'; g.textAlign = 'left'; g.fillText(label, 18, y + 18); g.fillStyle = '#16202e'; g.fillRect(150, y, 270, 22); g.fillStyle = col; g.fillRect(150, y, 270 * v, 22); if (txt) { g.fillStyle = '#e8f0ff'; g.textAlign = 'right'; g.fillText(txt, 494, y + 18); } }
+    if (!MC.conn) { g.fillStyle = '#ffb43a'; g.font = '700 34px sans-serif'; g.textAlign = 'center'; g.fillText(MC.msg, W / 2, 130); }
+    else if (!m) { g.fillStyle = '#ffb43a'; g.font = '700 34px sans-serif'; g.textAlign = 'center'; g.fillText('Waiting for the shooter...', W / 2, 130); }
+    else {
+      bar(14, 'HULL', m[4] / m[5], m[4] / m[5] < 0.3 ? '#ff5a4d' : '#6be08a', Math.round(m[4])); bar(44, 'ARMOUR', m[6] / m[7], '#4a8ad8', Math.round(m[6])); bar(74, 'SHIELD', m[9] / 100, m[8] ? '#4de0ff' : '#2a6a80', m[8] ? 'ON' : m[9] >= 100 ? 'READY' : '');
+      bar(104, 'ROCKET', m[10] / 100, '#ffb43a', m[10] >= 100 ? 'READY' : ''); bar(134, 'STOMP', m[11] / 100, '#c08bff', m[11] >= 100 ? 'READY' : ''); bar(164, 'JETS', MC.fuel / 100, '#6fe0ff', ''); bar(194, 'DASH', 1 - MC.dashCd / 1.6, '#e8f0ff', '');
+      g.fillStyle = '#e8f0ff'; g.font = '600 22px sans-serif'; g.textAlign = 'left'; g.fillText('Wave ' + (G.wave || '-') + '   Safehouse ' + Math.max(0, Math.round(100 * G.base / (G.baseMax || 100))) + '%   Zombies ' + (G.left || 0), 18, 244);
+      if (MC.dead) { g.fillStyle = 'rgba(120,10,10,0.82)'; g.fillRect(0, 70, W, 110); g.fillStyle = '#fff'; g.font = '700 38px sans-serif'; g.textAlign = 'center'; g.fillText('MECH DESTROYED', W / 2, 118); g.font = '600 26px sans-serif'; g.fillText('Back in ' + m[12] + ' s', W / 2, 156); }
+    }
+    MC.hudTx.needsUpdate = true;
+  }
+  function mechFrame(now) {
+    var t = (now || performance.now()) / 1000, dt = Math.min(0.05, Math.max(0, t - MC.last)); MC.last = t;
+    var inp = { fwd: 0, side: 0, turn: 0, mg: false, rk: false, st: false, sh: false, jet: false, dash: false, snapBtn: false };
+    if (MC.vr) mechVRInput(inp); else if (MC.desk) mechKeyInput(inp);
+    mechMove(dt, inp); mechAim(); mechActions(inp, dt);
+    if (t - MC.sendT >= 0.066) { MC.sendT = t; mechSendState(); }
+    commanderFrame(dt); stepFx(dt); stepMechFx(dt); mechHud(dt);
+    var sh = MC.shake * 0.05; MC.rig.position.set(MC.x + (Math.random() - 0.5) * sh, MC.y + (MECH_EYE - 1.2) + (Math.random() - 0.5) * sh, MC.z + (Math.random() - 0.5) * sh); MC.rig.rotation.y = MC.yaw;
+    if (!MC.vr) { camera.position.set(0, 1.2, 0); camera.rotation.set(MC.pitch, 0, 0, 'YXZ'); }
+    P.x = MC.x; P.z = MC.z; P.y = MC.y + 6; P.yaw = MC.yaw;
+    renderer.render(scene, camera);
+  }
+  function mechStart(vr) {
+    var code = ($('mcodeIn').value || '').toUpperCase().replace(/[^A-Z]/g, ''); if (code.length !== 4) { mechSay('Type the 4 letters.'); return; }
+    audioOn(); mechConnect(code);
+    if (vr) {
+      if (!navigator.xr) { mechSay('VR is not available in this browser. Use the Quest browser, or the desktop preview.'); return; }
+      navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] }).then(function (s) {
+        MC.session = s; s.addEventListener('end', function () { MC.vr = false; MC.session = null; $('mechOv').hidden = false; resize(); });
+        return renderer.xr.setSession(s).then(function () { MC.vr = true; $('mechOv').hidden = true; });
+      }).catch(function () { mechSay('VR could not start. Open this page in the Quest browser and try again.'); });
+    } else { $('mechOv').hidden = true; MC.desk = true; try { renderer.domElement.requestPointerLock(); } catch (e) {} }
+  }
+  function initMech() {
+    renderer.xr.enabled = true; try { renderer.xr.setReferenceSpaceType('local-floor'); } catch (e) {}
+    if (typeof gunRig !== 'undefined') gunRig.visible = false; if (typeof muzzleL !== 'undefined') muzzleL.visible = false;
+    var rig = new THREE.Group(); scene.add(rig); rig.add(camera); camera.position.set(0, 1.2, 0); MC.rig = rig; upperG.visible = true;
+    // cockpit frame, in real-world metres around a seated pilot (head at about 1.2 m): dash, pillars, canopy bar, seat
+    var ck = new THREE.Group(); rig.add(ck); function cb(w, h, d, c, x, y, z, rx, rz) { var m = bbox(w, h, d, c, x, y, z, ck); if (rx) m.rotation.x = rx; if (rz) m.rotation.z = rz; return m; }
+    cb(1.7, 0.1, 0.8, 0x10151e, 0, 0.8, -0.55); cb(1.7, 0.3, 0.06, 0x0b0f16, 0, 0.92, -0.92, 0.5); cb(0.06, 1.1, 0.06, 0x10151e, -0.82, 1.2, -0.7, 0, 0.18); cb(0.06, 1.1, 0.06, 0x10151e, 0.82, 1.2, -0.7, 0, -0.18); cb(1.7, 0.05, 0.1, 0x10151e, 0, 1.78, -0.78);
+    cb(0.35, 0.5, 0.5, 0x10151e, -0.7, 0.5, -0.1); cb(0.35, 0.5, 0.5, 0x10151e, 0.7, 0.5, -0.1); cb(0.5, 0.7, 0.1, 0x10151e, 0, 1.2, 0.38); cb(1.6, 0.012, 0.012, 0x4de0ff, 0, 0.86, -0.9); cb(0.012, 0.012, 0.6, 0x4de0ff, -0.8, 0.86, -0.6); cb(0.012, 0.012, 0.6, 0x4de0ff, 0.8, 0.86, -0.6);
+    var hc = document.createElement('canvas'); hc.width = 512; hc.height = 256; MC.hudCtx = hc.getContext('2d'); MC.hudTx = new THREE.CanvasTexture(hc);
+    var hm = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.31), new THREE.MeshBasicMaterial({ map: MC.hudTx, transparent: true })); hm.position.set(0, 0.92, -0.6); hm.rotation.x = -0.55; ck.add(hm);
+    MC.can = [buildCannon(0), buildCannon(1)]; scene.add(MC.can[0]); scene.add(MC.can[1]);
+    for (var i = 0; i < 14; i++) { var l = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1), new THREE.MeshBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.85 })); l.visible = false; scene.add(l); MC.vtr.push({ m: l, life: 0 }); }
+    [0x4de0ff, 0xffb43a].forEach(function (col) { var r = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 24), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide })); r.renderOrder = 9; scene.add(r); MC.ret.push(r); });
+    for (var ci = 0; ci < 2; ci++) { (function (c) { c.addEventListener('connected', function (e) { c.userData.hand = e.data && e.data.handedness; }); rig.add(c); MC.ctrl.push(c); })(renderer.xr.getController(ci)); }
+    window.addEventListener('mousemove', function (e) { if (!MC.desk || !document.pointerLockElement) return; MC.yaw -= (e.movementX || 0) * 0.0022; MC.pitch = Math.max(-1.2, Math.min(1.2, MC.pitch - (e.movementY || 0) * 0.0022)); });
+    $('mVR').addEventListener('click', function () { mechStart(true); }); $('mDesk').addEventListener('click', function () { mechStart(false); });
+    $('mcodeIn').addEventListener('input', function () { this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); });
+    $('mechOv').hidden = false; var mq = /[?&]code=([A-Za-z]{4})/.exec(location.search); if (mq) $('mcodeIn').value = mq[1].toUpperCase();
+    renderer.setAnimationLoop(mechFrame);
+  }
+
   // ---------- main loop ----------
   var test = { shoot: false }, last = performance.now() / 1000;
   function frame() {
@@ -1964,9 +2305,9 @@ body.cmdr #cmd { display: block; }
     renderer.render(scene, camera); copyView();
     requestAnimationFrame(frame);
   }
-  window.__z = { melee: melee, hitDist: zombieHitDist, dmg: damageZombie, acids: acids, aud: function () { return { actx: actx, master: aMaster, out: aOut, bus: mBus, mu: MU }; }, sfx: sfx, audioOn: audioOn, nav: nav, inDeck: inDeck, surfaceH: surfaceH, DECKS: DECKS, applyFloor: applyFloor, C: C, coinFx: coinFx, corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
-  if (role === 'commander') initCommander(); else startHost();
-  requestAnimationFrame(frame);
+  window.__z = { M: M, MC: MC, stepMech: stepMech, onMechMsg: onMechMsg, mechPack: mechPack, mechReset: mechReset, mechHurt: mechHurt, rockets: rockets, mechMove: mechMove, blockMech: blockMech, melee: melee, hitDist: zombieHitDist, dmg: damageZombie, acids: acids, aud: function () { return { actx: actx, master: aMaster, out: aOut, bus: mBus, mu: MU }; }, sfx: sfx, audioOn: audioOn, nav: nav, inDeck: inDeck, surfaceH: surfaceH, DECKS: DECKS, applyFloor: applyFloor, C: C, coinFx: coinFx, corpses: corpses, bot: bot, startSoloCommander: startSoloCommander, addTrap: addTrap, pickups: pickups, dropPickup: dropPickup, showEnd: showEnd, cmdSend: cmdSend, selectSt: selectSt, cdbg: function () { return { linked: linked, n: conns.length, open: !!(conns[0] && conns[0].open), tool: C.tool, mx: C.mx, mz: C.mz }; }, onCmd: onCmd, addStruct: addStruct, stFree: stFree, role: role, conns: function () { return conns.length; }, G: G, P: P, step: step, fire: fire, startGame: startGame, addZombie: addZombie, test: test, solids: solids, switchWeapon: switchWeapon, eyeY: eyeY, reload: reload, camera: camera, renderer: renderer, scene: scene };
+  if (role === 'commander') initCommander(); else if (role === 'mech') initMech(); else { startHost(); startMechHost(); }
+  if (role !== 'mech') requestAnimationFrame(frame);
 })();
 </script>
 </body>
