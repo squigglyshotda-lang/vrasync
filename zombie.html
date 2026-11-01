@@ -2281,10 +2281,10 @@ body.cmdr #cmd { display: block; }
     var rig = new THREE.Group(); scene.add(rig); rig.add(camera); camera.position.set(0, 1.2, 0); MC.rig = rig; upperG.visible = true;
     // cockpit frame, in real-world metres around a seated pilot (head at about 1.2 m): dash, pillars, canopy bar, seat
     var ck = new THREE.Group(); rig.add(ck); function cb(w, h, d, c, x, y, z, rx, rz) { var m = bbox(w, h, d, c, x, y, z, ck); if (rx) m.rotation.x = rx; if (rz) m.rotation.z = rz; return m; }
-    cb(1.7, 0.1, 0.8, 0x10151e, 0, 0.8, -0.55); cb(1.7, 0.3, 0.06, 0x0b0f16, 0, 0.92, -0.92, 0.5); cb(0.06, 1.1, 0.06, 0x10151e, -0.82, 1.2, -0.7, 0, 0.18); cb(0.06, 1.1, 0.06, 0x10151e, 0.82, 1.2, -0.7, 0, -0.18); cb(1.7, 0.05, 0.1, 0x10151e, 0, 1.78, -0.78);
-    cb(0.35, 0.5, 0.5, 0x10151e, -0.7, 0.5, -0.1); cb(0.35, 0.5, 0.5, 0x10151e, 0.7, 0.5, -0.1); cb(0.5, 0.7, 0.1, 0x10151e, 0, 1.2, 0.38); cb(1.6, 0.012, 0.012, 0x4de0ff, 0, 0.86, -0.9); cb(0.012, 0.012, 0.6, 0x4de0ff, -0.8, 0.86, -0.6); cb(0.012, 0.012, 0.6, 0x4de0ff, 0.8, 0.86, -0.6);
+    cb(1.5, 0.08, 0.55, 0x10151e, 0, 0.5, -0.5); cb(0.04, 1.5, 0.04, 0x10151e, -1.05, 1.2, -0.55); cb(0.04, 1.5, 0.04, 0x10151e, 1.05, 1.2, -0.55); cb(0.5, 0.7, 0.1, 0x10151e, 0, 1.2, 0.38);
+    cb(1.5, 0.012, 0.012, 0x4de0ff, 0, 0.545, -0.76); cb(0.012, 0.012, 0.5, 0x4de0ff, -0.75, 0.545, -0.5); cb(0.012, 0.012, 0.5, 0x4de0ff, 0.75, 0.545, -0.5);
     var hc = document.createElement('canvas'); hc.width = 512; hc.height = 256; MC.hudCtx = hc.getContext('2d'); MC.hudTx = new THREE.CanvasTexture(hc);
-    var hm = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.31), new THREE.MeshBasicMaterial({ map: MC.hudTx, transparent: true })); hm.position.set(0, 0.92, -0.6); hm.rotation.x = -0.55; ck.add(hm);
+    var hm = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map: MC.hudTx, transparent: true })); hm.position.set(0, 0.68, -0.6); hm.rotation.x = -0.7; ck.add(hm);
     MC.can = [buildCannon(0), buildCannon(1)]; scene.add(MC.can[0]); scene.add(MC.can[1]);
     for (var i = 0; i < 14; i++) { var l = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1), new THREE.MeshBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.85 })); l.visible = false; scene.add(l); MC.vtr.push({ m: l, life: 0 }); }
     [0x4de0ff, 0xffb43a].forEach(function (col) { var r = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 24), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide })); r.renderOrder = 9; scene.add(r); MC.ret.push(r); });
