@@ -113,8 +113,9 @@ body.cmdr #cmd { display: block; }
 <div class="overlay" id="mechOv" hidden>
   <div class="card"><h2 style="color:var(--amber)">Mech pilot</h2><p>Type the mech code shown on the shooter's screen, then climb in.</p><input id="mcodeIn" maxlength="4" autocomplete="off" autocapitalize="characters">
     <button id="mVR" type="button">Enter VR (Quest 3)</button><button id="mDesk" type="button" class="alt">Desktop preview</button>
+    <button id="mSolo" type="button" class="alt">Solo test: bots OFF</button>
     <div class="keys"><b>Move / turn</b><span>Left stick / right stick</span><b>Machine gun</b><span>Left trigger</span><b>Rocket</b><span>Right trigger</span><b>Jump jets</b><span>A (hold)</span><b>Dash</b><span>B</span><b>Shield</b><span>Left grip</span><b>Stomp</b><span>Right grip</span><b>Turn style</b><span>Y: smooth or snap</span></div>
-    <p>Desktop: WASD, mouse, click = gun, right-click = rocket, Space = jets, Shift = dash, Q = shield, E = stomp.</p><p id="mMsg" style="color:var(--amber)"></p></div>
+    <p>Solo test ON: no code needed, bots play the shooter and the commander. Press Enter VR or Desktop preview after switching it on.</p><p>Desktop: WASD, mouse, click = gun, right-click = rocket, Space = jets, Shift = dash, Q = shield, E = stomp.</p><p id="mMsg" style="color:var(--amber)"></p></div>
 </div>
 <div id="hud">
   <div class="bar" id="baseBar"><div class="tl">Safehouse</div><div class="tr"><i id="baseFill"></i></div></div>
@@ -1788,7 +1789,7 @@ body.cmdr #cmd { display: block; }
   var MECH_EYE = 7.2, MECH_RAD = 2.1, MECH_SH = 4.5, MID_PREFIX = 'dblk1m-';
   var M = { on: false, alive: false, x: 0, y: 0, z: 20, yaw: 0, rx: 0, ry: 0, rz: 20, ryaw: 0, hp: 900, hpMax: 900, ar: 600, arMax: 600, shOn: false, shT: 0, shCd: 0, rkCd: 0, stCd: 0, mgCd: 0, resp: 0, hurt: 0, mg: false, lo: [0, 6, 0], ld: [0, 0, -1], ro: [0, 6, 0], rd: [0, 0, -1], mesh: null, can: null, ph: 0, sp: 0, stp: 0 };
   var rockets = [], mconns = [], mpeer = null, mCode = '', vFwd = new THREE.Vector3(0, 0, -1), vTmp = new THREE.Vector3();
-  function sendM(o) { mconns.forEach(function (c) { if (c.open) { try { c.send(o); } catch (e) {} } }); }
+  function sendM(o) { if (MC.solo) mechOnEv(o); mconns.forEach(function (c) { if (c.open) { try { c.send(o); } catch (e) {} } }); }
   function mechReset() {
     M.hp = M.hpMax; M.ar = M.arMax; M.shOn = false; M.shT = 0; M.shCd = 0; M.rkCd = 0; M.stCd = 0; M.mgCd = 0; M.resp = 0; M.hurt = 0; M.mg = false; M.alive = true; M.x = M.rx = 0; M.z = M.rz = 20; M.y = M.ry = groundH(0, 20); M.yaw = M.ryaw = 0;
     rockets.forEach(function (r) { scene.remove(r.m); }); rockets.length = 0; sendM({ t: 'ev', k: 'spawn' });
@@ -1818,7 +1819,7 @@ body.cmdr #cmd { display: block; }
   function aimCannon(c, ox, oy, oz, d) { c.position.set(ox, oy, oz); vTmp.set(d[0], d[1], d[2]).normalize(); c.quaternion.setFromUnitVectors(vFwd, vTmp); }
   function placeMech(dt) {
     if (!M.mesh) { M.mesh = buildMech(); scene.add(M.mesh); M.can = [buildCannon(0), buildCannon(1)]; scene.add(M.can[0]); scene.add(M.can[1]); }
-    var vis = M.on && M.alive; M.mesh.visible = M.can[0].visible = M.can[1].visible = vis; if (!vis) return;
+    var vis = M.on && M.alive && !MC.solo; M.mesh.visible = M.can[0].visible = M.can[1].visible = vis; if (!vis) return;
     var k = Math.min(1, dt * 12), u = M.mesh.userData, ox = M.rx, oz = M.rz; M.rx += (M.x - M.rx) * k; M.rz += (M.z - M.rz) * k; M.ry += (M.y - M.ry) * k; var dy = M.yaw - M.ryaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); M.ryaw += dy * k;
     var raw = dt > 0 ? Math.hypot(M.rx - ox, M.rz - oz) / dt : 0; M.sp += (raw - M.sp) * Math.min(1, dt * 6); var sp = Math.min(1, M.sp / 9), air = M.ry > groundH(M.rx, M.rz) + 0.4;
     M.ph += M.sp * dt * 0.55; var sw = Math.sin(M.ph) * 0.55 * sp * (air ? 0.3 : 1);
@@ -2115,10 +2116,11 @@ body.cmdr #cmd { display: block; }
   }
 
   // ---------- mech pilot client (#mech): seated cockpit in VR on a Quest 3, or a desktop preview ----------
-  var MC = { conn: null, vr: false, desk: false, session: null, rig: null, hudCtx: null, hudTx: null, can: [], ret: [], x: 0, y: 0, z: 20, yaw: 0, pitch: 0, vx: 0, vz: 0, vy: 0, dvx: 0, dvz: 0, fuel: 100, dashT: 0, dashCd: 0, jetOn: false, gs: null, msg: 'Not connected', sendT: 0, hudT: 0, last: 0, edge: {}, mgOn: false, mgT: 0, rkC: 0, stC: 0, snap: false, snapHeld: false, vtr: [], vrk: [], hurtT: 0, shake: 0, dead: false, ph: 0, stp: 0, hp0: 0, ctrl: [], aim: [{ o: [0, 6, 0], d: [0, 0, -1] }, { o: [0, 6, 0], d: [0, 0, -1] }] };
+  var MC = { solo: false, soloWant: false, overT: 0, conn: null, vr: false, desk: false, session: null, rig: null, hudCtx: null, hudTx: null, can: [], ret: [], x: 0, y: 0, z: 20, yaw: 0, pitch: 0, vx: 0, vz: 0, vy: 0, dvx: 0, dvz: 0, fuel: 100, dashT: 0, dashCd: 0, jetOn: false, gs: null, msg: 'Not connected', sendT: 0, hudT: 0, last: 0, edge: {}, mgOn: false, mgT: 0, rkC: 0, stC: 0, snap: false, snapHeld: false, vtr: [], vrk: [], hurtT: 0, shake: 0, dead: false, ph: 0, stp: 0, hp0: 0, ctrl: [], aim: [{ o: [0, 6, 0], d: [0, 0, -1] }, { o: [0, 6, 0], d: [0, 0, -1] }] };
   var vA = new THREE.Vector3(), vB = new THREE.Vector3(), qA = new THREE.Quaternion();
   function mechSay(s) { MC.msg = s; var el = $('mMsg'); if (el) el.textContent = s; }
-  function mechSendRaw(o) { if (MC.conn && MC.conn.open) { try { MC.conn.send(o); } catch (e) {} } }
+  function msfx(k) { if (!MC.solo) sfx(k); }   // in solo the sim runs here and already plays these
+  function mechSendRaw(o) { if (MC.solo) { onMechMsg(o); return; } if (MC.conn && MC.conn.open) { try { MC.conn.send(o); } catch (e) {} } }
   function mechConnect(code) {
     if (!window.Peer) { mechSay('Pairing library did not load.'); return; }
     try { if (peer) peer.destroy(); } catch (e) {} mechSay('Connecting...');
@@ -2138,7 +2140,7 @@ body.cmdr #cmd { display: block; }
   function mechBuzz(h, s, ms) { try { var ss = renderer.xr.getSession(); if (!ss) return; for (var i = 0; i < ss.inputSources.length; i++) { var src = ss.inputSources[i]; if (src.handedness === h && src.gamepad && src.gamepad.hapticActuators && src.gamepad.hapticActuators[0]) src.gamepad.hapticActuators[0].pulse(s, ms); } } catch (e) {} }
   function mechOnEv(d) {
     if (d.k === 'spawn') { MC.x = 0; MC.z = 20; MC.y = groundH(0, 20); MC.vx = MC.vz = MC.vy = 0; MC.yaw = 0; MC.fuel = 100; MC.dead = false; MC.hp0 = 0; }
-    else if (d.k === 'boom' && nums([d.x, d.y, d.z], 3)) { ringFx(d.x, d.y, d.z, 0xffa040, 7); spark(d.x, d.y, d.z, 0xffd080, 14); sfx('mboom', [d.x, d.y, d.z]); var r = MC.vrk.shift(); if (r) scene.remove(r.m); mechBuzz('right', 0.8, 120); }
+    else if (d.k === 'boom' && nums([d.x, d.y, d.z], 3)) { ringFx(d.x, d.y, d.z, 0xffa040, 7); spark(d.x, d.y, d.z, 0xffd080, 14); if (!MC.solo) sfx('mboom', [d.x, d.y, d.z]); var r = MC.vrk.shift(); if (r) scene.remove(r.m); mechBuzz('right', 0.8, 120); }
     else if (d.k === 'stomp') { MC.shake = Math.min(1, MC.shake + 0.5); }
     else if (d.k === 'dead') { MC.dead = true; MC.shake = 1; mechBuzz('left', 1, 400); mechBuzz('right', 1, 400); }
   }
@@ -2168,7 +2170,7 @@ body.cmdr #cmd { display: block; }
     var wx = fx * inp.fwd + rx * inp.side, wz = fz * inp.fwd + rz * inp.side, wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
     var gh = surfaceH(MC.x, MC.z, MC.y), ground = MC.y <= gh + 0.05 && MC.vy <= 0.1;
     MC.dashCd = Math.max(0, MC.dashCd - dt);
-    if (!MC.dead && mechEdge('dash', inp.dash) && MC.dashCd <= 0) { var dl = wl > 0.2 ? 1 : 0; MC.dvx = (dl ? wx : fx) * 30; MC.dvz = (dl ? wz : fz) * 30; MC.dashT = 0.22; MC.dashCd = 1.6; sfx('mdash'); mechSendRaw({ t: 'ds' }); mechBuzz('right', 0.6, 120); MC.shake = Math.min(1, MC.shake + 0.2); }
+    if (!MC.dead && mechEdge('dash', inp.dash) && MC.dashCd <= 0) { var dl = wl > 0.2 ? 1 : 0; MC.dvx = (dl ? wx : fx) * 30; MC.dvz = (dl ? wz : fz) * 30; MC.dashT = 0.22; MC.dashCd = 1.6; msfx('mdash'); mechSendRaw({ t: 'ds' }); mechBuzz('right', 0.6, 120); MC.shake = Math.min(1, MC.shake + 0.2); }
     if (MC.dashT > 0) { MC.dashT -= dt; MC.vx = MC.dvx; MC.vz = MC.dvz; } else { var ac = ground ? 5 : 1.6; MC.vx += (wx * 10.5 - MC.vx) * Math.min(1, dt * ac); MC.vz += (wz * 10.5 - MC.vz) * Math.min(1, dt * ac); }
     MC.jetOn = !MC.dead && !!inp.jet && MC.fuel > 0;
     if (MC.jetOn) { MC.vy = Math.min(9, MC.vy + 38 * dt); MC.fuel -= 40 * dt; if (Math.random() < 0.7) spark(MC.x + (Math.random() - 0.5) * 2, MC.y + 1, MC.z + (Math.random() - 0.5) * 2, 0x6fe0ff, 1); } else MC.fuel = Math.min(100, MC.fuel + (ground ? 45 : 8) * dt);
@@ -2206,17 +2208,17 @@ body.cmdr #cmd { display: block; }
   function mechActions(inp, dt) {
     MC.rkC = Math.max(0, MC.rkC - dt); MC.stC = Math.max(0, MC.stC - dt); MC.mgT -= dt; MC.mgOn = !!inp.mg && !MC.dead;
     var fl0 = MC.can[0].userData.flash, fl1 = MC.can[1].userData.flash; fl0.visible = false;
-    if (MC.mgOn && MC.mgT <= 0) { MC.mgT = 0.075; mechTracer(MC.aim[0]); sfx('mmg'); mechBuzz('left', 0.35, 40); MC.shake = Math.min(1, MC.shake + 0.02); }
+    if (MC.mgOn && MC.mgT <= 0) { MC.mgT = 0.075; mechTracer(MC.aim[0]); msfx('mmg'); mechBuzz('left', 0.35, 40); MC.shake = Math.min(1, MC.shake + 0.02); }
     if (MC.mgOn && MC.mgT > 0.03) fl0.visible = true;
     fl1.visible = MC.rkC > 1.6;
     if (!MC.dead) {
       if (mechEdge('rk', inp.rk) && MC.rkC <= 0) {
-        MC.rkC = 1.8; mechSendState(); mechSendRaw({ t: 'rk' }); sfx('mrk'); mechBuzz('right', 1, 150); MC.shake = Math.min(1, MC.shake + 0.25);
+        MC.rkC = 1.8; mechSendState(); mechSendRaw({ t: 'rk' }); msfx('mrk'); mechBuzz('right', 1, 150); MC.shake = Math.min(1, MC.shake + 0.25);
         var a = MC.aim[1], m = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffa040 })); vA.set(a.d[0], a.d[1], a.d[2]).normalize(); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vA); scene.add(m);
         MC.vrk.push({ m: m, x: a.m[0], y: a.m[1], z: a.m[2], vx: vA.x * 44, vy: vA.y * 44, vz: vA.z * 44, life: 3.2 });
       } else mechEdge('rk', inp.rk);
-      if (mechEdge('st', inp.st) && MC.stC <= 0) { MC.stC = 3.5; mechSendRaw({ t: 'st' }); sfx('mstomp'); MC.shake = 1; mechBuzz('left', 1, 200); mechBuzz('right', 1, 200); }
-      if (mechEdge('sh', inp.sh)) { mechSendRaw({ t: 'sh' }); sfx('mshield'); }
+      if (mechEdge('st', inp.st) && MC.stC <= 0) { MC.stC = 3.5; mechSendRaw({ t: 'st' }); msfx('mstomp'); MC.shake = 1; mechBuzz('left', 1, 200); mechBuzz('right', 1, 200); }
+      if (mechEdge('sh', inp.sh)) { mechSendRaw({ t: 'sh' }); msfx('mshield'); }
     }
   }
   function stepMechFx(dt) {
@@ -2248,15 +2250,23 @@ body.cmdr #cmd { display: block; }
     if (MC.vr) mechVRInput(inp); else if (MC.desk) mechKeyInput(inp);
     mechMove(dt, inp); mechAim(); mechActions(inp, dt);
     if (t - MC.sendT >= 0.066) { MC.sendT = t; mechSendState(); }
-    commanderFrame(dt); stepFx(dt); stepMechFx(dt); mechHud(dt);
+    if (MC.solo) {
+      step(dt); G.left = G.zombies.length + G.toSpawn; MC.gs = mechPack(); mechOnGs();
+      if (!MC.botMesh) { MC.botMesh = box(0.6, 1.7, 0.6, 0x4dd8ff, 0, 0, 0); MC.botMesh.castShadow = false; } MC.botMesh.position.set(P.x, P.y + 0.85, P.z);
+      if (G.over) { MC.overT += dt; if (MC.overT > 4) { MC.overT = 0; startGame(); } }
+    } else commanderFrame(dt);
+    stepFx(dt); stepMechFx(dt); mechHud(dt);
     var sh = MC.shake * 0.05; MC.rig.position.set(MC.x + (Math.random() - 0.5) * sh, MC.y + (MECH_EYE - 1.2) + (Math.random() - 0.5) * sh, MC.z + (Math.random() - 0.5) * sh); MC.rig.rotation.y = MC.yaw;
     if (!MC.vr) { camera.position.set(0, 1.2, 0); camera.rotation.set(MC.pitch, 0, 0, 'YXZ'); }
-    P.x = MC.x; P.z = MC.z; P.y = MC.y + 6; P.yaw = MC.yaw;
+    if (!MC.solo) { P.x = MC.x; P.z = MC.z; P.y = MC.y + 6; P.yaw = MC.yaw; }
     renderer.render(scene, camera);
   }
+  function mechSolo() {   // test alone: this page runs the whole game, with bots as the shooter and the commander
+    MC.solo = true; MC.conn = { open: true, send: function () {} }; linked = true; bot.shoot = true; bot.cmd = true; M.on = true; startGame(); mechSay('Solo test: bots are the shooter and commander');
+  }
   function mechStart(vr) {
-    var code = ($('mcodeIn').value || '').toUpperCase().replace(/[^A-Z]/g, ''); if (code.length !== 4) { mechSay('Type the 4 letters.'); return; }
-    audioOn(); mechConnect(code);
+    var code = ($('mcodeIn').value || '').toUpperCase().replace(/[^A-Z]/g, ''); if (!MC.soloWant && code.length !== 4) { mechSay('Type the 4 letters.'); return; }
+    audioOn(); if (MC.soloWant) mechSolo(); else mechConnect(code);
     if (vr) {
       if (!navigator.xr) { mechSay('VR is not available in this browser. Use the Quest browser, or the desktop preview.'); return; }
       navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] }).then(function (s) {
@@ -2281,6 +2291,7 @@ body.cmdr #cmd { display: block; }
     for (var ci = 0; ci < 2; ci++) { (function (c) { c.addEventListener('connected', function (e) { c.userData.hand = e.data && e.data.handedness; }); rig.add(c); MC.ctrl.push(c); })(renderer.xr.getController(ci)); }
     window.addEventListener('mousemove', function (e) { if (!MC.desk || !document.pointerLockElement) return; MC.yaw -= (e.movementX || 0) * 0.0022; MC.pitch = Math.max(-1.2, Math.min(1.2, MC.pitch - (e.movementY || 0) * 0.0022)); });
     $('mVR').addEventListener('click', function () { mechStart(true); }); $('mDesk').addEventListener('click', function () { mechStart(false); });
+    $('mSolo').addEventListener('click', function () { MC.soloWant = !MC.soloWant; $('mSolo').textContent = 'Solo test: bots ' + (MC.soloWant ? 'ON' : 'OFF'); });
     $('mcodeIn').addEventListener('input', function () { this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); });
     $('mechOv').hidden = false; var mq = /[?&]code=([A-Za-z]{4})/.exec(location.search); if (mq) $('mcodeIn').value = mq[1].toUpperCase();
     renderer.setAnimationLoop(mechFrame);
