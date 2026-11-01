@@ -1786,7 +1786,7 @@ body.cmdr #cmd { display: block; }
   }
 
   // ---------- mech pilot: the third player (VR pilot on a Quest 3). The shooter page runs all the rules; the pilot's page sends where the mech is and what it is aiming at ----------
-  var MECH_EYE = 7.2, MECH_RAD = 2.1, MECH_SH = 4.5, MID_PREFIX = 'dblk1m-';
+  var HOV = 1.4, MECH_EYE = 7.2, MECH_RAD = 2.1, MECH_SH = 4.5, MID_PREFIX = 'dblk1m-';
   var M = { on: false, alive: false, x: 0, y: 0, z: 20, yaw: 0, rx: 0, ry: 0, rz: 20, ryaw: 0, hp: 900, hpMax: 900, ar: 600, arMax: 600, shOn: false, shT: 0, shCd: 0, rkCd: 0, stCd: 0, mgCd: 0, resp: 0, hurt: 0, mg: false, lo: [0, 6, 0], ld: [0, 0, -1], ro: [0, 6, 0], rd: [0, 0, -1], mesh: null, can: null, ph: 0, sp: 0, stp: 0 };
   var rockets = [], mconns = [], mpeer = null, mCode = '', vFwd = new THREE.Vector3(0, 0, -1), vTmp = new THREE.Vector3();
   function sendM(o) { if (MC.solo) mechOnEv(o); mconns.forEach(function (c) { if (c.open) { try { c.send(o); } catch (e) {} } }); }
@@ -1813,6 +1813,7 @@ body.cmdr #cmd { display: block; }
     box(3.4, 1.9, 2.0, STEEL, 0, 1.0, 0, tor); box(2.4, 1.0, 0.3, ORG, 0, 1.2, -1.05, tor); box(1.6, 0.5, 0.3, DARK, 0, 0.35, -1.05, tor);
     box(1.1, 0.95, 1.1, LT, 0, 2.45, -0.1, tor); bbox(0.85, 0.22, 0.12, 0x5fe8ff, 0, 2.5, -0.68, tor);
     box(2.4, 1.7, 1.0, DARK, 0, 1.1, 1.1, tor); [-1, 1].forEach(function (s) { box(0.6, 0.6, 0.9, ORG, s * 0.7, 0.9, 1.75, tor); box(1.2, 1.2, 1.4, ORG, s * 2.3, 1.6, 0, tor); });
+    var hr = new THREE.Mesh(new THREE.RingGeometry(2.1, 2.6, 28), new THREE.MeshBasicMaterial({ color: 0x4de0ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide })); hr.rotation.x = -PI / 2; hr.position.y = -HOV + 0.08; g.add(hr);
     var sd = new THREE.Mesh(new THREE.SphereGeometry(4.6, 18, 12), new THREE.MeshBasicMaterial({ color: 0x4de0ff, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide })); sd.position.set(0, 4, 0); sd.visible = false; g.add(sd); u.shield = sd;
     return g;
   }
@@ -1821,10 +1822,10 @@ body.cmdr #cmd { display: block; }
     if (!M.mesh) { M.mesh = buildMech(); scene.add(M.mesh); M.can = [buildCannon(0), buildCannon(1)]; scene.add(M.can[0]); scene.add(M.can[1]); }
     var vis = M.on && M.alive && !MC.solo; M.mesh.visible = M.can[0].visible = M.can[1].visible = vis; if (!vis) return;
     var k = Math.min(1, dt * 12), u = M.mesh.userData, ox = M.rx, oz = M.rz; M.rx += (M.x - M.rx) * k; M.rz += (M.z - M.rz) * k; M.ry += (M.y - M.ry) * k; var dy = M.yaw - M.ryaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); M.ryaw += dy * k;
-    var raw = dt > 0 ? Math.hypot(M.rx - ox, M.rz - oz) / dt : 0; M.sp += (raw - M.sp) * Math.min(1, dt * 6); var sp = Math.min(1, M.sp / 9), air = M.ry > groundH(M.rx, M.rz) + 0.4;
-    M.ph += M.sp * dt * 0.55; var sw = Math.sin(M.ph) * 0.55 * sp * (air ? 0.3 : 1);
-    M.mesh.position.set(M.rx, M.ry, M.rz); M.mesh.rotation.y = M.ryaw; u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.shL.rotation.x = Math.max(0, -sw) * 0.9; u.shR.rotation.x = Math.max(0, sw) * 0.9; u.tor.position.y = 4.25 + Math.abs(Math.cos(M.ph)) * 0.12 * sp;
-    var st = Math.floor(M.ph / PI); if (st !== M.stp) { M.stp = st; if (sp > 0.15 && !air) { sfx('mstep', [M.rx, M.ry + 0.5, M.rz]); var dpl = Math.hypot(P.x - M.rx, P.z - M.rz); if (dpl < 30) P.shake = Math.max(P.shake, 1.6 * (1 - dpl / 30)); } }
+    var raw = dt > 0 ? Math.hypot(M.rx - ox, M.rz - oz) / dt : 0; M.sp += (raw - M.sp) * Math.min(1, dt * 6); var sp = Math.min(1, M.sp / 9);
+    M.ph += dt * 2.2; M.mesh.position.set(M.rx, M.ry, M.rz); M.mesh.rotation.order = 'YXZ'; M.mesh.rotation.y = M.ryaw; M.mesh.rotation.x = -0.14 * sp;
+    u.legL.rotation.x = -0.25 * sp; u.legR.rotation.x = -0.25 * sp; u.shL.rotation.x = 0.5 * sp; u.shR.rotation.x = 0.5 * sp; u.tor.position.y = 4.25 + Math.sin(M.ph) * 0.06;
+    if (M.rnd === undefined) M.rnd = 0; M.rnd += dt; if (M.rnd > 0.12) { M.rnd = 0; spark(M.rx, M.ry - 0.2, M.rz, 0x6fe0ff, 1); }
     var cy = Math.cos(M.ryaw), sy = Math.sin(M.ryaw);
     [-1, 1].forEach(function (s, i) { var lx = s * 2.3, lz = -0.2; aimCannon(M.can[i], M.rx + lx * cy + lz * sy, M.ry + 5.85, M.rz - lx * sy + lz * cy, i ? M.rd : M.ld); M.can[i].userData.flash.visible = i === 0 ? M.mg && Math.random() < 0.6 : M.rkCd > 1.55; });
     var ay = Math.atan2(-(M.ld[0] + M.rd[0]), -(M.ld[2] + M.rd[2])) - M.ryaw; ay = Math.atan2(Math.sin(ay), Math.cos(ay)); u.tor.rotation.y = Math.max(-0.8, Math.min(0.8, ay)) * 0.6;
@@ -2151,7 +2152,7 @@ body.cmdr #cmd { display: block; }
   }
   function mechBuzz(h, s, ms) { try { var ss = renderer.xr.getSession(); if (!ss) return; for (var i = 0; i < ss.inputSources.length; i++) { var src = ss.inputSources[i]; if (src.handedness === h && src.gamepad && src.gamepad.hapticActuators && src.gamepad.hapticActuators[0]) src.gamepad.hapticActuators[0].pulse(s, ms); } } catch (e) {} }
   function mechOnEv(d) {
-    if (d.k === 'spawn') { MC.x = 0; MC.z = 20; MC.y = groundH(0, 20); MC.vx = MC.vz = MC.vy = 0; MC.yaw = 0; MC.fuel = 100; MC.dead = false; MC.hp0 = 0; }
+    if (d.k === 'spawn') { MC.x = 0; MC.z = 20; MC.y = groundH(0, 20) + HOV; MC.vx = MC.vz = MC.vy = 0; MC.yaw = 0; MC.fuel = 100; MC.dead = false; MC.hp0 = 0; }
     else if (d.k === 'boom' && nums([d.x, d.y, d.z], 3)) { ringFx(d.x, d.y, d.z, 0xffa040, 7); spark(d.x, d.y, d.z, 0xffd080, 14); if (!MC.solo) sfx('mboom', [d.x, d.y, d.z]); var r = MC.vrk.shift(); if (r) scene.remove(r.m); mechBuzz('right', 0.8, 120); }
     else if (d.k === 'stomp') { MC.shake = Math.min(1, MC.shake + 0.5); }
     else if (d.k === 'dead') { MC.dead = true; MC.shake = 1; mechBuzz('left', 1, 400); mechBuzz('right', 1, 400); }
@@ -2178,20 +2179,22 @@ body.cmdr #cmd { display: block; }
     if (MC.dead) { inp = { fwd: 0, side: 0, turn: 0 }; }
     if (mechEdge('snapBtn', inp.snapBtn)) { MC.snap = !MC.snap; mechSay(MC.snap ? 'Snap turning' : 'Smooth turning'); }
     if (MC.snap) { if (Math.abs(inp.turn) > 0.7) { if (!MC.snapHeld) { MC.yaw -= Math.sign(inp.turn) * 0.5236; MC.snapHeld = true; } } else MC.snapHeld = false; } else MC.yaw -= (inp.turn || 0) * 1.7 * dt;
-    var sn = Math.sin(MC.yaw), cs = Math.cos(MC.yaw), fx = -sn, fz = -cs, rx = cs, rz = -sn;
+    var my = MC.yaw;   // the mech moves where the pilot is looking
+    if (MC.vr) { camera.getWorldQuaternion(qA); vA.set(0, 0, -1).applyQuaternion(qA); if (Math.hypot(vA.x, vA.z) > 0.25) my = Math.atan2(-vA.x, -vA.z); }
+    var sn = Math.sin(my), cs = Math.cos(my), fx = -sn, fz = -cs, rx = cs, rz = -sn;
     var wx = fx * inp.fwd + rx * inp.side, wz = fz * inp.fwd + rz * inp.side, wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
-    var gh = surfaceH(MC.x, MC.z, MC.y), ground = MC.y <= gh + 0.05 && MC.vy <= 0.1;
+    var gh = surfaceH(MC.x, MC.z, MC.y - HOV), ground = MC.y <= gh + HOV + 0.15 && MC.vy <= 0.1;
     MC.dashCd = Math.max(0, MC.dashCd - dt);
     if (!MC.dead && mechEdge('dash', inp.dash) && MC.dashCd <= 0) { var dl = wl > 0.2 ? 1 : 0; MC.dvx = (dl ? wx : fx) * 30; MC.dvz = (dl ? wz : fz) * 30; MC.dashT = 0.22; MC.dashCd = 1.6; msfx('mdash'); mechSendRaw({ t: 'ds' }); mechBuzz('right', 0.6, 120); MC.shake = Math.min(1, MC.shake + 0.2); }
     if (MC.dashT > 0) { MC.dashT -= dt; MC.vx = MC.dvx; MC.vz = MC.dvz; } else { var ac = ground ? 5 : 1.6; MC.vx += (wx * 10.5 - MC.vx) * Math.min(1, dt * ac); MC.vz += (wz * 10.5 - MC.vz) * Math.min(1, dt * ac); }
     MC.jetOn = !MC.dead && !!inp.jet && MC.fuel > 0;
     if (MC.jetOn) { MC.vy = Math.min(9, MC.vy + 38 * dt); MC.fuel -= 40 * dt; if (Math.random() < 0.7) spark(MC.x + (Math.random() - 0.5) * 2, MC.y + 1, MC.z + (Math.random() - 0.5) * 2, 0x6fe0ff, 1); } else MC.fuel = Math.min(100, MC.fuel + (ground ? 45 : 8) * dt);
     MC.vy -= 20 * dt; MC.x += MC.vx * dt; MC.z += MC.vz * dt;
-    pushOut(MC, MECH_RAD, allSolids.filter(function (b) { return blockMech(b, MC.y); }));
-    MC.y += MC.vy * dt; gh = surfaceH(MC.x, MC.z, MC.y);
-    if (MC.y <= gh) { if (!ground && MC.vy < -7) { MC.shake = Math.min(1, MC.shake + 0.4); sfx('mstep'); mechBuzz('left', 0.5, 80); mechBuzz('right', 0.5, 80); } MC.y = gh; MC.vy = 0; }
+    pushOut(MC, MECH_RAD, allSolids.filter(function (b) { return blockMech(b, MC.y - HOV); }));
+    MC.y += MC.vy * dt; gh = surfaceH(MC.x, MC.z, MC.y - HOV); MC.ph2 = (MC.ph2 || 0) + dt * 2.2; var tgt = gh + HOV + Math.sin(MC.ph2) * 0.08;
+    if (MC.y < tgt) { if (!ground && MC.vy < -7) { MC.shake = Math.min(1, MC.shake + 0.4); mechBuzz('left', 0.5, 80); mechBuzz('right', 0.5, 80); } MC.y += (tgt - MC.y) * Math.min(1, dt * 10); if (MC.vy < 0) MC.vy = 0; }
     MC.x = Math.max(-HALF + 2, Math.min(HALF - 2, MC.x)); MC.z = Math.max(-HALF + 2, Math.min(HALF - 2, MC.z));
-    if (ground) { MC.ph += Math.hypot(MC.vx, MC.vz) * dt * 0.55; var st = Math.floor(MC.ph / PI); if (st !== MC.stp) { MC.stp = st; if (Math.hypot(MC.vx, MC.vz) > 2) { sfx('mstep'); MC.shake = Math.min(1, MC.shake + 0.12); } } }
+    if (ground && Math.hypot(MC.vx, MC.vz) > 2) MC.shake = Math.min(1, MC.shake + 0.01);
   }
   function mechAim() {
     var eyeY = MC.y + MECH_EYE;
